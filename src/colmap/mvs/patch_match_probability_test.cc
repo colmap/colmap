@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/mvs/consistency_graph.h"
-#include "colmap/mvs/patch_match_cuda.h"
+#include "colmap/mvs/patch_match.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/cudacc.h"
 #include "colmap/util/hash_containers.h"
@@ -12,7 +12,6 @@
 #include <cstdint>
 #include <cstring>
 #include <limits>
-#include <memory>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -22,7 +21,7 @@
 
 #if defined(COLMAP_MVS_CUDA_ALLOCATION_WRAP)
 namespace {
-// Test-local, single-threaded interception. Never arm during construction.
+// Test-local, single-threaded interception.
 struct AllocationState {
   colmap::FlatHashSet<void*> live_pitched;
   size_t successful_allocations = 0;
@@ -341,61 +340,46 @@ void ExpectInvalidArgument(Call&& call, const std::string& diagnostic) {
   }
 }
 
-void CheckRefusal(const size_t ordinal) {
+void CheckRefusal(const size_t ordinal, const bool after_success) {
   ASSERT_TRUE(ordinal == 1 || ordinal == 2);
-  // Adapt the public helpers explicitly: (sources, width, height), and
-  // (geometry, filter, samples), without the old private fixture's extra arg.
   auto inputs = MakeInputs(17, 67, 39);
   auto options = MakeOptions(true, false, 15);
   options.num_iterations = 1;
   const auto problem = MakeProblem(&inputs);
   AllocationScope scope;
-  auto owner = std::make_unique<PatchMatchCuda>(options, problem);
-  // These allocations can only originate in the actual initialized owner.
-  // A linker accepting --wrap is insufficient: lack of interception FAILS.
-  ASSERT_GT(allocations.successful_allocations, 0u);
-  ASSERT_FALSE(allocations.live_pitched.empty());
+  PatchMatch matcher(options, problem);
+  if (after_success) {
+    ASSERT_NO_THROW(matcher.Run());
+    CheckProductionResult(matcher, inputs, false, false);
+  }
+  const size_t allocations_before = allocations.successful_allocations;
 
-  // First rotation of the public 67x39 reference is 39 columns x 67 rows.
-  // Seventeen scalar slices distinguish these from depth, normals, RNG,
-  // reference images and the global workspace. Matches 1/2 are previous
-  // replacement / cost destination; match 3 would be fresh current scratch.
+  // The constructor allocates unrotated source maps. Matches 1 and 2 at
+  // the first rotated size are the previous map and the cost destination.
   allocations.scalar_width = 39 * sizeof(float);
   allocations.scalar_height = 67 * 17;
-  allocations.matching_calls = 0;
-  allocations.refusals = 0;
   allocations.refuse_ordinal = ordinal;
-  ExpectInvalidArgument([&] { owner->Run(); },
+  ExpectInvalidArgument([&] { matcher.Run(); },
                         GetCudaErrorMessage(cudaErrorMemoryAllocation));
   allocations.refuse_ordinal = 0;
   ASSERT_EQ(allocations.refusals, 1u);
   ASSERT_EQ(allocations.matching_calls, ordinal);
-
-  const std::string missing_owner =
-      ordinal == 1 ? "'prev_sel_prob_map_.get()' Must be non NULL"
-                   : "'sel_prob_map_.get()' Must be non NULL";
-  ExpectInvalidArgument([&] { owner->Run(); }, missing_owner);
-  if (ordinal == 1) {
-    ExpectInvalidArgument([&] { owner->GetSelProbMap(); }, missing_owner);
-  } else {
-    EXPECT_NO_THROW({
-      const auto selection = owner->GetSelProbMap();
-      EXPECT_EQ(selection.GetWidth(), 39u);
-      EXPECT_EQ(selection.GetHeight(), 67u);
-      EXPECT_EQ(selection.GetDepth(), 17u);
-      EXPECT_TRUE(std::all_of(selection.GetData().begin(),
-                              selection.GetData().end(),
-                              HasFiniteFloatBits));
-    });
-  }
-  owner.reset();
+  ASSERT_GT(allocations.successful_allocations, allocations_before);
   EXPECT_TRUE(allocations.live_pitched.empty());
+
+  EXPECT_THROW(matcher.GetDepthMap(), std::invalid_argument);
+  EXPECT_THROW(matcher.GetNormalMap(), std::invalid_argument);
+  EXPECT_THROW(matcher.GetSelProbMap(), std::invalid_argument);
+  EXPECT_THROW(matcher.GetConsistencyGraph(), std::invalid_argument);
+
+  ASSERT_NO_THROW(matcher.Run());
+  CheckProductionResult(matcher, inputs, false, false);
 }
 #endif  // COLMAP_MVS_CUDA_ALLOCATION_WRAP
 
 TEST_F(PatchMatchCudaTest, PreviousReplacementAllocationRefusal) {
 #if defined(COLMAP_MVS_CUDA_ALLOCATION_WRAP)
-  CheckRefusal(1);
+  CheckRefusal(1, /*after_success=*/false);
 #else
   GTEST_SKIP()
       << "Allocation refusal requires CUDA, a static production owner, "
@@ -406,7 +390,7 @@ TEST_F(PatchMatchCudaTest, PreviousReplacementAllocationRefusal) {
 
 TEST_F(PatchMatchCudaTest, CostDestinationAllocationRefusal) {
 #if defined(COLMAP_MVS_CUDA_ALLOCATION_WRAP)
-  CheckRefusal(2);
+  CheckRefusal(2, /*after_success=*/true);
 #else
   GTEST_SKIP()
       << "Allocation refusal requires CUDA, a static production owner, "

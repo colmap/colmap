@@ -103,29 +103,32 @@ void PatchMatch::Check() const {
 void PatchMatch::Run() {
   LOG_HEADING2("PatchMatch::Run");
 
+  patch_match_cuda_.reset();
   Check();
 
-  patch_match_cuda_ = std::make_unique<PatchMatchCuda>(options_, problem_);
-  patch_match_cuda_->Run();
+  auto patch_match_cuda = std::make_unique<PatchMatchCuda>(options_, problem_);
+  patch_match_cuda->Run();
+  patch_match_cuda_ = std::move(patch_match_cuda);
 }
 
-DepthMap PatchMatch::GetDepthMap() const {
-  return patch_match_cuda_->GetDepthMap();
+const PatchMatchCuda& PatchMatch::Result() const {
+  return *THROW_CHECK_NOTNULL(patch_match_cuda_.get());
 }
 
-NormalMap PatchMatch::GetNormalMap() const {
-  return patch_match_cuda_->GetNormalMap();
-}
+DepthMap PatchMatch::GetDepthMap() const { return Result().GetDepthMap(); }
+
+NormalMap PatchMatch::GetNormalMap() const { return Result().GetNormalMap(); }
 
 Mat<float> PatchMatch::GetSelProbMap() const {
-  return patch_match_cuda_->GetSelProbMap();
+  return Result().GetSelProbMap();
 }
 
 ConsistencyGraph PatchMatch::GetConsistencyGraph() const {
+  const auto& result = Result();
   const auto& ref_image = problem_.images->at(problem_.ref_image_idx);
   return ConsistencyGraph(ref_image.GetWidth(),
                           ref_image.GetHeight(),
-                          patch_match_cuda_->GetConsistentImageIdxs());
+                          result.GetConsistentImageIdxs());
 }
 
 PatchMatchController::PatchMatchController(
