@@ -7,6 +7,7 @@ add_subdirectory(solvers)
 
 set(ESTIMATORS_SRCS
     alignment.h alignment.cc
+    apriltag_alignment.h apriltag_alignment.cc
     bundle_adjustment.h bundle_adjustment.cc
     bundle_adjustment_caspar.h bundle_adjustment_caspar.cc
     bundle_adjustment_ceres.h bundle_adjustment_ceres.cc
@@ -57,6 +58,11 @@ endif()
 COLMAP_ADD_TEST(
     NAME alignment_test
     SRCS alignment_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
+    NAME apriltag_alignment_test
+    SRCS apriltag_alignment_test.cc
     LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(

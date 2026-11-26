@@ -26,6 +26,7 @@ if(GUI_ENABLED)
 endif()
 
 set(COLMAP_EXE_SRCS
+    apriltag.h apriltag.cc
     feature.h feature.cc
     image.h image.cc
     sfm.h sfm.cc
@@ -57,6 +58,11 @@ COLMAP_ADD_LIBRARY(
 )
 
 COLMAP_ADD_TEST(
+    NAME apriltag_test
+    SRCS apriltag_test.cc
+    LINK_LIBS colmap_exe
+)
+COLMAP_ADD_TEST(
     NAME image_test
     SRCS image_test.cc
     LINK_LIBS colmap_exe
@@ -69,6 +75,7 @@ COLMAP_ADD_TEST(
 )
 
 set(COLMAP_MAIN_SRCS
+    apriltag.cc
     colmap.cc
     database.cc
     feature.cc

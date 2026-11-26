@@ -151,6 +151,49 @@ if(FETCH_FAISS)
     message(STATUS "Configuring faiss... done")
 endif()
 
+if(APRILTAG_ENABLED AND FETCH_APRILTAG)
+    include(FetchContent)
+    FetchContent_Declare(apriltag
+        URL https://github.com/AprilRobotics/apriltag/archive/refs/tags/v3.4.5.zip
+        URL_HASH SHA256=3ff112eab1a9ce6c8b59890f03d436d42ec2e261e6b7f1c4c248cd80360b4a6a
+        ${_fetch_content_declare_args}
+    )
+    message(STATUS "Configuring apriltag...")
+    set(BUILD_PYTHON_WRAPPER OFF CACHE BOOL "" FORCE)
+    set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(BUILD_TESTING OFF)
+    FetchContent_MakeAvailable(apriltag)
+    if(TARGET apriltag)
+        # AprilTag enables -Wall -Wextra -Wpedantic and COMPILE_WARNING_AS_ERROR
+        # in its own CMakeLists.txt; silence warnings to match COLMAP's
+        # thirdparty policy across all compilers.
+        target_compile_options(apriltag PRIVATE
+            $<$<C_COMPILER_ID:MSVC>:/W0>
+            $<$<NOT:$<C_COMPILER_ID:MSVC>>:-w>)
+        # Stage headers under an apriltag/ subdirectory so consumers include
+        # <apriltag/apriltag.h> uniformly across FetchContent and find_package,
+        # and replace upstream's INSTALL_INTERFACE includes since AprilTag is a
+        # private static dependency of colmap_image and excluded from install.
+        set(_apriltag_include_dir "${apriltag_BINARY_DIR}/colmap_include")
+        if(NOT EXISTS "${_apriltag_include_dir}/apriltag/apriltag.h")
+            file(GLOB _apriltag_root_headers "${apriltag_SOURCE_DIR}/*.h")
+            file(GLOB _apriltag_common_headers "${apriltag_SOURCE_DIR}/common/*.h")
+            file(COPY ${_apriltag_root_headers}
+                 DESTINATION "${_apriltag_include_dir}/apriltag")
+            file(COPY ${_apriltag_common_headers}
+                 DESTINATION "${_apriltag_include_dir}/apriltag/common")
+        endif()
+        set_target_properties(apriltag PROPERTIES
+            COMPILE_WARNING_AS_ERROR OFF
+            INTERFACE_INCLUDE_DIRECTORIES
+                "$<BUILD_INTERFACE:${_apriltag_include_dir}>")
+        if(NOT TARGET apriltag::apriltag)
+            add_library(apriltag::apriltag ALIAS apriltag)
+        endif()
+    endif()
+    message(STATUS "Configuring apriltag... done")
+endif()
+
 if(CASPAR_ENABLED AND NOT CUDA_ENABLED)
     message(FATAL_ERROR "Caspar requires CUDA")
 endif()
