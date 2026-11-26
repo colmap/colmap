@@ -37,6 +37,12 @@ if(OPENMP_FOUND)
 endif()
 
 COLMAP_ADD_TEST(
+    NAME patch_match_test
+    SRCS patch_match_test.cc
+    LINK_LIBS colmap_mvs
+)
+
+COLMAP_ADD_TEST(
     NAME consistency_graph_test
     SRCS consistency_graph_test.cc
     LINK_LIBS colmap_mvs
