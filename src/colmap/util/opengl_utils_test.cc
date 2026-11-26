@@ -6,6 +6,7 @@
 
 #include <atomic>
 #include <csignal>
+#include <stdexcept>
 #include <thread>
 
 #include <gtest/gtest.h>
@@ -107,6 +108,29 @@ TEST(RunThreadWithOpenGLContext, RunsThreadBody) {
   TestThread thread;
   RunThreadWithOpenGLContext(&thread);
   EXPECT_TRUE(thread.ran);
+}
+
+TEST(RunThreadWithOpenGLContext, RethrowsWorkerFailure) {
+#if defined(COLMAP_GUI_ENABLED)
+  char app_name[] = "Test";
+  int argc = 1;
+  char* argv[] = {app_name};
+  QCoreApplication app(argc, argv);
+#endif
+
+  class FailingThread : public Thread {
+   private:
+    void Run() override { throw std::runtime_error("OpenGL worker failed"); }
+  };
+
+  FailingThread thread;
+  try {
+    RunThreadWithOpenGLContext(&thread);
+    ADD_FAILURE() << "Expected worker failure";
+  } catch (const std::runtime_error& error) {
+    EXPECT_STREQ(error.what(), "OpenGL worker failed");
+  }
+  EXPECT_TRUE(thread.IsFinished());
 }
 
 }  // namespace
