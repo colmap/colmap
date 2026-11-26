@@ -113,8 +113,10 @@ def create_virtual_camera(
 ) -> pycolmap.Camera:
     """Create a virtual perspective camera."""
     image_width = int(pano_width * hfov_deg / 360)
-    image_height = int(pano_height * vfov_deg / 180)
     focal = image_width / (2 * np.tan(np.deg2rad(hfov_deg) / 2))
+    # Perspective image extents scale with tan(fov / 2), not with the
+    # equirectangular image's angular sampling rate.
+    image_height = int(round(2 * focal * np.tan(np.deg2rad(vfov_deg) / 2)))
     return pycolmap.Camera.create_from_model_id(
         camera_id=0,
         model=pycolmap.CameraModelId.SIMPLE_PINHOLE,
