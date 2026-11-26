@@ -659,7 +659,7 @@ class LikelihoodComputer {
                                          const float prev_weight) const {
     const float zn0 = (1.0f - alpha) * (1.0f - beta);
     const float zn1 = alpha * beta;
-    const float curr = zn1 / (zn0 + zn1);
+    const float curr = __fdiv_rn(zn1, zn0 + zn1);
     return prev_weight * prev + (1.0f - prev_weight) * curr;
   }
 
@@ -2006,6 +2006,33 @@ struct PatchMatchCudaTestAccess {
 
 SweepTraceResult ProbeSweep(PatchMatchCuda& pm, const unsigned long long seed) {
   return PatchMatchCudaTestAccess::Sweep(pm, seed);
+}
+namespace {
+__global__ void ProbeSelectionKernel(GpuMatView<uint32_t> input,
+                                     GpuMatView<uint32_t> output) {
+  const int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i >= input.GetHeight()) return;
+  const LikelihoodComputer likelihood(0.6f, 0.1f, 0.9f);
+  const float alpha = __uint_as_float(input.Get(i, 0));
+  const float beta = __uint_as_float(input.Get(i, 1));
+  const float previous = __uint_as_float(input.Get(i, 2));
+  const float weight = __uint_as_float(input.Get(i, 3));
+  output.Set(0,
+             i,
+             __float_as_uint(
+                 likelihood.ComputeSelProb(alpha, beta, previous, weight)));
+}
+}  // namespace
+std::vector<uint32_t> ProbeSelectionProbability(
+    const std::vector<uint32_t>& bits) {
+  THROW_CHECK_EQ(bits.size() % 4, 0);
+  THROW_CHECK_GT(bits.size(), 0);
+  GpuMat<uint32_t> input(4, bits.size() / 4), output(bits.size() / 4, 1);
+  input.CopyToDevice(bits.data(), 4 * sizeof(uint32_t));
+  ProbeSelectionKernel<<<(bits.size() / 4 + 31) / 32, 32>>>(input.View(),
+                                                            output.View());
+  CUDA_SYNC_AND_CHECK();
+  return output.CopyToMat().GetData();
 }
 }  // namespace internal
 #endif  // COLMAP_PATCH_MATCH_TESTING
