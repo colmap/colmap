@@ -180,7 +180,7 @@ TEST(FileCopy, Nominal) {
 }
 
 TEST(FileCopy, RelativeSoftLink) {
-  const auto dir = CreateTestDir();
+  const auto dir = std::filesystem::absolute(CreateTestDir());
   const auto src_path = dir / "input" / "source.txt";
   const auto dst_dir = dir / "nested" / "output";
   CreateDirIfNotExists(src_path.parent_path());
@@ -190,14 +190,19 @@ TEST(FileCopy, RelativeSoftLink) {
     file << "test content";
   }
 
-  const auto relative_src_path = std::filesystem::relative(src_path);
-  ASSERT_TRUE(relative_src_path.is_relative());
+  struct RestoreCurrentPath {
+    std::filesystem::path path;
+    ~RestoreCurrentPath() { std::filesystem::current_path(path); }
+  } restore_current_path{std::filesystem::current_path()};
+  std::filesystem::current_path(dir);
+  const std::filesystem::path relative_src_path = "input/source.txt";
   for (const bool relative_dst : {false, true}) {
     SCOPED_TRACE(relative_dst);
     const auto dst_path =
         dst_dir / (relative_dst ? "relative.txt" : "absolute.txt");
     const auto dst_arg =
-        relative_dst ? std::filesystem::relative(dst_path) : dst_path;
+        relative_dst ? std::filesystem::path("nested/output/relative.txt")
+                     : dst_path;
     try {
       FileCopy(relative_src_path, dst_arg, FileCopyType::SOFT_LINK);
     } catch (const std::filesystem::filesystem_error& e) {

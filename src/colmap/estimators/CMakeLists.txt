@@ -77,6 +77,11 @@ if(CASPAR_ENABLED)
     )
 endif()
 COLMAP_ADD_TEST(
+    NAME ceres_loss_function_test
+    SRCS ceres_loss_function_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
     NAME coordinate_frame_test
     SRCS coordinate_frame_test.cc
     LINK_LIBS colmap_estimators
