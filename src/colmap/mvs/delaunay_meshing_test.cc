@@ -2,6 +2,7 @@
 
 #include "colmap/mvs/delaunay_meshing.h"
 
+#include "colmap/math/random.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/endian.h"
 #include "colmap/util/file.h"
@@ -15,6 +16,8 @@
 namespace colmap {
 namespace mvs {
 namespace {
+
+#if defined(COLMAP_CGAL_ENABLED)
 
 Reconstruction CreateAndWriteSyntheticReconstruction(
     const std::filesystem::path& sparse_path,
@@ -31,8 +34,6 @@ Reconstruction CreateAndWriteSyntheticReconstruction(
   reconstruction.Write(sparse_path);
   return reconstruction;
 }
-
-#if defined(COLMAP_CGAL_ENABLED)
 
 TEST(SparseDelaunayMeshing, Integration) {
   const auto test_dir = CreateTestDir();
@@ -91,6 +92,31 @@ TEST(SparseDelaunayMeshing, PointAtCameraCenter) {
   EXPECT_TRUE(ExistsFile(output_path));
   const std::vector<PlyPoint> mesh_vertices = ReadPly(output_path);
   EXPECT_GE(mesh_vertices.size(), 3);
+}
+
+TEST(SparseDelaunayMeshing, EmptyCut) {
+  const auto test_dir = CreateTestDir();
+  const auto sparse_path = test_dir / "sparse";
+  const auto output_path = test_dir / "mesh.ply";
+  SetPRNGSeed(0);
+  CreateAndWriteSyntheticReconstruction(sparse_path);
+
+  DelaunayMeshingOptions options;
+  options.max_proj_dist = 0;
+  options.num_threads = 1;
+  SetPRNGSeed(0);
+  SparseDelaunayMeshing(options, sparse_path, output_path);
+  ASSERT_FALSE(ReadPlyMesh(output_path).mesh.faces.empty());
+
+  // A finite visibility sigma can round all observation weights to zero.
+  // With no regularization, the resulting cut has no surface facets.
+  options.visibility_sigma = 1e20;
+  options.quality_regularization = 0;
+  SetPRNGSeed(0);
+  SparseDelaunayMeshing(options, sparse_path, output_path);
+  const auto mesh = ReadPlyMesh(output_path).mesh;
+  EXPECT_TRUE(mesh.vertices.empty());
+  EXPECT_TRUE(mesh.faces.empty());
 }
 
 TEST(DenseDelaunayMeshing, Integration) {

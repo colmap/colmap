@@ -891,6 +891,9 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
   LOG(INFO) << "Creating surface mesh model...";
 
   PlyMesh mesh;
+  if (surface_facets.empty()) {
+    return mesh;
+  }
 
   NodeHashMap<const Delaunay::Vertex_handle, size_t> surface_vertex_indices;
   surface_vertex_indices.reserve(surface_vertices.size());
