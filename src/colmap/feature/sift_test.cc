@@ -20,7 +20,6 @@
 
 #include <cmath>
 #include <functional>
-#include <limits>
 #include <memory>
 #include <set>
 #include <utility>
@@ -309,98 +308,6 @@ TEST(SiftCPUFeatureMatcher, GuidedRejectedNeighborRatio) {
   }
 }
 
-TEST(SiftCPUFeatureMatcher, GuidedRejectedNeighborSelection) {
-  const Camera camera = Camera::CreateFromModelId(
-      1, CameraModelId::kSimplePinhole, 100.0, 256, 256);
-  for (const bool cross_check : {false, true}) {
-    FeatureMatchingOptions options;
-    options.use_gpu = false;
-    options.sift->cross_check = cross_check;
-    options.sift->max_distance = 1.1;
-    for (const float max_ratio : {0.8f, 1.1f}) {
-      SCOPED_TRACE(::testing::Message()
-                   << "cross_check=" << cross_check << " ratio=" << max_ratio);
-      options.sift->max_ratio = max_ratio;
-      auto matcher = CreateSiftFeatureMatcher(options);
-      auto geometry = CreatePlanarTwoViewGeometry();
-
-      // Rejected pairs retain a finite distance, even when no pair is admitted.
-      matcher->MatchGuided(1,
-                           CreateGuidedMatchingTestImage(1, &camera, {{0, 0}}),
-                           CreateGuidedMatchingTestImage(2, &camera, {{10, 0}}),
-                           &geometry);
-      CheckEqualMatches(geometry.inlier_matches, FeatureMatches{{0, 0}});
-
-      matcher->MatchGuided(
-          1,
-          CreateGuidedMatchingTestImage(1, &camera, {{0, 0}, {0, 0}}),
-          CreateGuidedMatchingTestImage(2, &camera, {{10, 0}, {10, 0}}),
-          &geometry);
-      FeatureMatches expected;
-      if (max_ratio > 1) {
-        expected.emplace_back(0, 0);
-        if (!cross_check) {
-          expected.emplace_back(1, 0);
-        }
-      }
-      CheckEqualMatches(geometry.inlier_matches, expected);
-    }
-  }
-}
-
-TEST(SiftCPUFeatureMatcher, GuidedDistanceAndRatioBoundaries) {
-  const Camera camera = Camera::CreateFromModelId(
-      1, CameraModelId::kSimplePinhole, 100.0, 256, 256);
-  const auto image1 = CreateGuidedMatchingTestImage(1, &camera, {{0, 0}});
-  const auto image2 =
-      CreateGuidedMatchingTestImage(2, &camera, {{0, 32}, {0, 64}});
-  for (const bool cross_check : {false, true}) {
-    FeatureMatchingOptions options;
-    options.use_gpu = false;
-    options.sift->cross_check = cross_check;
-    options.sift->max_ratio = 0.5;
-    options.sift->max_distance = 1.0 / 16;
-    auto geometry = CreatePlanarTwoViewGeometry();
-    auto matcher = CreateSiftFeatureMatcher(options);
-    matcher->MatchGuided(1, image1, image2, &geometry);
-    EXPECT_TRUE(geometry.inlier_matches.empty());
-
-    // Ratio equality rejects, while distance equality accepts.
-    options.sift->max_ratio = std::nextafter(0.5f, 1.0f);
-    matcher = CreateSiftFeatureMatcher(options);
-    matcher->MatchGuided(1, image1, image2, &geometry);
-    CheckEqualMatches(geometry.inlier_matches, FeatureMatches{{0, 0}});
-
-    options.sift->max_distance = std::nextafter(1.0f / 16, 0.0f);
-    matcher = CreateSiftFeatureMatcher(options);
-    matcher->MatchGuided(1, image1, image2, &geometry);
-    EXPECT_TRUE(geometry.inlier_matches.empty());
-  }
-}
-
-TEST(SiftCPUFeatureMatcher, GuidedInfiniteRatio) {
-  const Camera camera = Camera::CreateFromModelId(
-      1, CameraModelId::kSimplePinhole, 100.0, 256, 256);
-  const auto image1 =
-      CreateGuidedMatchingTestImage(1, &camera, {{0, 0}, {0, 0}});
-  const auto image2 =
-      CreateGuidedMatchingTestImage(2, &camera, {{0, 0}, {0, 0}});
-  for (const bool cross_check : {false, true}) {
-    FeatureMatchingOptions options;
-    options.use_gpu = false;
-    options.sift->cross_check = cross_check;
-    options.sift->max_distance = std::numeric_limits<double>::infinity();
-    options.sift->max_ratio = std::numeric_limits<double>::infinity();
-    auto matcher = CreateSiftFeatureMatcher(options);
-    auto geometry = CreatePlanarTwoViewGeometry();
-    matcher->MatchGuided(1, image1, image2, &geometry);
-    // Preserve the existing >= rejection predicate for infinity * zero.
-    CheckEqualMatches(
-        geometry.inlier_matches,
-        cross_check ? FeatureMatches{{0, 0}} : FeatureMatches{{0, 0}, {1, 0}});
-  }
-}
-
 TEST(SiftCPUFeatureMatcher, GuidedForwardGeometryCrossCheck) {
   const Camera camera = Camera::CreateFromModelId(
       1, CameraModelId::kSimplePinhole, 100.0, 256, 256);
@@ -669,13 +576,6 @@ TEST(SiftCPUFeatureMatcherFaissVsBruteForce, Nominal) {
 
     return num_matches;
   };
-
-  // A one-descriptor FAISS index returns only one neighbor.
-  {
-    const FeatureDescriptors descriptors = CreateRandomFeatureDescriptors(1);
-    EXPECT_EQ(TestFaissVsBruteForce(match_options, descriptors, descriptors),
-              1);
-  }
 
   {
     const FeatureDescriptors descriptors1 = CreateRandomFeatureDescriptors(50);

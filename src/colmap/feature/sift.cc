@@ -843,16 +843,17 @@ size_t FindBestMatchesOneWayIndex(const Eigen::RowMajorMatrixXi& indices,
   const float max_l2_dist = kSqSiftDescriptorNorm * max_distance * max_distance;
 
   size_t num_matches = 0;
-  matches->resize(l2_dists.rows(), -1);
+  matches->resize(indices.rows(), -1);
 
-  for (int d1_idx = 0; d1_idx < l2_dists.rows(); ++d1_idx) {
-    int best_n_idx = -1;
+  for (int d1_idx = 0; d1_idx < indices.rows(); ++d1_idx) {
+    int best_d2_idx = -1;
     float best_l2_dist = std::numeric_limits<float>::max();
     float second_best_l2_dist = std::numeric_limits<float>::max();
-    for (int n_idx = 0; n_idx < l2_dists.cols(); ++n_idx) {
+    for (int n_idx = 0; n_idx < indices.cols(); ++n_idx) {
+      const int d2_idx = indices(d1_idx, n_idx);
       const float l2_dist = l2_dists(d1_idx, n_idx);
       if (l2_dist < best_l2_dist) {
-        best_n_idx = n_idx;
+        best_d2_idx = d2_idx;
         second_best_l2_dist = best_l2_dist;
         best_l2_dist = l2_dist;
       } else if (l2_dist < second_best_l2_dist) {
@@ -861,11 +862,6 @@ size_t FindBestMatchesOneWayIndex(const Eigen::RowMajorMatrixXi& indices,
     }
 
     // Check if any match found.
-    if (best_n_idx == -1) {
-      continue;
-    }
-
-    const int best_d2_idx = indices(d1_idx, best_n_idx);
     if (best_d2_idx == -1) {
       continue;
     }
@@ -902,7 +898,7 @@ void FindBestMatchesIndex(const Eigen::RowMajorMatrixXi& indices_1to2,
   const size_t num_matches_1to2 = FindBestMatchesOneWayIndex(
       indices_1to2, l2_dists_1to2, max_ratio, max_distance, &matches_1to2);
 
-  if (cross_check && l2_dists_2to1.rows()) {
+  if (cross_check && indices_2to1.rows()) {
     std::vector<int> matches_2to1;
     const size_t num_matches_2to1 = FindBestMatchesOneWayIndex(
         indices_2to1, l2_dists_2to1, max_ratio, max_distance, &matches_2to1);
@@ -929,13 +925,14 @@ void FindBestMatchesIndex(const Eigen::RowMajorMatrixXi& indices_1to2,
   }
 }
 
+using SiftDescriptorsInt =
+    Eigen::Matrix<int, Eigen::Dynamic, kSiftDescriptorDim, Eigen::RowMajor>;
+
 Eigen::RowMajorMatrixXf ComputeSiftDotProductMatrix(
     const FeatureDescriptorsData& descriptors1,
     const FeatureDescriptorsData& descriptors2) {
-  const Eigen::Matrix<int, Eigen::Dynamic, kSiftDescriptorDim, Eigen::RowMajor>
-      descriptors1_int = descriptors1.cast<int>();
-  const Eigen::Matrix<int, Eigen::Dynamic, kSiftDescriptorDim, Eigen::RowMajor>
-      descriptors2_int = descriptors2.cast<int>();
+  const SiftDescriptorsInt descriptors1_int = descriptors1.cast<int>();
+  const SiftDescriptorsInt descriptors2_int = descriptors2.cast<int>();
 
   Eigen::RowMajorMatrixXf distances(descriptors1.rows(), descriptors2.rows());
   for (Eigen::Index i1 = 0; i1 < descriptors1.rows(); ++i1) {
@@ -956,10 +953,8 @@ void FindBestMatchesGuided(
     const float max_distance,
     const bool cross_check,
     FeatureMatches* matches) {
-  const Eigen::Matrix<int, Eigen::Dynamic, kSiftDescriptorDim, Eigen::RowMajor>
-      descriptors1_int = descriptors1.cast<int>();
-  const Eigen::Matrix<int, Eigen::Dynamic, kSiftDescriptorDim, Eigen::RowMajor>
-      descriptors2_int = descriptors2.cast<int>();
+  const SiftDescriptorsInt descriptors1_int = descriptors1.cast<int>();
+  const SiftDescriptorsInt descriptors2_int = descriptors2.cast<int>();
 
   Eigen::RowMajorMatrixXi indices_1to2 =
       Eigen::RowMajorMatrixXi::Constant(descriptors1.rows(), 2, -1);
