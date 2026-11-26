@@ -44,8 +44,9 @@ class MetisGraph {
     std::vector<std::pair<int, int>> edge_idxs;
     edge_idxs.reserve(edges.size());
     for (const auto& [vertex_id1, vertex_id2] : edges) {
-      edge_idxs.emplace_back(GetVertexIdx(vertex_id1),
-                             GetVertexIdx(vertex_id2));
+      const int vertex_idx1 = GetVertexIdx(vertex_id1);
+      const int vertex_idx2 = GetVertexIdx(vertex_id2);
+      edge_idxs.emplace_back(vertex_idx1, vertex_idx2);
     }
 
     // Count vertex degrees and convert them to CSR row offsets.
