@@ -104,14 +104,6 @@ void BindBundleAdjuster(py::module& m) {
   MakeDataclass(PyCasparBundleAdjustmentSummary);
 #endif
 
-  auto PyBundleAdjustmentGauge =
-      py::enum_<BundleAdjustmentGauge>(m, "BundleAdjustmentGauge")
-          .value("UNSPECIFIED", BundleAdjustmentGauge::UNSPECIFIED)
-          .value("TWO_CAMS_FROM_WORLD",
-                 BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD)
-          .value("THREE_POINTS", BundleAdjustmentGauge::THREE_POINTS);
-  AddStringToEnumConstructor(PyBundleAdjustmentGauge);
-
   auto PyBundleAdjustmentBackend =
       py::enum_<BundleAdjustmentBackend>(m, "BundleAdjustmentBackend")
           .value("CERES", BundleAdjustmentBackend::CERES)
@@ -121,14 +113,6 @@ void BindBundleAdjuster(py::module& m) {
   using BACfg = BundleAdjustmentConfig;
   py::classh<BACfg> PyBundleAdjustmentConfig(m, "BundleAdjustmentConfig");
   PyBundleAdjustmentConfig.def(py::init<>())
-      .def("fix_gauge",
-           &BACfg::FixGauge,
-           "gauge"_a,
-           "Optionally fix the gauge of the bundle adjustment problem. By "
-           "default, bundle adjustment leaves the gauge free and relies on "
-           "Levenberg-Marquardt damping, while callers such as "
-           "estimate_ba_covariance require a fixed gauge.")
-      .def_property_readonly("fixed_gauge", &BACfg::FixedGauge)
       .def("num_points", &BACfg::NumPoints)
       .def("num_constant_cam_intrinsics", &BACfg::NumConstantCamIntrinsics)
       .def("num_constant_sensor_from_rig_poses",

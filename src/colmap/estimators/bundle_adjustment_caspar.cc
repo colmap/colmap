@@ -28,7 +28,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
     LogUnsupportedOptions();
     BuildObservationCounts();
-    FixGauge();
     BuildFactors();
   }
 
@@ -458,8 +457,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
   bool IsPoseVariable(const frame_t frame_id) const {
     return options_.refine_rig_from_world &&
            !config_.HasConstantRigFromWorldPose(frame_id) &&
-           !frames_from_outside_config_.count(frame_id) &&
-           !gauge_fixed_frames_.count(frame_id);
+           !frames_from_outside_config_.count(frame_id);
   }
 
   // Both focal and extra_params must be refined together (merged block).
@@ -482,8 +480,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
   }
 
   bool IsPointVariable(const point3D_t point3D_id) const {
-    if (!options_.refine_points3D || config_.HasConstantPoint(point3D_id) ||
-        gauge_fixed_points_.count(point3D_id)) {
+    if (!options_.refine_points3D || config_.HasConstantPoint(point3D_id)) {
       return false;
     }
     const auto it = point3D_num_observations_.find(point3D_id);
@@ -496,106 +493,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
            static_cast<int>(
                reconstruction_.Point3D(point3D_id).track.Length()) >=
                options_.min_track_length;
-  }
-
-  void FixGauge() {
-    switch (config_.FixedGauge()) {
-      case BundleAdjustmentGauge::UNSPECIFIED:
-        break;
-      case BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD:
-        FixGaugeWithOneFrameFromWorld();
-        break;
-      case BundleAdjustmentGauge::THREE_POINTS:
-        FixGaugeWithThreePoints();
-        break;
-      default:
-        LOG(FATAL_THROW) << "Unknown BundleAdjustmentGauge";
-    }
-  }
-
-  // Partial two-view gauge fix: fixes one pose only. Caspar can express the
-  // second camera's 1-DOF translation manifold, but the gain is minimal and
-  // the extra shared-memory cost is not worth it, so scale is left as the one
-  // unfixed gauge DOF.
-  void FixGaugeWithOneFrameFromWorld() {
-    if (!options_.refine_rig_from_world) {
-      return;
-    }
-
-    // Sort image IDs for deterministic selection (matches Ceres BA behavior).
-    std::vector<image_t> sorted_image_ids(config_.Images().begin(),
-                                          config_.Images().end());
-    std::sort(sorted_image_ids.begin(), sorted_image_ids.end());
-
-    for (const image_t image_id : sorted_image_ids) {
-      const Image& image = reconstruction_.Image(image_id);
-      if (config_.HasConstantRigFromWorldPose(image.FrameId())) {
-        VLOG(1) << "Gauge fix: frame " << image.FrameId()
-                << " already constant, skipping TWO_CAMS_FROM_WORLD fix";
-        return;
-      }
-    }
-
-    // Require a ref-sensor image so fixing the frame moves factors into
-    // fixed-pose variants rather than being silently skipped.
-    for (const image_t image_id : sorted_image_ids) {
-      const Image& image = reconstruction_.Image(image_id);
-      if (image.IsRefInFrame()) {
-        gauge_fixed_frames_.insert(image.FrameId());
-        VLOG(1) << "Gauge fix: fixed frame " << image.FrameId() << " (image "
-                << image_id << ") for TWO_CAMS_FROM_WORLD";
-        return;
-      }
-    }
-
-    LOG(WARNING) << "Caspar TWO_CAMS_FROM_WORLD gauge fix: no ref-sensor "
-                    "frame found, gauge left unfixed.";
-  }
-
-  // Three-point gauge fix: mirrors the Ceres BA equivalent but promotes points
-  // into gauge_fixed_points_ instead of calling SetParameterBlockConstant.
-  void FixGaugeWithThreePoints() {
-    Eigen::Index num_fixed = 0;
-    Eigen::Matrix3d fixed_pts = Eigen::Matrix3d::Zero();
-
-    auto maybe_add = [&](const Eigen::Vector3d& xyz) -> bool {
-      if (num_fixed >= 3) return false;
-      fixed_pts.col(num_fixed) = xyz;
-      if (fixed_pts.colPivHouseholderQr().rank() > num_fixed) {
-        ++num_fixed;
-        return true;
-      }
-      fixed_pts.col(num_fixed).setZero();
-      return false;
-    };
-
-    // First pass: count already-constant points.
-    for (const auto& [point3D_id, _] : point3D_num_observations_) {
-      if (!config_.HasConstantPoint(point3D_id)) continue;
-      const Point3D& pt = reconstruction_.Point3D(point3D_id);
-      if (maybe_add(pt.xyz) && num_fixed >= 3) {
-        VLOG(1) << "Gauge fix: 3 linearly independent constant points found, "
-                   "THREE_POINTS gauge fixed";
-        return;
-      }
-    }
-
-    // Second pass: promote variable points to gauge-fixed.
-    for (const auto& [point3D_id, _] : point3D_num_observations_) {
-      if (!IsPointVariable(point3D_id)) continue;
-      const Point3D& pt = reconstruction_.Point3D(point3D_id);
-      if (maybe_add(pt.xyz)) {
-        gauge_fixed_points_.insert(point3D_id);
-        if (num_fixed >= 3) {
-          VLOG(1) << "Gauge fix: fixed " << gauge_fixed_points_.size()
-                  << " points for THREE_POINTS gauge";
-          return;
-        }
-      }
-    }
-
-    LOG(WARNING) << "Caspar THREE_POINTS gauge fix: only " << num_fixed
-                 << " of 3 linearly independent points found.";
   }
 
   void SetupSolverData(caspar::GraphSolver& solver) {
@@ -853,8 +750,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
                 << " factors=" << md.variants[v].num_factors;
       }
     }
-    VLOG(1) << "  Gauge-fixed frames: " << gauge_fixed_frames_.size()
-            << "  Gauge-fixed points: " << gauge_fixed_points_.size();
     VLOG(1) << "  refine_focal_length=" << options_.refine_focal_length
             << " refine_extra_params=" << options_.refine_extra_params
             << " refine_pp=" << options_.refine_principal_point
@@ -997,8 +892,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
   FlatHashSet<frame_t> frames_from_outside_config_;
   FlatHashSet<camera_t> cameras_from_outside_config_;
-  FlatHashSet<frame_t> gauge_fixed_frames_;
-  FlatHashSet<point3D_t> gauge_fixed_points_;
   FlatHashMap<point3D_t, size_t> point3D_num_observations_;
 };
 }  // namespace

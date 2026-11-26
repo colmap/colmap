@@ -25,14 +25,6 @@ std::string BundleAdjustmentSummary::BriefReport() const {
 // BundleAdjustmentConfig
 ////////////////////////////////////////////////////////////////////////////////
 
-void BundleAdjustmentConfig::FixGauge(BundleAdjustmentGauge gauge) {
-  fixed_gauge_ = gauge;
-}
-
-BundleAdjustmentGauge BundleAdjustmentConfig::FixedGauge() const {
-  return fixed_gauge_;
-}
-
 size_t BundleAdjustmentConfig::NumImages() const { return image_ids_.size(); }
 
 size_t BundleAdjustmentConfig::NumPoints() const {
