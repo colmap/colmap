@@ -844,48 +844,23 @@ const class Image* Reconstruction::FindImageWithName(
 
 std::vector<std::pair<image_t, image_t>> Reconstruction::FindCommonRegImageIds(
     const Reconstruction& other) const {
+  FlatHashMap<std::string_view, const class Image*> other_images_by_name;
+  other_images_by_name.reserve(other.images_.size());
+  for (const auto& [_, image] : other.images_) {
+    // First match wins, as in FindImageWithName.
+    other_images_by_name.emplace(image.Name(), &image);
+  }
+
   std::vector<std::pair<image_t, image_t>> common_reg_image_ids;
-  if (NumRegImages() == 0 || other.NumImages() == 0) {
-    return common_reg_image_ids;
-  }
-  // For small collections, direct scans avoid the index construction cost.
-  const bool build_index = std::min(NumRegImages(), other.NumImages()) > 64;
-  FlatHashMap<std::string_view, const class Image*> matches_by_name;
-  if (build_index) {
-    matches_by_name.reserve(NumRegImages());
-    for (const frame_t frame_id : reg_frame_ids_) {
-      for (const data_t& data_id : Frame(frame_id).ImageIds()) {
-        matches_by_name.emplace(Image(data_id.id).Name(), nullptr);
-      }
-    }
-    size_t unresolved = matches_by_name.size();
-    for (const auto& [_, image] : other.images_) {
-      auto it = matches_by_name.find(image.Name());
-      if (it != matches_by_name.end() && it->second == nullptr) {
-        // Preserve the first match, including an unposed duplicate.
-        it->second = &image;
-        if (--unresolved == 0) {
-          break;
-        }
-      }
-    }
-  }
   for (const frame_t frame_id : reg_frame_ids_) {
     const auto& frame = Frame(frame_id);
     for (const data_t& data_id : frame.ImageIds()) {
       const auto& image = Image(data_id.id);
-      const class Image* other_image = nullptr;
-      if (build_index) {
-        const auto it = matches_by_name.find(image.Name());
-        if (it != matches_by_name.end()) {
-          other_image = it->second;
-        }
-      } else {
-        other_image = other.FindImageWithName(image.Name());
-      }
-      if (other_image != nullptr && other_image->FramePtr()->HasPose()) {
+      const auto it = other_images_by_name.find(image.Name());
+      if (it != other_images_by_name.end() &&
+          it->second->FramePtr()->HasPose()) {
         common_reg_image_ids.emplace_back(image.ImageId(),
-                                          other_image->ImageId());
+                                          it->second->ImageId());
       }
     }
   }
