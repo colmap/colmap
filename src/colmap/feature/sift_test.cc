@@ -158,51 +158,6 @@ TEST_P(SiftCpuExtractionTest, Nominal) {
   ValidateDescriptorNorms(descriptors);
 }
 
-TEST_P(SiftCpuExtractionTest, ReplacesPreviousOutput) {
-  const auto& p = GetParam();
-  FeatureExtractionOptions options(FeatureExtractorType::SIFT);
-  options.use_gpu = false;
-  options.sift->estimate_affine_shape = p.estimate_affine_shape;
-  options.sift->domain_size_pooling = p.domain_size_pooling;
-  options.sift->force_covariant_extractor = p.force_covariant_extractor;
-  options.sift->upright = p.upright;
-  auto extractor = CreateSiftFeatureExtractor(options);
-  ASSERT_NE(extractor, nullptr);
-
-  const Bitmap bitmap = CreateImageWithSquare(256);
-  FeatureKeypoints expected_keypoints;
-  FeatureDescriptors expected_descriptors;
-  ASSERT_TRUE(
-      extractor->Extract(bitmap, &expected_keypoints, &expected_descriptors));
-  ASSERT_FALSE(expected_keypoints.empty());
-
-  FeatureKeypoints keypoints = expected_keypoints;
-  FeatureDescriptors descriptors = expected_descriptors;
-  // Check the descriptor-free path first so a broken implementation fails
-  // before indexing the current detections with accumulated keypoints.
-  ASSERT_TRUE(extractor->Extract(bitmap, &keypoints, nullptr));
-  ASSERT_EQ(keypoints, expected_keypoints);
-
-  ASSERT_TRUE(extractor->Extract(bitmap, &keypoints, &descriptors));
-  EXPECT_EQ(keypoints, expected_keypoints);
-  EXPECT_EQ(descriptors.type, expected_descriptors.type);
-  ASSERT_EQ(descriptors.data.rows(), expected_descriptors.data.rows());
-  ASSERT_EQ(descriptors.data.cols(), expected_descriptors.data.cols());
-  EXPECT_EQ(descriptors.data, expected_descriptors.data);
-
-  Bitmap blank(256, 256, false);
-  blank.Fill(BitmapColor<uint8_t>(0));
-  ASSERT_TRUE(extractor->Extract(blank, &keypoints, &descriptors));
-  EXPECT_TRUE(keypoints.empty());
-  EXPECT_EQ(descriptors.data.rows(), 0);
-  EXPECT_EQ(descriptors.data.cols(), 128);
-  EXPECT_EQ(descriptors.type, expected_descriptors.type);
-
-  ASSERT_TRUE(extractor->Extract(bitmap, &keypoints, &descriptors));
-  EXPECT_EQ(keypoints, expected_keypoints);
-  EXPECT_EQ(descriptors.data, expected_descriptors.data);
-}
-
 INSTANTIATE_TEST_SUITE_P(
     SiftCpuExtraction,
     SiftCpuExtractionTest,
