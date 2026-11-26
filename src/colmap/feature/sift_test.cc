@@ -20,6 +20,8 @@
 
 #include <functional>
 #include <set>
+#include <stdexcept>
+#include <tuple>
 #include <utility>
 
 namespace colmap {
@@ -1429,6 +1431,79 @@ TEST(MatchGuidedSiftFeaturesGPU, Nominal) {
     EXPECT_EQ(two_view_geometry.inlier_matches.size(), 0);
   });
 }
+
+class SiftGPUPreparationRetryTest
+    : public ::testing::TestWithParam<std::tuple<bool, bool>> {};
+
+TEST_P(SiftGPUPreparationRetryTest, RestoresBothSlots) {
+  const bool fail_first = std::get<0>(GetParam());
+  const bool guided_retry = std::get<1>(GetParam());
+  RunGpuTest([fail_first, guided_retry] {
+    SetPRNGSeed(0);
+    const Camera camera = Camera::CreateFromModelId(
+        1, CameraModelId::kSimpleRadial, 100.0, 100, 200);
+    const FeatureMatcher::Image image1 = {
+        /*image_id=*/1,
+        /*camera=*/&camera,
+        std::make_shared<FeatureKeypoints>(
+            std::vector<FeatureKeypoint>{{1, 0}, {2, 0}}),
+        std::make_shared<FeatureDescriptors>(
+            CreateRandomFeatureDescriptors(2))};
+    const FeatureMatcher::Image image2 = {
+        /*image_id=*/2,
+        /*camera=*/&camera,
+        std::make_shared<FeatureKeypoints>(
+            std::vector<FeatureKeypoint>{{2, 0}, {1, 0}}),
+        std::make_shared<FeatureDescriptors>(
+            CreateReversedDescriptors(*image1.descriptors))};
+    FeatureMatcher::Image replacement = fail_first ? image2 : image1;
+    replacement.image_id = 3;
+
+    FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
+    options.use_gpu = true;
+    options.max_num_matches = 1000;
+    auto matcher = THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(options));
+
+    constexpr double kMaxError = 4.0;
+    TwoViewGeometry geometry = CreatePlanarTwoViewGeometry();
+    matcher->MatchGuided(kMaxError, image1, image2, &geometry);
+    ASSERT_EQ(geometry.inlier_matches.size(), 2);
+    ExpectReversedInlierMatches(geometry);
+
+    // The replacement descriptors are uploaded before normalizing that slot.
+    TwoViewGeometry failed_geometry;
+    failed_geometry.config = TwoViewGeometry::CALIBRATED;
+    failed_geometry.E = EssentialMatrixFromPose(
+        Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d::UnitX()));
+    if (fail_first) {
+      failed_geometry.camera1 = Camera();
+    } else {
+      failed_geometry.camera2 = Camera();
+    }
+    ASSERT_THROW(matcher->MatchGuided(kMaxError,
+                                      fail_first ? replacement : image1,
+                                      fail_first ? image2 : replacement,
+                                      &failed_geometry),
+                 std::domain_error);
+
+    if (guided_retry) {
+      TwoViewGeometry retry = CreatePlanarTwoViewGeometry();
+      matcher->MatchGuided(kMaxError, image1, image2, &retry);
+      ASSERT_EQ(retry.inlier_matches.size(), 2);
+      ExpectReversedInlierMatches(retry);
+    } else {
+      FeatureMatches retry;
+      matcher->Match(image1, image2, &retry);
+      ASSERT_EQ(retry.size(), 2);
+      ExpectReversedMatches(retry);
+    }
+  });
+}
+
+INSTANTIATE_TEST_SUITE_P(GuidedPreparation,
+                         SiftGPUPreparationRetryTest,
+                         ::testing::Combine(::testing::Bool(),
+                                            ::testing::Bool()));
 
 TEST(MatchGuidedSiftFeaturesGPU, EssentialMatrix) {
   RunGpuTest([] {

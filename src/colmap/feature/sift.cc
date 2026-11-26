@@ -1472,8 +1472,15 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
     // length estimated per pair, so the same image matched against different
     // partners normalizes differently. The camera is therefore part of the
     // cache key, alongside the image id and the coordinate space.
-    if (prev_image_id1_ == kInvalidImageId || !prev_is_guided_ ||
-        prev_image_id1_ != image1.image_id ||
+    // A partial update can invalidate either slot. Publish the IDs only once
+    // both slots have been prepared.
+    const image_t previous_image_id1 = prev_image_id1_;
+    const image_t previous_image_id2 = prev_image_id2_;
+    prev_image_id1_ = kInvalidImageId;
+    prev_image_id2_ = kInvalidImageId;
+
+    if (previous_image_id1 == kInvalidImageId || !prev_is_guided_ ||
+        previous_image_id1 != image1.image_id ||
         use_essential_matrix != prev_use_essential_matrix_ ||
         (use_essential_matrix &&
          !SameNormalizationCamera(prev_norm_camera1_, effective_camera1))) {
@@ -1497,11 +1504,10 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
             kFeatureShapeNumElems);
         prev_norm_camera1_.reset();
       }
-      prev_image_id1_ = image1.image_id;
     }
 
-    if (prev_image_id2_ == kInvalidImageId || !prev_is_guided_ ||
-        prev_image_id2_ != image2.image_id ||
+    if (previous_image_id2 == kInvalidImageId || !prev_is_guided_ ||
+        previous_image_id2 != image2.image_id ||
         use_essential_matrix != prev_use_essential_matrix_ ||
         (use_essential_matrix &&
          !SameNormalizationCamera(prev_norm_camera2_, effective_camera2))) {
@@ -1525,9 +1531,10 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
             kFeatureShapeNumElems);
         prev_norm_camera2_.reset();
       }
-      prev_image_id2_ = image2.image_id;
     }
 
+    prev_image_id1_ = image1.image_id;
+    prev_image_id2_ = image2.image_id;
     prev_is_guided_ = true;
     prev_use_essential_matrix_ = use_essential_matrix;
 
