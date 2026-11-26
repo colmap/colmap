@@ -122,8 +122,11 @@ void BindCovarianceEstimator(py::module& m) {
       "problem. It is important that the problem has a structure suitable for "
       "solving using the Schur complement trick. This is the case for the "
       "standard configuration of bundle adjustment problems, but be careful "
-      "if you modify the underlying problem with custom residuals. Returns "
-      "null if the estimation was not successful.");
+      "if you modify the underlying problem with custom residuals. The "
+      "problem must have a fixed gauge (e.g., via "
+      "BundleAdjustmentConfig.fix_gauge or constant poses/points) so that the "
+      "Schur complement is full-rank. Returns None if the estimation was not "
+      "successful.");
 
   m.def(
       "estimate_ba_covariance_from_problem",
@@ -135,6 +138,9 @@ void BindCovarianceEstimator(py::module& m) {
       "problem. It is important that the problem has a structure suitable for "
       "solving using the Schur complement trick. This is the case for the "
       "standard configuration of bundle adjustment problems, but be careful "
-      "if you modify the underlying problem with custom residuals. Returns "
-      "null if the estimation was not successful.");
+      "if you modify the underlying problem with custom residuals. The "
+      "problem must have a fixed gauge (e.g., via "
+      "BundleAdjustmentConfig.fix_gauge or constant poses/points) so that the "
+      "Schur complement is full-rank. Returns None if the estimation was not "
+      "successful.");
 }

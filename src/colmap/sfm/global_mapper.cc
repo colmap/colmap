@@ -36,7 +36,6 @@ bool RunBundleAdjustment(const BundleAdjustmentOptions& options,
       ba_config.AddImage(image_id);
     }
   }
-  ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   auto ba = CreateDefaultBundleAdjuster(options, ba_config, reconstruction);
 

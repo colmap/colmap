@@ -12,7 +12,6 @@
 
 #ifdef COLMAP_DOWNLOAD_ENABLED
 #include <chrono>
-#include <random>
 #include <thread>
 
 #include <curl/curl.h>
@@ -439,29 +438,7 @@ namespace {
 
 std::optional<std::filesystem::path> download_cache_dir_overwrite;
 
-class ScopedDownloadDirectory {
- public:
-  explicit ScopedDownloadDirectory(const std::filesystem::path& cache_dir) {
-    std::random_device random;
-    do {
-      path_ = cache_dir / (".download-" + std::to_string(random()));
-    } while (!std::filesystem::create_directory(path_));
-  }
-
-  ~ScopedDownloadDirectory() {
-    std::error_code error;
-    std::filesystem::remove_all(path_, error);
-  }
-
-  const std::filesystem::path& Path() const { return path_; }
-
- private:
-  NON_COPYABLE(ScopedDownloadDirectory)
-  NON_MOVABLE(ScopedDownloadDirectory)
-  std::filesystem::path path_;
-};
-
-}  // namespace
+}
 
 std::string DownloadAndCacheFile(const std::string& uri) {
   const std::vector<std::string> parts = StringSplit(uri, ";");
@@ -492,38 +469,24 @@ std::string DownloadAndCacheFile(const std::string& uri) {
 
   const auto path = download_cache_dir / (sha256 + "-" + name);
 
-  const auto verify_cached_file = [&]() {
+  if (std::filesystem::exists(path)) {
     std::vector<char> blob;
     ReadBinaryBlob(path.string(), &blob);
-    THROW_CHECK_EQ(ComputeSHA256({blob.data(), blob.size()}), sha256)
-        << "The cached file does not match the expected SHA256";
-  };
-
-  if (std::filesystem::exists(path)) {
-    VLOG(2) << "File already downloaded. Skipping download.";
-    verify_cached_file();
-  } else {
-    LOG(INFO) << "Downloading file from: " << url;
-    const std::optional<std::string> blob = DownloadFile(url);
-    THROW_CHECK(blob.has_value()) << "Failed to download file";
-    THROW_CHECK_EQ(ComputeSHA256({blob->data(), blob->size()}), sha256)
-        << "The downloaded file does not match the expected SHA256";
-    LOG(INFO) << "Caching file at: " << path;
-    const ScopedDownloadDirectory temporary_dir(download_cache_dir);
-    const auto temporary_path = temporary_dir.Path() / "download";
-    WriteBinaryBlob(temporary_path, {blob->data(), blob->size()});
-    std::error_code error;
-    std::filesystem::rename(temporary_path, path, error);
-    if (error) {
-      // Some platforms cannot replace an existing file. Another downloader
-      // may have published the same entry while this download was in progress.
-      if (!std::filesystem::exists(path)) {
-        throw std::filesystem::filesystem_error(
-            "Failed to cache downloaded file", temporary_path, path, error);
-      }
-      verify_cached_file();
+    if (ComputeSHA256({blob.data(), blob.size()}) == sha256) {
+      VLOG(2) << "File already downloaded. Skipping download.";
+      return path.string();
     }
+    LOG(WARNING) << "Cached file does not match the expected SHA256. "
+                 << "Re-downloading: " << path;
   }
+
+  LOG(INFO) << "Downloading file from: " << url;
+  const std::optional<std::string> blob = DownloadFile(url);
+  THROW_CHECK(blob.has_value()) << "Failed to download file";
+  THROW_CHECK_EQ(ComputeSHA256({blob->data(), blob->size()}), sha256)
+      << "The downloaded file does not match the expected SHA256";
+  LOG(INFO) << "Caching file at: " << path;
+  WriteBinaryBlob(path.string(), {blob->data(), blob->size()});
 
   return path.string();
 }
