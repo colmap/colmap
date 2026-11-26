@@ -288,14 +288,6 @@ TEST(StereoFusion, MixedResolutionColorsFollowPixelCenters) {
   image.SetName("view.png");
   reconstruction.AddImageWithTrivialFrame(image, Rigid3d());
   reconstruction.Write(root / "sparse");
-  Bitmap bitmap(10, 5, true);
-  for (int row = 0; row < 5; ++row) {
-    for (int col = 0; col < 10; ++col) {
-      bitmap.SetPixel(
-          col, row, BitmapColor<uint8_t>(20 * col, 30 * row, col + row));
-    }
-  }
-  ASSERT_TRUE(bitmap.Write(root / "images/view.png"));
   {
     std::ofstream config(root / "stereo/fusion.cfg");
     config << "view.png\n";
@@ -303,6 +295,9 @@ TEST(StereoFusion, MixedResolutionColorsFollowPixelCenters) {
   struct Grid {
     std::vector<int> source_columns;
     std::vector<int> source_rows;
+    int bitmap_width = 10;
+    int bitmap_height = 5;
+    bool cache_only = false;
   };
   // Hand-derived nearest source indices. The 7x3 raster has unequal scales;
   // 1x1 and 5x1 include exact halfway samples, including a non-binary ratio.
@@ -312,11 +307,23 @@ TEST(StereoFusion, MixedResolutionColorsFollowPixelCenters) {
       {{0, 2, 3, 5, 6, 7, 9}, {0, 2, 4}},
       {{5}, {2}},
       {{1, 3, 5, 7, 9}, {2}},
+      // Without resizing, the cached workspace retains the disk bitmap size.
+      {{0, 2, 3, 5, 7, 8, 10}, {1, 3, 5}, 11, 7, true},
   };
   for (const auto& grid : grids) {
     const int width = grid.source_columns.size();
     const int height = grid.source_rows.size();
-    SCOPED_TRACE(::testing::Message() << width << "x" << height);
+    SCOPED_TRACE(::testing::Message()
+                 << width << "x" << height << ", bitmap " << grid.bitmap_width
+                 << "x" << grid.bitmap_height);
+    Bitmap bitmap(grid.bitmap_width, grid.bitmap_height, true);
+    for (int row = 0; row < grid.bitmap_height; ++row) {
+      for (int col = 0; col < grid.bitmap_width; ++col) {
+        bitmap.SetPixel(
+            col, row, BitmapColor<uint8_t>(20 * col, 30 * row, col + row));
+      }
+    }
+    ASSERT_TRUE(bitmap.Write(root / "images/view.png"));
     Mat<float> depth(width, height, 1);
     depth.Fill(5.0f);
     depth.Write(root / "stereo/depth_maps/view.png.geometric.bin");
@@ -327,9 +334,13 @@ TEST(StereoFusion, MixedResolutionColorsFollowPixelCenters) {
     }
     normal.Write(root / "stereo/normal_maps/view.png.geometric.bin");
     for (const std::string mode : {"eager", "lru"}) {
+      if (grid.cache_only && mode != "lru") {
+        continue;
+      }
       SCOPED_TRACE(mode);
       StereoFusionOptions options;
       options.num_threads = 1;
+      options.max_image_size = -1;
       options.min_num_pixels = 1;
       options.max_num_pixels = 1;
       options.use_cache = mode == "lru";
