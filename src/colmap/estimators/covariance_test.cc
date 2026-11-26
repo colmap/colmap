@@ -1068,5 +1068,924 @@ TEST(EstimateBACovariance, WeakPosePriorsMatchExactInverse) {
   EXPECT_LT((pose_cov - ceres_pose_cov).norm(), 1e-6 * ceres_pose_cov.norm());
 }
 
+Reconstruction SynthesizeSingleCameraReconstruction(int num_frames,
+                                                    int num_points3D,
+                                                    double point2D_stddev,
+                                                    int seed,
+                                                    int width = 1024,
+                                                    int height = 768) {
+  SetPRNGSeed(seed);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions dataset_options;
+  dataset_options.num_rigs = 1;
+  dataset_options.num_cameras_per_rig = 1;
+  dataset_options.num_frames_per_rig = num_frames;
+  dataset_options.num_points3D = num_points3D;
+  dataset_options.camera_width = width;
+  dataset_options.camera_height = height;
+  dataset_options.camera_params = {1280.0, 0.5 * width, 0.5 * height, 0.05};
+  SynthesizeDataset(dataset_options, &reconstruction);
+  if (point2D_stddev > 0.0) {
+    SyntheticNoiseOptions noise_options;
+    noise_options.point2D_stddev = point2D_stddev;
+    SynthesizeNoise(noise_options, &reconstruction);
+  }
+  return reconstruction;
+}
+
+std::vector<image_t> SortedRegImageIds(const Reconstruction& reconstruction) {
+  std::vector<image_t> image_ids = reconstruction.RegImageIds();
+  std::sort(image_ids.begin(), image_ids.end());
+  return image_ids;
+}
+
+BundleAdjustmentConfig CreateAllImagesBAConfig(
+    const Reconstruction& reconstruction, bool constant_poses = false) {
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+    if (constant_poses) {
+      config.SetConstantRigFromWorldPose(
+          reconstruction.Image(image_id).FrameId());
+    }
+  }
+  return config;
+}
+
+void AddSpatialTileBias(Reconstruction& reconstruction,
+                        const std::vector<image_t>& image_ids,
+                        double tile_stddev,
+                        double iid_stddev,
+                        int seed) {
+  std::mt19937 rng(seed);
+  std::normal_distribution<double> tile_dist(0.0, tile_stddev);
+  std::normal_distribution<double> iid_dist(0.0, iid_stddev);
+  for (const image_t image_id : image_ids) {
+    Image& image = reconstruction.Image(image_id);
+    const Camera& camera = *image.CameraPtr();
+    const int nx = camera.width >= camera.height ? 3 : 2;
+    const int ny = camera.width >= camera.height ? 2 : 3;
+    std::vector<Eigen::Vector2d> tile_bias(nx * ny);
+    for (auto& b : tile_bias) {
+      b = Eigen::Vector2d(tile_dist(rng), tile_dist(rng));
+    }
+    for (Point2D& point2D : image.Points2D()) {
+      if (!point2D.HasPoint3D()) {
+        continue;
+      }
+      const int gx = std::clamp(
+          static_cast<int>(point2D.xy.x() / camera.width * nx), 0, nx - 1);
+      const int gy = std::clamp(
+          static_cast<int>(point2D.xy.y() / camera.height * ny), 0, ny - 1);
+      point2D.xy += tile_bias[gy * nx + gx];
+      if (iid_stddev > 0.0) {
+        point2D.xy += Eigen::Vector2d(iid_dist(rng), iid_dist(rng));
+      }
+    }
+  }
+}
+
+TEST(EstimateBACovariance, VarianceScalingPosteriorAndSpatialDeffIID) {
+  constexpr double kNoiseStddev = 2.5;
+  Reconstruction reconstruction = SynthesizeSingleCameraReconstruction(
+      /*num_frames=*/10, /*num_points3D=*/300, kNoiseStddev, /*seed=*/0);
+  const std::vector<image_t> image_ids = SortedRegImageIds(reconstruction);
+
+  BundleAdjustmentOptions ba_options;
+  ba_options.ceres->solver_options.max_num_iterations = 200;
+  ba_options.ceres->solver_options.gradient_tolerance = 1e-12;
+  auto ceres_ba = CreateDefaultCeresBundleAdjuster(
+      ba_options, CreateAllImagesBAConfig(reconstruction), reconstruction);
+  const auto summary = std::dynamic_pointer_cast<CeresBundleAdjustmentSummary>(
+      ceres_ba->Solve());
+  ASSERT_NE(summary, nullptr);
+  ASSERT_EQ(summary->termination_type,
+            BundleAdjustmentTerminationType::CONVERGENCE);
+
+  BACovarianceOptions none_options;
+  none_options.variance_scaling = BACovarianceOptions::VarianceScaling::NONE;
+  const std::optional<BACovariance> none_cov =
+      EstimateBACovariance(none_options, reconstruction, *ceres_ba);
+  ASSERT_TRUE(none_cov.has_value());
+  EXPECT_EQ(none_cov->PosteriorVarianceFactor(), 1.0);
+  EXPECT_EQ(none_cov->SpatialDesignEffect(), 1.0);
+  EXPECT_EQ(none_cov->VarianceFactor(), 1.0);
+
+  BACovarianceOptions posterior_options;
+  posterior_options.variance_scaling =
+      BACovarianceOptions::VarianceScaling::POSTERIOR;
+  const std::optional<BACovariance> post_cov =
+      EstimateBACovariance(posterior_options, reconstruction, *ceres_ba);
+  ASSERT_TRUE(post_cov.has_value());
+
+  const int expected_redundancy =
+      summary->ceres_summary.num_residuals_reduced -
+      (summary->ceres_summary.num_effective_parameters_reduced - 7);
+  const double expected_sigma0_sq =
+      (2.0 * summary->ceres_summary.final_cost) / expected_redundancy;
+  EXPECT_NEAR(post_cov->PosteriorVarianceFactor(), expected_sigma0_sq, 1e-10);
+  EXPECT_GT(post_cov->PosteriorVarianceFactor(),
+            0.7 * kNoiseStddev * kNoiseStddev);
+  EXPECT_LT(post_cov->PosteriorVarianceFactor(),
+            1.3 * kNoiseStddev * kNoiseStddev);
+  EXPECT_EQ(post_cov->SpatialDesignEffect(), 1.0);
+  EXPECT_EQ(post_cov->VarianceFactor(), post_cov->PosteriorVarianceFactor());
+
+  // Params::POSES must yield the exact same posterior variance factor as ALL
+  // because eliminated other parameters still consume degrees of freedom.
+  BACovarianceOptions posterior_poses_options = posterior_options;
+  posterior_poses_options.params = BACovarianceOptions::Params::POSES;
+  const std::optional<BACovariance> post_poses_cov =
+      EstimateBACovariance(posterior_poses_options, reconstruction, *ceres_ba);
+  ASSERT_TRUE(post_poses_cov.has_value());
+  EXPECT_NEAR(post_poses_cov->PosteriorVarianceFactor(),
+              post_cov->PosteriorVarianceFactor(),
+              1e-12);
+
+  // Under i.i.d. noise, SPATIAL_DEFF stays near 1.0 and scales point_covs by
+  // sigma_0^2 only while scaling poses and others by sigma_0^2 * DEFF.
+  BACovarianceOptions deff_options;
+  deff_options.variance_scaling =
+      BACovarianceOptions::VarianceScaling::SPATIAL_DEFF;
+  const std::optional<BACovariance> deff_cov =
+      EstimateBACovariance(deff_options, reconstruction, *ceres_ba);
+  ASSERT_TRUE(deff_cov.has_value());
+  EXPECT_NEAR(deff_cov->PosteriorVarianceFactor(), expected_sigma0_sq, 1e-10);
+  EXPECT_GE(deff_cov->SpatialDesignEffect(), 1.0);
+  EXPECT_LT(deff_cov->SpatialDesignEffect(), 1.5);
+  EXPECT_NEAR(
+      deff_cov->VarianceFactor(),
+      deff_cov->PosteriorVarianceFactor() * deff_cov->SpatialDesignEffect(),
+      1e-12);
+
+  const image_t id1 = image_ids[0];
+  const image_t id2 = image_ids[1];
+  const point3D_t pt_id = reconstruction.Points3D().begin()->first;
+  const double* cam_params =
+      reconstruction.Cameras().begin()->second.params.data();
+
+  const double post_scale = post_cov->PosteriorVarianceFactor();
+  const double deff_pose_scale = deff_cov->VarianceFactor();
+
+  ExpectNearEigenMatrixXd(*post_cov->GetCamCovFromWorld(id1),
+                          post_scale * (*none_cov->GetCamCovFromWorld(id1)),
+                          1e-10);
+  ExpectNearEigenMatrixXd(
+      *deff_cov->GetCamCovFromWorld(id1),
+      deff_pose_scale * (*none_cov->GetCamCovFromWorld(id1)),
+      1e-10);
+  ExpectNearEigenMatrixXd(
+      *deff_cov->GetCamCrossCovFromWorld(id1, id2),
+      deff_pose_scale * (*none_cov->GetCamCrossCovFromWorld(id1, id2)),
+      1e-10);
+  ExpectNearEigenMatrixXd(
+      *deff_cov->GetCam2CovFromCam1(id1,
+                                    reconstruction.Image(id1).CamFromWorld(),
+                                    id2,
+                                    reconstruction.Image(id2).CamFromWorld()),
+      deff_pose_scale * (*none_cov->GetCam2CovFromCam1(
+                            id1,
+                            reconstruction.Image(id1).CamFromWorld(),
+                            id2,
+                            reconstruction.Image(id2).CamFromWorld())),
+      1e-10);
+  ExpectNearEigenMatrixXd(
+      *deff_cov->GetOtherParamsCov(cam_params),
+      deff_pose_scale * (*none_cov->GetOtherParamsCov(cam_params)),
+      1e-10);
+  // Point covariance is conditional on fixed poses, so it scales by
+  // posterior_variance_factor only (not spatial_design_effect).
+  ExpectNearEigenMatrixXd(*post_cov->GetPointCov(pt_id),
+                          post_scale * (*none_cov->GetPointCov(pt_id)),
+                          1e-10);
+  ExpectNearEigenMatrixXd(*deff_cov->GetPointCov(pt_id),
+                          post_scale * (*none_cov->GetPointCov(pt_id)),
+                          1e-10);
+}
+
+TEST(EstimateBACovariance,
+     SpatialDesignEffectDetectsCorrelatedNoiseAndScalesWithDensity) {
+  auto run_correlated = [](int num_points3D) {
+    Reconstruction reconstruction = SynthesizeSingleCameraReconstruction(
+        /*num_frames=*/10, num_points3D, /*point2D_stddev=*/0.0, /*seed=*/42);
+    const std::vector<image_t> image_ids = SortedRegImageIds(reconstruction);
+    AddSpatialTileBias(reconstruction,
+                       image_ids,
+                       /*tile_stddev=*/1.0,
+                       /*iid_stddev=*/0.5,
+                       /*seed=*/123);
+
+    BundleAdjustmentOptions ba_options;
+    ba_options.ceres->solver_options.max_num_iterations = 200;
+    ba_options.ceres->solver_options.gradient_tolerance = 1e-12;
+    auto ceres_ba = CreateDefaultCeresBundleAdjuster(
+        ba_options, CreateAllImagesBAConfig(reconstruction), reconstruction);
+    THROW_CHECK_EQ(ceres_ba->Solve()->termination_type,
+                   BundleAdjustmentTerminationType::CONVERGENCE);
+
+    BACovarianceOptions post_opts;
+    post_opts.variance_scaling =
+        BACovarianceOptions::VarianceScaling::POSTERIOR;
+    const std::optional<BACovariance> post_cov =
+        EstimateBACovariance(post_opts, reconstruction, *ceres_ba);
+    THROW_CHECK(post_cov.has_value());
+
+    BACovarianceOptions deff_opts;
+    deff_opts.variance_scaling =
+        BACovarianceOptions::VarianceScaling::SPATIAL_DEFF;
+    const std::optional<BACovariance> deff_cov =
+        EstimateBACovariance(deff_opts, reconstruction, *ceres_ba);
+    THROW_CHECK(deff_cov.has_value());
+
+    double post_trace = 0.0;
+    double deff_trace = 0.0;
+    for (const image_t image_id : image_ids) {
+      post_trace += post_cov->GetCamCovFromWorld(image_id)->trace();
+      deff_trace += deff_cov->GetCamCovFromWorld(image_id)->trace();
+    }
+    return std::make_tuple(
+        deff_cov->SpatialDesignEffect(), post_trace, deff_trace);
+  };
+
+  const auto [deff_200, post_trace_200, deff_trace_200] = run_correlated(200);
+  const auto [deff_800, post_trace_800, deff_trace_800] = run_correlated(800);
+
+  // Spatial correlation must be strongly detected and scale up with density.
+  EXPECT_GT(deff_200, 4.0);
+  EXPECT_GT(deff_800, 2.0 * deff_200);
+  // While unadjusted posterior variance collapses ~4x as points quadruple,
+  // SPATIAL_DEFF variance stays roughly density-invariant.
+  EXPECT_GT(post_trace_200 / post_trace_800, 2.5);
+  EXPECT_LT(deff_trace_200 / deff_trace_800, 1.8);
+  EXPECT_GT(deff_trace_200 / deff_trace_800, 0.5);
+
+  // Portrait orientation (width < height) must use 2x3 rather than 3x2 tiles.
+  // Inject a 3-row horizontal band bias [+b, -2b, +b] along y: each erroneous
+  // 3x2 half-height tile averages (2/3)(+b) + (1/3)(-2b) = 0 (DEFF ~ 1), while
+  // the correct 2x3 grid resolves all 3 bands cleanly (DEFF >> 4).
+  {
+    constexpr int kWidth = 768;
+    constexpr int kHeight = 1024;
+    Reconstruction portrait_recon = SynthesizeSingleCameraReconstruction(
+        /*num_frames=*/10,
+        /*num_points3D=*/300,
+        /*point2D_stddev=*/0.5,
+        /*seed=*/42,
+        kWidth,
+        kHeight);
+    constexpr double kBandBias = 2.0;
+    const std::array<double, 3> row_bias = {
+        kBandBias, -2.0 * kBandBias, kBandBias};
+    for (const image_t image_id : portrait_recon.RegImageIds()) {
+      Image& image = portrait_recon.Image(image_id);
+      for (Point2D& point2D : image.Points2D()) {
+        if (!point2D.HasPoint3D()) {
+          continue;
+        }
+        const int gy =
+            std::clamp(static_cast<int>(point2D.xy.y() / kHeight * 3), 0, 2);
+        point2D.xy.x() += row_bias[gy];
+      }
+    }
+    BundleAdjustmentOptions ba_options;
+    ba_options.ceres->solver_options.max_num_iterations = 200;
+    ba_options.ceres->solver_options.gradient_tolerance = 1e-12;
+    auto ceres_ba = CreateDefaultCeresBundleAdjuster(
+        ba_options, CreateAllImagesBAConfig(portrait_recon), portrait_recon);
+    ASSERT_EQ(ceres_ba->Solve()->termination_type,
+              BundleAdjustmentTerminationType::CONVERGENCE);
+
+    BACovarianceOptions deff_opts;
+    deff_opts.variance_scaling =
+        BACovarianceOptions::VarianceScaling::SPATIAL_DEFF;
+    const std::optional<BACovariance> portrait_cov =
+        EstimateBACovariance(deff_opts, portrait_recon, *ceres_ba);
+    ASSERT_TRUE(portrait_cov.has_value());
+    EXPECT_GT(portrait_cov->SpatialDesignEffect(), 10.0);
+  }
+}
+
+TEST(EstimateBACovariance,
+     VarianceScalingFailsOnInsufficientTilesAndNoiselessResiduals) {
+  // Insufficient observations per tile: POSTERIOR succeeds, SPATIAL_DEFF fails.
+  {
+    Reconstruction reconstruction = SynthesizeSingleCameraReconstruction(
+        /*num_frames=*/6, /*num_points3D=*/15, /*point2D_stddev=*/1.0, 0);
+    auto ceres_ba = CreateDefaultCeresBundleAdjuster(
+        BundleAdjustmentOptions(),
+        CreateAllImagesBAConfig(reconstruction),
+        reconstruction);
+    ASSERT_TRUE(ceres_ba->Solve()->IsSolutionUsable());
+
+    BACovarianceOptions post_opts;
+    post_opts.variance_scaling =
+        BACovarianceOptions::VarianceScaling::POSTERIOR;
+    EXPECT_TRUE(
+        EstimateBACovariance(post_opts, reconstruction, *ceres_ba).has_value());
+
+    BACovarianceOptions deff_opts;
+    deff_opts.variance_scaling =
+        BACovarianceOptions::VarianceScaling::SPATIAL_DEFF;
+    EXPECT_FALSE(
+        EstimateBACovariance(deff_opts, reconstruction, *ceres_ba).has_value());
+  }
+
+  // Exact noiseless residuals: POSTERIOR returns 0 variance, SPATIAL_DEFF fails
+  // loudly due to zero residual variance.
+  {
+    Reconstruction reconstruction = SynthesizeSingleCameraReconstruction(
+        /*num_frames=*/6, /*num_points3D=*/200, /*point2D_stddev=*/0.0, 0);
+    auto ceres_ba = CreateDefaultCeresBundleAdjuster(
+        BundleAdjustmentOptions(),
+        CreateAllImagesBAConfig(reconstruction),
+        reconstruction);
+
+    BACovarianceOptions post_opts;
+    post_opts.variance_scaling =
+        BACovarianceOptions::VarianceScaling::POSTERIOR;
+    const std::optional<BACovariance> post_cov =
+        EstimateBACovariance(post_opts, reconstruction, *ceres_ba);
+    ASSERT_TRUE(post_cov.has_value());
+    EXPECT_NEAR(post_cov->PosteriorVarianceFactor(), 0.0, 1e-12);
+
+    BACovarianceOptions deff_opts;
+    deff_opts.variance_scaling =
+        BACovarianceOptions::VarianceScaling::SPATIAL_DEFF;
+    EXPECT_FALSE(
+        EstimateBACovariance(deff_opts, reconstruction, *ceres_ba).has_value());
+  }
+}
+
+TEST(EstimateBACovariance,
+     VarianceScalingFailsOnNonPositiveRedundancyAndOverflow) {
+  // Zero redundancy (2 residuals, 2 parameters): both modes fail loudly.
+  {
+    Reconstruction reconstruction;
+    ceres::Problem ceres_problem;
+    double x[2] = {1.0, 2.0};
+    ceres_problem.AddResidualBlock(
+        new ceres::AutoDiffCostFunction<LinearComboCost, 1, 2>(
+            new LinearComboCost{1.0, 1.0}),
+        nullptr,
+        x);
+    ceres_problem.AddResidualBlock(
+        new ceres::AutoDiffCostFunction<LinearComboCost, 1, 2>(
+            new LinearComboCost{1.0, -1.0}),
+        nullptr,
+        x);
+    BACovarianceOptions post_opts;
+    post_opts.variance_scaling =
+        BACovarianceOptions::VarianceScaling::POSTERIOR;
+    EXPECT_FALSE(EstimateBACovarianceFromProblem(
+                     post_opts, reconstruction, ceres_problem)
+                     .has_value());
+
+    BACovarianceOptions deff_opts;
+    deff_opts.variance_scaling =
+        BACovarianceOptions::VarianceScaling::SPATIAL_DEFF;
+    EXPECT_FALSE(EstimateBACovarianceFromProblem(
+                     deff_opts, reconstruction, ceres_problem)
+                     .has_value());
+  }
+
+  // Overflowing posterior variance factor (finite total_cost ~ 0.98e308 with
+  // redundancy == 1 so (2 / redundancy) * total_cost == +Inf): must fail loudly
+  // instead of producing NaN covariances.
+  {
+    Reconstruction reconstruction;
+    ceres::Problem ceres_problem;
+    double x[2] = {1.4e154, 0.0};
+    ceres_problem.AddResidualBlock(
+        new ceres::AutoDiffCostFunction<LinearComboCost, 1, 2>(
+            new LinearComboCost{1.0, 0.0}),
+        nullptr,
+        x);
+    ceres_problem.AddResidualBlock(
+        new ceres::AutoDiffCostFunction<LinearComboCost, 1, 2>(
+            new LinearComboCost{0.0, 1.0}),
+        nullptr,
+        x);
+    ceres_problem.AddResidualBlock(
+        new ceres::AutoDiffCostFunction<LinearComboCost, 1, 2>(
+            new LinearComboCost{0.0, 1.0}),
+        nullptr,
+        x);
+    // 3 residuals, 2 parameters -> redundancy == 1; cost == 0.5 * (1.4e154)^2
+    // is finite, while 2 * cost overflows double.
+    BACovarianceOptions post_opts;
+    post_opts.variance_scaling =
+        BACovarianceOptions::VarianceScaling::POSTERIOR;
+    EXPECT_FALSE(EstimateBACovarianceFromProblem(
+                     post_opts, reconstruction, ceres_problem)
+                     .has_value());
+  }
+}
+
+TEST(EstimateBACovariance, VarianceScalingWithFixedPosesAndPointsOnly) {
+  const Reconstruction base_recon = SynthesizeSingleCameraReconstruction(
+      /*num_frames=*/6, /*num_points3D=*/200, /*point2D_stddev=*/1.5, 0);
+
+  // 1. Fixed camera poses (poses empty; intrinsics and points variable).
+  {
+    Reconstruction fixed_recon = base_recon;
+    auto ceres_ba = CreateDefaultCeresBundleAdjuster(
+        BundleAdjustmentOptions(),
+        CreateAllImagesBAConfig(fixed_recon, /*constant_poses=*/true),
+        fixed_recon);
+    const auto summary =
+        std::dynamic_pointer_cast<CeresBundleAdjustmentSummary>(
+            ceres_ba->Solve());
+    ASSERT_NE(summary, nullptr);
+    ASSERT_TRUE(summary->IsSolutionUsable());
+
+    const int expected_redundancy =
+        summary->ceres_summary.num_residuals_reduced -
+        summary->ceres_summary.num_effective_parameters_reduced;
+    const double expected_sigma0_sq =
+        (2.0 * summary->ceres_summary.final_cost) / expected_redundancy;
+
+    BACovarianceOptions deff_all_opts;
+    deff_all_opts.variance_scaling =
+        BACovarianceOptions::VarianceScaling::SPATIAL_DEFF;
+    const std::optional<BACovariance> deff_all =
+        EstimateBACovariance(deff_all_opts, fixed_recon, *ceres_ba);
+    ASSERT_TRUE(deff_all.has_value());
+    EXPECT_NEAR(deff_all->PosteriorVarianceFactor(), expected_sigma0_sq, 1e-10);
+    EXPECT_GE(deff_all->SpatialDesignEffect(), 1.0);
+    EXPECT_LT(deff_all->SpatialDesignEffect(), 1.5);
+
+    BACovarianceOptions deff_pts_opts = deff_all_opts;
+    deff_pts_opts.params = BACovarianceOptions::Params::POINTS;
+    const std::optional<BACovariance> deff_pts =
+        EstimateBACovariance(deff_pts_opts, fixed_recon, *ceres_ba);
+    ASSERT_TRUE(deff_pts.has_value());
+    EXPECT_NEAR(deff_pts->PosteriorVarianceFactor(), expected_sigma0_sq, 1e-10);
+    EXPECT_NEAR(deff_pts->SpatialDesignEffect(),
+                deff_all->SpatialDesignEffect(),
+                1e-12);
+    const point3D_t pt_id = fixed_recon.Points3D().begin()->first;
+    ExpectNearEigenMatrixXd(
+        *deff_pts->GetPointCov(pt_id), *deff_all->GetPointCov(pt_id), 1e-12);
+  }
+
+  // 2. Free-gauge BA with Params::POINTS (does not factor S, so num_null == 0).
+  {
+    Reconstruction free_recon = base_recon;
+    auto ceres_ba =
+        CreateDefaultCeresBundleAdjuster(BundleAdjustmentOptions(),
+                                         CreateAllImagesBAConfig(free_recon),
+                                         free_recon);
+    const auto summary =
+        std::dynamic_pointer_cast<CeresBundleAdjustmentSummary>(
+            ceres_ba->Solve());
+    ASSERT_NE(summary, nullptr);
+    ASSERT_TRUE(summary->IsSolutionUsable());
+
+    const int expected_redundancy_no_null =
+        summary->ceres_summary.num_residuals_reduced -
+        summary->ceres_summary.num_effective_parameters_reduced;
+    const double expected_sigma0_sq =
+        (2.0 * summary->ceres_summary.final_cost) / expected_redundancy_no_null;
+
+    BACovarianceOptions none_pts_opts;
+    none_pts_opts.params = BACovarianceOptions::Params::POINTS;
+    const std::optional<BACovariance> none_pts =
+        EstimateBACovariance(none_pts_opts, free_recon, *ceres_ba);
+    ASSERT_TRUE(none_pts.has_value());
+
+    BACovarianceOptions deff_pts_opts = none_pts_opts;
+    deff_pts_opts.variance_scaling =
+        BACovarianceOptions::VarianceScaling::SPATIAL_DEFF;
+    const std::optional<BACovariance> deff_pts =
+        EstimateBACovariance(deff_pts_opts, free_recon, *ceres_ba);
+    ASSERT_TRUE(deff_pts.has_value());
+    EXPECT_NEAR(deff_pts->PosteriorVarianceFactor(), expected_sigma0_sq, 1e-10);
+    EXPECT_GE(deff_pts->SpatialDesignEffect(), 1.0);
+    EXPECT_LT(deff_pts->SpatialDesignEffect(), 1.6);
+    const point3D_t pt_id = free_recon.Points3D().begin()->first;
+    ExpectNearEigenMatrixXd(
+        *deff_pts->GetPointCov(pt_id),
+        deff_pts->PosteriorVarianceFactor() * (*none_pts->GetPointCov(pt_id)),
+        1e-10);
+  }
+}
+
+TEST(EstimateBACovariance, SpatialDesignEffectSubsetAndMixedConstantPoses) {
+  Reconstruction reconstruction = SynthesizeSingleCameraReconstruction(
+      /*num_frames=*/10, /*num_points3D=*/200, /*point2D_stddev=*/1.0, 0);
+  const std::vector<image_t> image_ids = SortedRegImageIds(reconstruction);
+
+  // Configure only the first 5 images with constant poses.
+  BundleAdjustmentConfig subset_config;
+  for (size_t i = 0; i < 5; ++i) {
+    subset_config.AddImage(image_ids[i]);
+    subset_config.SetConstantRigFromWorldPose(
+        reconstruction.Image(image_ids[i]).FrameId());
+  }
+  auto ba_before = CreateDefaultCeresBundleAdjuster(
+      BundleAdjustmentOptions(), subset_config, reconstruction);
+  ASSERT_TRUE(ba_before->Solve()->IsSolutionUsable());
+  BACovarianceOptions deff_opts;
+  deff_opts.variance_scaling =
+      BACovarianceOptions::VarianceScaling::SPATIAL_DEFF;
+  const std::optional<BACovariance> cov_before =
+      EstimateBACovariance(deff_opts, reconstruction, *ba_before);
+  ASSERT_TRUE(cov_before.has_value());
+
+  // Heavily perturb the unconfigured images 5..9 sharing the same camera;
+  // subset DEFF must remain identical.
+  for (size_t i = 5; i < image_ids.size(); ++i) {
+    Image& outside_image = reconstruction.Image(image_ids[i]);
+    for (Point2D& point2D : outside_image.Points2D()) {
+      if (point2D.HasPoint3D()) {
+        point2D.xy += Eigen::Vector2d(50.0, -50.0);
+      }
+    }
+  }
+  const std::optional<BACovariance> cov_after =
+      EstimateBACovariance(deff_opts, reconstruction, *ba_before);
+  ASSERT_TRUE(cov_after.has_value());
+  EXPECT_NEAR(cov_after->SpatialDesignEffect(),
+              cov_before->SpatialDesignEffect(),
+              1e-12);
+
+  // Mixed constant + variable poses: images 0..3 constant with strong tile
+  // bias, images 4..7 variable with i.i.d. noise (with fixed points so the tile
+  // bias stays on images 0..3). Constant images must contribute to DEFF.
+  Reconstruction mixed_recon = SynthesizeSingleCameraReconstruction(
+      /*num_frames=*/10, /*num_points3D=*/200, /*point2D_stddev=*/1.0, 1);
+  const std::vector<image_t> mixed_ids = SortedRegImageIds(mixed_recon);
+  AddSpatialTileBias(
+      mixed_recon,
+      std::vector<image_t>(mixed_ids.begin(), mixed_ids.begin() + 4),
+      /*tile_stddev=*/4.0,
+      /*iid_stddev=*/0.0,
+      /*seed=*/7);
+
+  BundleAdjustmentConfig mixed_config;
+  for (size_t i = 0; i < 8; ++i) {
+    mixed_config.AddImage(mixed_ids[i]);
+    if (i < 4) {
+      mixed_config.SetConstantRigFromWorldPose(
+          mixed_recon.Image(mixed_ids[i]).FrameId());
+    }
+  }
+  BundleAdjustmentOptions mixed_ba_opts;
+  mixed_ba_opts.refine_points3D = false;
+  auto mixed_ba = CreateDefaultCeresBundleAdjuster(
+      mixed_ba_opts, mixed_config, mixed_recon);
+  ASSERT_TRUE(mixed_ba->Solve()->IsSolutionUsable());
+  const std::optional<BACovariance> mixed_cov =
+      EstimateBACovariance(deff_opts, mixed_recon, *mixed_ba);
+  ASSERT_TRUE(mixed_cov.has_value());
+  EXPECT_GT(mixed_cov->SpatialDesignEffect(), 5.0);
+}
+
+TEST(EstimateBACovariance,
+     SpatialDesignEffectExcludesSparseImagesAndHandlesAllConstant) {
+  Reconstruction recon_base = SynthesizeSingleCameraReconstruction(
+      /*num_frames=*/7, /*num_points3D=*/200, /*point2D_stddev=*/1.0, 2);
+  const std::vector<image_t> ids = SortedRegImageIds(recon_base);
+  AddSpatialTileBias(recon_base,
+                     std::vector<image_t>(ids.begin(), ids.begin() + 6),
+                     /*tile_stddev=*/2.0,
+                     /*iid_stddev=*/0.0,
+                     /*seed=*/99);
+
+  // Keep only 3 observations on image 6 (< kMinObsPerSpatialTile in every
+  // tile) and give them huge residuals; image 6 will have image_tile_dof == 0
+  // and must not alter DEFF when added with constant pose and fixed points.
+  const image_t sparse_id = ids[6];
+  Image& sparse_img = recon_base.Image(sparse_id);
+  int kept = 0;
+  for (point2D_t p2d_idx = 0; p2d_idx < sparse_img.NumPoints2D(); ++p2d_idx) {
+    if (!sparse_img.Point2D(p2d_idx).HasPoint3D()) continue;
+    if (kept < 3) {
+      sparse_img.Point2D(p2d_idx).xy += Eigen::Vector2d(100.0, -100.0);
+      ++kept;
+    } else {
+      recon_base.DeleteObservation(sparse_id, p2d_idx);
+    }
+  }
+
+  BundleAdjustmentOptions ba_opts;
+  ba_opts.refine_points3D = false;
+  ba_opts.refine_focal_length = false;
+  ba_opts.refine_extra_params = false;
+  ba_opts.refine_rig_from_world = false;
+
+  BundleAdjustmentConfig cfg_without;
+  for (size_t i = 0; i < 6; ++i) {
+    cfg_without.AddImage(ids[i]);
+  }
+  auto ba_without =
+      CreateDefaultCeresBundleAdjuster(ba_opts, cfg_without, recon_base);
+
+  BundleAdjustmentConfig cfg_with = cfg_without;
+  cfg_with.AddImage(sparse_id);
+  auto ba_with =
+      CreateDefaultCeresBundleAdjuster(ba_opts, cfg_with, recon_base);
+
+  BACovarianceOptions deff_opts;
+  deff_opts.variance_scaling =
+      BACovarianceOptions::VarianceScaling::SPATIAL_DEFF;
+  const std::optional<BACovariance> cov_without =
+      EstimateBACovariance(deff_opts, recon_base, *ba_without);
+  const std::optional<BACovariance> cov_with =
+      EstimateBACovariance(deff_opts, recon_base, *ba_with);
+  ASSERT_TRUE(cov_without.has_value());
+  ASSERT_TRUE(cov_with.has_value());
+  EXPECT_GT(cov_without->SpatialDesignEffect(), 4.0);
+  EXPECT_NEAR(cov_with->SpatialDesignEffect(),
+              cov_without->SpatialDesignEffect(),
+              1e-12);
+
+  // Also verifies the all-constant / empty parameter_blocks early return in
+  // ComputeSchurComplement for both Params::ALL and Params::POINTS.
+  BACovarianceOptions pts_opts = deff_opts;
+  pts_opts.params = BACovarianceOptions::Params::POINTS;
+  const std::optional<BACovariance> cov_pts =
+      EstimateBACovariance(pts_opts, recon_base, *ba_without);
+  ASSERT_TRUE(cov_pts.has_value());
+  EXPECT_NEAR(cov_pts->PosteriorVarianceFactor(),
+              cov_without->PosteriorVarianceFactor(),
+              1e-12);
+  EXPECT_NEAR(cov_pts->SpatialDesignEffect(),
+              cov_without->SpatialDesignEffect(),
+              1e-12);
+}
+
+TEST(EstimateBACovariance, SpatialDesignEffectWrapsEquirectangularSeam) {
+  SetPRNGSeed(3);
+  Reconstruction eq_recon;
+  const int width = 1000;
+  const int height = 500;
+  Camera camera = Camera::CreateFromModelId(
+      /*camera_id=*/1,
+      CameraModelId::kEquirectangular,
+      /*focal_length=*/0.0,
+      width,
+      height);
+  eq_recon.AddCamera(camera);
+
+  Rig rig;
+  rig.SetRigId(1);
+  rig.AddRefSensor(camera.SensorId());
+  eq_recon.AddRig(rig);
+
+  std::mt19937 rng(321);
+  std::uniform_real_distribution<double> az_dist(-EIGEN_PI, EIGEN_PI);
+  std::uniform_real_distribution<double> el_dist(-0.35 * EIGEN_PI,
+                                                 0.35 * EIGEN_PI);
+  std::uniform_real_distribution<double> rad_dist(5.0, 15.0);
+  std::vector<Eigen::Vector3d> pts3D;
+  pts3D.reserve(240);
+  for (int i = 0; i < 240; ++i) {
+    // Place a handful of points right near the ±pi horizontal seam so some
+    // observations wrap across x=0 / x=width under noise.
+    const double az =
+        (i < 12) ? (EIGEN_PI - 0.002 + 0.004 * (i / 12.0)) : az_dist(rng);
+    const double el = el_dist(rng);
+    const double r = rad_dist(rng);
+    pts3D.emplace_back(r * std::cos(el) * std::sin(az),
+                       r * std::sin(el),
+                       r * std::cos(el) * std::cos(az));
+  }
+
+  const int num_frames = 10;
+  std::normal_distribution<double> noise_dist(0.0, 1.0);
+  std::vector<image_t> img_ids;
+  int num_seam_crossings = 0;
+  for (int f = 0; f < num_frames; ++f) {
+    const frame_t frame_id = f + 1;
+    const image_t image_id = f + 1;
+    Frame frame;
+    frame.SetFrameId(frame_id);
+    frame.SetRigId(1);
+    frame.AddDataId(data_t(camera.SensorId(), image_id));
+    const double angle = 0.05 * f;
+    frame.SetRigFromWorld(Rigid3d(
+        Eigen::Quaterniond(Eigen::AngleAxisd(angle, Eigen::Vector3d::UnitY())),
+        Eigen::Vector3d(0.4 * f, 0.1 * (f % 2), 0.0)));
+    eq_recon.AddFrame(frame);
+
+    Image image;
+    image.SetImageId(image_id);
+    image.SetName("eq_" + std::to_string(f) + ".jpg");
+    image.SetCameraId(1);
+    image.SetFrameId(frame_id);
+    std::vector<Eigen::Vector2d> points2D;
+    points2D.reserve(pts3D.size());
+    for (const Eigen::Vector3d& xyz : pts3D) {
+      const Eigen::Vector2d proj =
+          *camera.ImgFromCam(frame.RigFromWorld() * xyz);
+      Eigen::Vector2d xy =
+          proj + Eigen::Vector2d(noise_dist(rng), noise_dist(rng));
+      // Wrap x into [0, width) so observations near x=0 / x=width cross the
+      // horizontal seam.
+      xy.x() -= width * std::floor(xy.x() / width);
+      if (std::abs(proj.x() - xy.x()) > 0.5 * width) {
+        ++num_seam_crossings;
+      }
+      points2D.push_back(xy);
+    }
+    image.SetPoints2D(points2D);
+    eq_recon.AddImage(image);
+    eq_recon.RegisterFrame(frame_id);
+    img_ids.push_back(image_id);
+  }
+  ASSERT_GT(num_seam_crossings, 0);
+
+  for (size_t p = 0; p < pts3D.size(); ++p) {
+    Track track;
+    for (const image_t img_id : img_ids) {
+      track.AddElement(img_id, p);
+    }
+    eq_recon.AddPoint3D(pts3D[p], std::move(track));
+  }
+
+  BundleAdjustmentOptions eq_ba_opts;
+  eq_ba_opts.refine_focal_length = false;
+  eq_ba_opts.refine_principal_point = false;
+  eq_ba_opts.refine_extra_params = false;
+  auto eq_ba = CreateDefaultCeresBundleAdjuster(
+      eq_ba_opts, CreateAllImagesBAConfig(eq_recon), eq_recon);
+  ASSERT_TRUE(eq_ba->Solve()->IsSolutionUsable());
+
+  BACovarianceOptions deff_opts;
+  deff_opts.variance_scaling =
+      BACovarianceOptions::VarianceScaling::SPATIAL_DEFF;
+  const std::optional<BACovariance> eq_cov =
+      EstimateBACovariance(deff_opts, eq_recon, *eq_ba);
+  ASSERT_TRUE(eq_cov.has_value());
+  EXPECT_NEAR(eq_cov->PosteriorVarianceFactor(), 1.0, 0.35);
+  EXPECT_GE(eq_cov->SpatialDesignEffect(), 1.0);
+  EXPECT_LT(eq_cov->SpatialDesignEffect(), 1.6);
+}
+
+TEST(EstimateBACovariance,
+     VarianceScalingFromProblemCustomPosesAndPointConfig) {
+  const Reconstruction base_recon = SynthesizeSingleCameraReconstruction(
+      /*num_frames=*/8, /*num_points3D=*/200, /*point2D_stddev=*/1.2, 4);
+
+  // 1. Fixed-gauge FixGauge(TWO_CAMS_FROM_WORLD):
+  // EstimateBACovarianceFromProblem
+  //    and EstimateBACovariance + experimental_custom_poses both preserve the
+  //    constant-pose gauge image and match EstimateBACovariance exactly.
+  {
+    Reconstruction recon = base_recon;
+    BundleAdjustmentConfig config = CreateAllImagesBAConfig(recon);
+    config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+    auto ceres_ba = CreateDefaultCeresBundleAdjuster(
+        BundleAdjustmentOptions(), config, recon);
+    ASSERT_TRUE(ceres_ba->Solve()->IsSolutionUsable());
+
+    BACovarianceOptions deff_opts;
+    deff_opts.variance_scaling =
+        BACovarianceOptions::VarianceScaling::SPATIAL_DEFF;
+    const std::optional<BACovariance> cov_ba =
+        EstimateBACovariance(deff_opts, recon, *ceres_ba);
+    const std::optional<BACovariance> cov_prob =
+        EstimateBACovarianceFromProblem(deff_opts, recon, *ceres_ba->Problem());
+    ASSERT_TRUE(cov_ba.has_value());
+    ASSERT_TRUE(cov_prob.has_value());
+    EXPECT_NEAR(cov_prob->PosteriorVarianceFactor(),
+                cov_ba->PosteriorVarianceFactor(),
+                1e-12);
+    EXPECT_NEAR(
+        cov_prob->SpatialDesignEffect(), cov_ba->SpatialDesignEffect(), 1e-12);
+
+    // experimental_custom_poses with EstimateBACovariance must still use
+    // config to include the constant-pose image1.
+    BACovarianceOptions custom_opts = deff_opts;
+    custom_opts.experimental_custom_poses =
+        internal::GetPoseParams(recon, *ceres_ba->Problem());
+    ASSERT_EQ(custom_opts.experimental_custom_poses.size(),
+              recon.NumRegImages() - 1);
+    const std::optional<BACovariance> custom_ba_cov =
+        EstimateBACovariance(custom_opts, recon, *ceres_ba);
+    ASSERT_TRUE(custom_ba_cov.has_value());
+    EXPECT_NEAR(custom_ba_cov->PosteriorVarianceFactor(),
+                cov_ba->PosteriorVarianceFactor(),
+                1e-12);
+    EXPECT_NEAR(custom_ba_cov->SpatialDesignEffect(),
+                cov_ba->SpatialDesignEffect(),
+                1e-12);
+
+    // experimental_custom_poses via EstimateBACovarianceFromProblem on a
+    // free-gauge problem matches standard EstimateBACovariance.
+    Reconstruction free_recon = base_recon;
+    auto free_ba =
+        CreateDefaultCeresBundleAdjuster(BundleAdjustmentOptions(),
+                                         CreateAllImagesBAConfig(free_recon),
+                                         free_recon);
+    ASSERT_TRUE(free_ba->Solve()->IsSolutionUsable());
+
+    const std::optional<BACovariance> free_cov =
+        EstimateBACovariance(deff_opts, free_recon, *free_ba);
+    ASSERT_TRUE(free_cov.has_value());
+
+    BACovarianceOptions free_custom_opts = deff_opts;
+    free_custom_opts.experimental_custom_poses =
+        internal::GetPoseParams(free_recon, *free_ba->Problem());
+    ASSERT_FALSE(free_custom_opts.experimental_custom_poses.empty());
+    const std::optional<BACovariance> custom_prob_cov =
+        EstimateBACovarianceFromProblem(
+            free_custom_opts, free_recon, *free_ba->Problem());
+    ASSERT_TRUE(custom_prob_cov.has_value());
+    EXPECT_NEAR(custom_prob_cov->PosteriorVarianceFactor(),
+                free_cov->PosteriorVarianceFactor(),
+                1e-12);
+    EXPECT_NEAR(custom_prob_cov->SpatialDesignEffect(),
+                free_cov->SpatialDesignEffect(),
+                1e-12);
+  }
+
+  // 2. EstimateBACovarianceFromProblem fallback when all poses are baked into
+  //    constant-pose cost functors (no pose parameter blocks in problem).
+  {
+    Reconstruction recon = base_recon;
+    auto ceres_ba = CreateDefaultCeresBundleAdjuster(
+        BundleAdjustmentOptions(),
+        CreateAllImagesBAConfig(recon, /*constant_poses=*/true),
+        recon);
+    ASSERT_TRUE(ceres_ba->Solve()->IsSolutionUsable());
+
+    BACovarianceOptions deff_opts;
+    deff_opts.variance_scaling =
+        BACovarianceOptions::VarianceScaling::SPATIAL_DEFF;
+    const std::optional<BACovariance> cov_ba =
+        EstimateBACovariance(deff_opts, recon, *ceres_ba);
+    const std::optional<BACovariance> cov_prob =
+        EstimateBACovarianceFromProblem(deff_opts, recon, *ceres_ba->Problem());
+    ASSERT_TRUE(cov_ba.has_value());
+    ASSERT_TRUE(cov_prob.has_value());
+    EXPECT_NEAR(
+        cov_prob->SpatialDesignEffect(), cov_ba->SpatialDesignEffect(), 1e-12);
+  }
+
+  // 3. Point-only BundleAdjustmentConfig (external track images via
+  //    VariablePoints()) with min_track_length filtering and unconfigured
+  //    points perturbed on external images.
+  {
+    Reconstruction recon = base_recon;
+    std::vector<point3D_t> point_ids;
+    point_ids.reserve(recon.NumPoints3D());
+    for (const auto& [pt_id, pt] : recon.Points3D()) {
+      point_ids.push_back(pt_id);
+    }
+    std::sort(point_ids.begin(), point_ids.end());
+
+    // Trim the last 10 points to track length 2 and give them huge residuals so
+    // min_track_length == 4 must exclude them from SPATIAL_DEFF.
+    for (size_t i = point_ids.size() - 10; i < point_ids.size(); ++i) {
+      const point3D_t pt_id = point_ids[i];
+      const std::vector<TrackElement> elems =
+          recon.Point3D(pt_id).track.Elements();
+      for (size_t k = 2; k < elems.size(); ++k) {
+        recon.DeleteObservation(elems[k].image_id, elems[k].point2D_idx);
+      }
+      for (const TrackElement& el : recon.Point3D(pt_id).track.Elements()) {
+        recon.Image(el.image_id).Point2D(el.point2D_idx).xy +=
+            Eigen::Vector2d(200.0, -200.0);
+      }
+    }
+
+    // Add points 0..179 and the 10 short-track points 190..199 via
+    // VariablePoints() (testing external-track images and min_track_length
+    // filtering), while leaving points 180..189 unconfigured and heavily
+    // perturbed on those external images.
+    BundleAdjustmentConfig pt_config;
+    for (size_t i = 0; i < 180; ++i) {
+      pt_config.AddVariablePoint(point_ids[i]);
+    }
+    for (size_t i = 190; i < point_ids.size(); ++i) {
+      pt_config.AddVariablePoint(point_ids[i]);
+    }
+    for (size_t i = 180; i < 190; ++i) {
+      for (const TrackElement& el :
+           recon.Point3D(point_ids[i]).track.Elements()) {
+        recon.Image(el.image_id).Point2D(el.point2D_idx).xy +=
+            Eigen::Vector2d(200.0, -200.0);
+      }
+    }
+
+    BundleAdjustmentOptions ba_opts;
+    ba_opts.min_track_length = 4;
+    auto ceres_ba = CreateDefaultCeresBundleAdjuster(ba_opts, pt_config, recon);
+    ASSERT_TRUE(ceres_ba->Solve()->IsSolutionUsable());
+
+    BACovarianceOptions deff_opts;
+    deff_opts.variance_scaling =
+        BACovarianceOptions::VarianceScaling::SPATIAL_DEFF;
+    const std::optional<BACovariance> cov =
+        EstimateBACovariance(deff_opts, recon, *ceres_ba);
+    ASSERT_TRUE(cov.has_value());
+    EXPECT_NEAR(cov->PosteriorVarianceFactor(), 1.2 * 1.2, 0.35);
+    EXPECT_GE(cov->SpatialDesignEffect(), 1.0);
+    EXPECT_LT(cov->SpatialDesignEffect(), 1.6);
+  }
+}
+
 }  // namespace
 }  // namespace colmap
