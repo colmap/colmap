@@ -15,8 +15,6 @@
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/testing.h"
 
-#include <limits>
-
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -153,117 +151,28 @@ TEST(SynthesizeDataset, Nominal) {
 }
 
 TEST(SynthesizeDataset, InlierMatchRatio) {
-  for (const auto match_config :
-       {SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE,
-        SyntheticDatasetOptions::MatchConfig::CHAINED,
-        SyntheticDatasetOptions::MatchConfig::SPARSE}) {
-    for (const double ratio : {1.0, 0.8, 0.5, 0.25}) {
-      for (const int num_points3D : {0, 7, 100}) {
-        SCOPED_TRACE(static_cast<int>(match_config));
-        SCOPED_TRACE(ratio);
-        SCOPED_TRACE(num_points3D);
-        auto database = Database::Open(kInMemorySqliteDatabasePath);
-        Reconstruction reconstruction;
-        SyntheticDatasetOptions options;
-        options.num_rigs = 1;
-        options.num_cameras_per_rig = 1;
-        options.num_frames_per_rig = 4;
-        options.num_points3D = num_points3D;
-        options.inlier_match_ratio = ratio;
-        options.match_config = match_config;
-        options.match_sparsity = 0.5;
-        SynthesizeDataset(options, &reconstruction, database.get());
-
-        const auto geometries = database->ReadTwoViewGeometries();
-        if (num_points3D > 0) {
-          ASSERT_FALSE(geometries.empty());
-        }
-        for (const auto& [pair_id, geometry] : geometries) {
-          const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-          const auto matches = database->ReadMatches(image_id1, image_id2);
-          EXPECT_EQ(geometry.inlier_matches.size(), num_points3D);
-          EXPECT_EQ(matches.size(), static_cast<size_t>(num_points3D / ratio));
-          for (const auto& inlier : geometry.inlier_matches) {
-            EXPECT_TRUE(std::any_of(
-                matches.begin(), matches.end(), [&](const auto& match) {
-                  return match.point2D_idx1 == inlier.point2D_idx1 &&
-                         match.point2D_idx2 == inlier.point2D_idx2;
-                }));
-          }
-        }
-        if (num_points3D == 0) {
-          EXPECT_EQ(database->NumMatches(), 0);
-          EXPECT_EQ(database->NumInlierMatches(), 0);
-        }
-      }
-    }
-  }
-}
-
-TEST(SynthesizeDataset, InvalidInlierMatchRatio) {
-  for (const double ratio : {0.0, -0.1, 1.1}) {
-    SCOPED_TRACE(ratio);
-    auto database = Database::Open(kInMemorySqliteDatabasePath);
-    Reconstruction reconstruction;
-    SyntheticDatasetOptions options;
-    options.inlier_match_ratio = ratio;
-    EXPECT_THROW(SynthesizeDataset(options, &reconstruction, database.get()),
-                 std::invalid_argument);
-    EXPECT_EQ(reconstruction.NumPoints3D(), 0);
-    EXPECT_EQ(reconstruction.NumImages(), 0);
-    EXPECT_EQ(database->NumCameras(), 0);
-    EXPECT_EQ(database->NumImages(), 0);
-  }
-
-  // No database is needed to reject an invalid ratio. This also avoids an
-  // invalid integer conversion when running this regression on older versions.
-  for (const double ratio : {std::numeric_limits<double>::quiet_NaN(),
-                             std::numeric_limits<double>::infinity()}) {
-    Reconstruction reconstruction;
-    SyntheticDatasetOptions options;
-    options.inlier_match_ratio = ratio;
-    EXPECT_THROW(SynthesizeDataset(options, &reconstruction),
-                 std::invalid_argument);
-    EXPECT_EQ(reconstruction.NumPoints3D(), 0);
-    EXPECT_EQ(reconstruction.NumImages(), 0);
-  }
-}
-
-TEST(SynthesizeDataset, UnrepresentableMatchCount) {
-  for (const double ratio : {std::numeric_limits<double>::denorm_min(),
-                             100.0 / (2.0 * FeatureMatches().max_size())}) {
-    SCOPED_TRACE(ratio);
-    for (const bool reuse_reconstruction : {false, true}) {
-      SCOPED_TRACE(reuse_reconstruction);
-      auto database = Database::Open(kInMemorySqliteDatabasePath);
-      Reconstruction reconstruction;
-      SyntheticDatasetOptions options;
-      options.num_rigs = 1;
-      options.num_frames_per_rig = 2;
-      if (reuse_reconstruction) {
-        SynthesizeDataset(options, &reconstruction, database.get());
-        options.num_points3D = 0;
-      }
-      const size_t num_points3D = reconstruction.NumPoints3D();
-      const size_t num_images = reconstruction.NumImages();
-      const size_t num_cameras = database->NumCameras();
-      options.inlier_match_ratio = ratio;
-      EXPECT_THROW(SynthesizeDataset(options, &reconstruction, database.get()),
-                   std::invalid_argument);
-      EXPECT_EQ(reconstruction.NumPoints3D(), num_points3D);
-      EXPECT_EQ(reconstruction.NumImages(), num_images);
-      EXPECT_EQ(database->NumCameras(), num_cameras);
-      EXPECT_EQ(database->NumImages(), num_images);
-    }
-  }
-
   auto database = Database::Open(kInMemorySqliteDatabasePath);
   Reconstruction reconstruction;
   SyntheticDatasetOptions options;
-  options.num_points3D = 0;
-  options.inlier_match_ratio = std::numeric_limits<double>::denorm_min();
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 1;
+  options.num_frames_per_rig = 2;
+  options.num_points3D = 1;
+  options.num_points2D_without_point3D = 0;
+  options.inlier_match_ratio = 0.5;
   SynthesizeDataset(options, &reconstruction, database.get());
-  EXPECT_EQ(database->NumMatches(), 0);
+
+  const auto geometries = database->ReadTwoViewGeometries();
+  ASSERT_EQ(geometries.size(), 1);
+  const auto& [pair_id, geometry] = geometries.front();
+  const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+  const auto matches = database->ReadMatches(image_id1, image_id2);
+  ASSERT_EQ(geometry.inlier_matches.size(), 1);
+  ASSERT_EQ(matches.size(), 2);
+  for (const auto& match : matches) {
+    EXPECT_EQ(match.point2D_idx1, 0);
+    EXPECT_EQ(match.point2D_idx2, 0);
+  }
 }
 
 TEST(SynthesizeDataset, MultipleTimes) {

@@ -121,7 +121,7 @@ The object API mirrors the COLMAP C++ library. The bindings support many operati
 **Projecting a 3D point into an image** with arbitrary camera model:
 
 ```python
-uv = camera.img_from_cam(image.cam_from_world * point3D.xyz)
+uv = camera.img_from_cam(image.cam_from_world() * point3D.xyz)
 ```
 
 **Aligning two 3D reconstructions** by their camera poses:
@@ -151,7 +151,7 @@ We provide robust RANSAC-based estimators for:
 - Homography
 - Two-view relative pose for calibrated cameras
 
-All RANSAC and estimation parameters are exposed as objects that behave similarly as Python dataclasses. The RANSAC options are described in [`colmap/optim/ransac.h`](https://github.com/colmap/colmap/blob/main/src/colmap/optim/ransac.h#L43-L72) and their default values are:
+All RANSAC and estimation parameters are exposed as objects that behave similarly as Python dataclasses. The Python RANSAC options and their defaults are defined in [`src/pycolmap/optim/bindings.cc`](https://github.com/colmap/colmap/blob/main/src/pycolmap/optim/bindings.cc):
 
 ```python
 ransac_options = pycolmap.RANSACOptions(
@@ -179,7 +179,7 @@ answer = pycolmap.estimate_and_refine_absolute_pose(points2D, points3D, camera)
 # Returns: dictionary of estimation outputs or None if failure
 ```
 
-2D and 3D points are passed as Numpy arrays or lists. The options are defined in [`estimators/absolute_pose.cc`](./pycolmap/estimators/absolute_pose.h#L100-L122) and can be passed as regular (nested) Python dictionaries:
+2D and 3D points are passed as Numpy arrays or lists. The options are defined in [`src/pycolmap/estimators/pose.cc`](https://github.com/colmap/colmap/blob/main/src/pycolmap/estimators/pose.cc) and can be passed as regular (nested) Python dictionaries:
 
 ```python
 pycolmap.estimate_and_refine_absolute_pose(
@@ -226,7 +226,7 @@ answer = pycolmap.estimate_essential_matrix(points1, points2, camera1, camera2)
 answer = pycolmap.estimate_fundamental_matrix(
     points1,
     points2,
-    [options],  # optional dict or pycolmap.RANSACOptions
+    estimation_options=dict(max_error=4.0),  # optional dict or pycolmap.RANSACOptions
 )
 ```
 
@@ -236,7 +236,7 @@ answer = pycolmap.estimate_fundamental_matrix(
 answer = pycolmap.estimate_homography_matrix(
     points1,
     points2,
-    [options],  # optional dict or pycolmap.RANSACOptions
+    estimation_options=dict(max_error=4.0),  # optional dict or pycolmap.RANSACOptions
 )
 ```
 

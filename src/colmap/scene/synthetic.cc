@@ -12,6 +12,8 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/hash_containers.h"
 
+#include <limits>
+
 #include <Eigen/Geometry>
 
 namespace colmap {
@@ -21,11 +23,15 @@ void AddOutlierMatches(double inlier_ratio,
                        int num_points2D1,
                        int num_points2D2,
                        FeatureMatches* matches) {
-  const size_t num_outliers = matches->size() / inlier_ratio - matches->size();
+  const double outlier_count = matches->size() / inlier_ratio - matches->size();
+  // A strict bound also handles size_t::max rounding upward to double.
+  THROW_CHECK_LT(outlier_count,
+                 static_cast<double>(std::numeric_limits<size_t>::max()));
+  const size_t num_outliers = static_cast<size_t>(outlier_count);
   for (size_t i = 0; i < num_outliers; ++i) {
     matches->emplace_back(
         RandomUniformInteger<point2D_t>(0, num_points2D1 - 1),
-        RandomUniformInteger<point2D_t>(0, num_points2D2 - 2));
+        RandomUniformInteger<point2D_t>(0, num_points2D2 - 1));
   }
   std::shuffle(matches->begin(), matches->end(), *PRNG);
 }
@@ -332,17 +338,6 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   THROW_CHECK_GE(options.num_points2D_without_point3D, 0);
   THROW_CHECK_GT(options.inlier_match_ratio, 0.0);
   THROW_CHECK_LE(options.inlier_match_ratio, 1.0);
-  if (database != nullptr) {
-    size_t max_num_inliers = options.num_points3D;
-    for (const auto& [_, image] : reconstruction->Images()) {
-      max_num_inliers =
-          std::max(max_num_inliers, static_cast<size_t>(image.NumPoints3D()));
-    }
-    // A strict comparison also rejects a max_size rounded upward to double.
-    // Check before modifying either output or converting the count to size_t.
-    THROW_CHECK_LT(max_num_inliers / options.inlier_match_ratio,
-                   static_cast<double>(FeatureMatches().max_size()));
-  }
   THROW_CHECK_GE(options.sensor_from_rig_translation_stddev, 0.);
   THROW_CHECK_GE(options.sensor_from_rig_rotation_stddev, 0.);
   THROW_CHECK_GE(options.match_sparsity, 0.);
