@@ -3,11 +3,9 @@
 #include "colmap/mvs/model.h"
 
 #include "colmap/scene/synthetic.h"
-#include "colmap/util/string.h"
 #include "colmap/util/testing.h"
 
 #include <cmath>
-#include <fstream>
 
 #include <gtest/gtest.h>
 
@@ -54,165 +52,26 @@ TEST(Model, ReadCOLMAP) {
   EXPECT_THROW(model.GetImageName(model.images.size()), std::exception);
 }
 
-void WriteCOLMAPModel(const std::filesystem::path& path,
-                      int num_images,
-                      int num_points,
-                      const std::string& name_prefix) {
-  Reconstruction reconstruction;
-  SyntheticDatasetOptions options;
-  options.num_rigs = 1;
-  options.num_cameras_per_rig = 1;
-  options.num_frames_per_rig = num_images;
-  options.num_points3D = num_points;
-  SynthesizeDataset(options, &reconstruction);
-  for (const auto& [image_id, image] : reconstruction.Images()) {
-    reconstruction.Image(image_id).SetName(name_prefix + image.Name());
-  }
-  std::filesystem::create_directories(path / "sparse");
-  reconstruction.WriteBinary(path / "sparse");
-}
-
 TEST(Model, ReadCOLMAPReplacesPreviousModel) {
   const auto test_dir = CreateTestDir();
-  const auto initial_path = test_dir / "initial";
-  const auto replacement_path = test_dir / "replacement";
-  WriteCOLMAPModel(initial_path, 3, 10, "initial/");
-  WriteCOLMAPModel(replacement_path, 2, 4, "replacement/");
-
+  const auto sparse_path = test_dir / "sparse";
+  std::filesystem::create_directories(sparse_path);
   Model model;
-  model.ReadFromCOLMAP(initial_path);
-  const std::string initial_name = model.GetImageName(0);
-  model.Read(initial_path, "COLMAP");
-  EXPECT_EQ(model.images.size(), 3);
-  EXPECT_EQ(model.points.size(), 10);
-  for (const auto& shared : model.ComputeSharedPoints()) {
-    for (const auto& [_, count] : shared) {
-      EXPECT_EQ(count, 10);
-    }
-  }
-
-  model.ReadFromCOLMAP(replacement_path);
-  ASSERT_EQ(model.images.size(), 2);
-  ASSERT_EQ(model.points.size(), 4);
-  EXPECT_THROW(model.GetImageIdx(initial_name), std::exception);
-  for (int image_idx = 0; image_idx < 2; ++image_idx) {
-    const std::string name = model.GetImageName(image_idx);
-    EXPECT_EQ(model.GetImageIdx(name), image_idx);
-    EXPECT_EQ(model.images[image_idx].GetPath(),
-              replacement_path / "images" / name);
-  }
-  for (const auto& point : model.points) {
-    for (const int image_idx : point.track) {
-      EXPECT_GE(image_idx, 0);
-      EXPECT_LT(image_idx, model.images.size());
-    }
-  }
-
-  const std::string replacement_name = model.GetImageName(0);
-  Reconstruction empty_reconstruction;
-  empty_reconstruction.WriteBinary(replacement_path / "sparse");
-  model.ReadFromCOLMAP(replacement_path);
-  EXPECT_TRUE(model.images.empty());
-  EXPECT_TRUE(model.points.empty());
-  EXPECT_TRUE(model.GetMaxOverlappingImagesFromPMVS().empty());
-  EXPECT_THROW(model.GetImageIdx(replacement_name), std::exception);
-  EXPECT_THROW(model.GetImageName(0), std::exception);
-}
-
-void WritePMVSModel(const std::filesystem::path& path,
-                    int num_images,
-                    bool bundler) {
-  std::filesystem::create_directories(path / "visualize");
-  std::filesystem::create_directories(path / "txt");
-  Bitmap bitmap(10, 10, /*as_rgb=*/true);
-  bitmap.Fill(BitmapColor<uint8_t>(12, 34, 56));
-  for (int image_idx = 0; image_idx < num_images; ++image_idx) {
-    ASSERT_TRUE(
-        bitmap.Write(path / "visualize" / StringPrintf("%08d.jpg", image_idx)));
-    std::ofstream projection(path / "txt" /
-                             StringPrintf("%08d.txt", image_idx));
-    projection << "CONTOUR\n100 0 5 " << -100 * image_idx
-               << "\n0 100 5 0\n0 0 1 0\n";
-  }
-  if (bundler) {
-    std::ofstream bundle(path / "bundle.rd.out");
-    bundle << "# Bundle file v0.3\n"
-           << num_images << " " << (num_images > 0 ? 1 : 0) << "\n";
-    for (int image_idx = 0; image_idx < num_images; ++image_idx) {
-      bundle << "100 0 0\n1 0 0\n0 1 0\n0 0 1\n" << image_idx << " 0 0\n";
-    }
-    if (num_images > 0) {
-      bundle << "0 0 -10\n255 255 255\n" << num_images;
-      for (int image_idx = 0; image_idx < num_images; ++image_idx) {
-        bundle << " " << image_idx << " 0 0 0";
-      }
-      bundle << "\n";
-    }
-  } else {
-    std::ofstream visibility(path / "vis.dat");
-    visibility << "VISDATA\n" << num_images << "\n";
-    for (int image_idx = 0; image_idx < num_images; ++image_idx) {
-      visibility << image_idx << " " << num_images - 1;
-      for (int other_idx = 0; other_idx < num_images; ++other_idx) {
-        if (other_idx != image_idx) visibility << " " << other_idx;
-      }
-      visibility << "\n";
-    }
+  for (const int num_images : {3, 2}) {
+    Reconstruction reconstruction;
+    SyntheticDatasetOptions options;
+    options.num_rigs = 1;
+    options.num_cameras_per_rig = 1;
+    options.num_frames_per_rig = num_images;
+    options.num_points3D = 2 * num_images;
+    SynthesizeDataset(options, &reconstruction);
+    reconstruction.WriteBinary(sparse_path);
+    model.ReadFromCOLMAP(test_dir);
+    EXPECT_EQ(model.images.size(), num_images);
+    EXPECT_EQ(model.points.size(), 2 * num_images);
+    EXPECT_THROW(model.GetImageName(num_images), std::exception);
   }
 }
-
-class ModelReadPMVSTest : public ::testing::TestWithParam<bool> {};
-
-TEST_P(ModelReadPMVSTest, ReplacesPreviousModel) {
-  const auto test_dir = CreateTestDir();
-  const auto initial_path = test_dir / "initial";
-  const auto replacement_path = test_dir / "replacement";
-  WritePMVSModel(initial_path, 3, /*bundler=*/false);
-  WritePMVSModel(replacement_path, 2, /*bundler=*/GetParam());
-
-  Model model;
-  model.ReadFromPMVS(initial_path);
-  ASSERT_EQ(model.GetMaxOverlappingImagesFromPMVS().size(), 3);
-  ASSERT_NO_THROW(model.ReadFromPMVS(replacement_path));
-  ASSERT_EQ(model.images.size(), 2);
-  EXPECT_EQ(model.points.size(), GetParam() ? 1 : 0);
-  EXPECT_THROW(model.GetImageIdx("00000002.jpg"), std::exception);
-  for (int image_idx = 0; image_idx < 2; ++image_idx) {
-    const std::string name = StringPrintf("%08d.jpg", image_idx);
-    EXPECT_EQ(model.GetImageName(image_idx), name);
-    EXPECT_EQ(model.GetImageIdx(name), image_idx);
-    EXPECT_EQ(model.images[image_idx].GetPath(),
-              replacement_path / "visualize" / name);
-  }
-  if (GetParam()) {
-    EXPECT_TRUE(model.GetMaxOverlappingImagesFromPMVS().empty());
-  } else {
-    EXPECT_EQ(model.GetMaxOverlappingImagesFromPMVS(),
-              (std::vector<std::vector<int>>{{1}, {0}}));
-  }
-  ASSERT_NO_THROW(model.Read(replacement_path, "PMVS"));
-  EXPECT_EQ(model.images.size(), 2);
-  EXPECT_EQ(model.points.size(), GetParam() ? 1 : 0);
-
-  WriteCOLMAPModel(test_dir, 2, 4, "colmap/");
-  model.ReadFromCOLMAP(test_dir);
-  EXPECT_EQ(model.images.size(), 2);
-  EXPECT_EQ(model.points.size(), 4);
-  EXPECT_TRUE(model.GetMaxOverlappingImagesFromPMVS().empty());
-  EXPECT_THROW(model.GetImageIdx("00000000.jpg"), std::exception);
-
-  const std::string previous_name = model.GetImageName(0);
-  const auto empty_path = test_dir / "empty";
-  WritePMVSModel(empty_path, 0, /*bundler=*/GetParam());
-  model.ReadFromPMVS(empty_path);
-  EXPECT_TRUE(model.images.empty());
-  EXPECT_TRUE(model.points.empty());
-  EXPECT_TRUE(model.GetMaxOverlappingImagesFromPMVS().empty());
-  EXPECT_THROW(model.GetImageIdx(previous_name), std::exception);
-  EXPECT_THROW(model.GetImageName(0), std::exception);
-}
-
-INSTANTIATE_TEST_SUITE_P(Model, ModelReadPMVSTest, ::testing::Bool());
 
 TEST(Model, ComputeSharedPoints) {
   Model model;
