@@ -12,6 +12,7 @@
 #include "colmap/util/timer.h"
 
 #include <fstream>
+#include <utility>
 
 #include <Eigen/Geometry>
 
@@ -265,12 +266,17 @@ void StereoFusion::Run() {
     const auto& fused_pixel_mask = fused_pixel_masks_.at(image_idx);
 
     for (int row_start = 0; row_start < height; row_start += kRowStride) {
+      Mat<char> task_mask(width, height, 1);
+      for (size_t i = 0; i < fused_pixel_mask.size(); ++i) {
+        task_mask.GetPtr()[i] =
+            fused_pixel_mask[i].load(std::memory_order_relaxed);
+      }
       thread_pool.AddTask(ProcessImageRows,
                           row_start,
                           height,
                           width,
                           image_idx,
-                          fused_pixel_mask);
+                          std::move(task_mask));
     }
     thread_pool.Wait();
 
@@ -316,14 +322,14 @@ void StereoFusion::InitFusedPixelMask(int image_idx,
                                       size_t width,
                                       size_t height) {
   Bitmap mask;
-  Mat<char>& fused_pixel_mask = fused_pixel_masks_.at(image_idx);
+  auto& fused_pixel_mask = fused_pixel_masks_.at(image_idx);
   const std::string mask_image_name =
       workspace_->GetModel().GetImageName(image_idx);
   auto mask_path = options_.mask_path / (mask_image_name + ".png");
   if (!ExistsFile(mask_path) && HasFileExtension(mask_image_name, ".png")) {
     mask_path = options_.mask_path / mask_image_name;
   }
-  fused_pixel_mask = Mat<char>(width, height, 1);
+  fused_pixel_mask = std::vector<std::atomic<char>>(width * height);
   if (!options_.mask_path.empty() && ExistsFile(mask_path) &&
       mask.Read(mask_path, false)) {
     mask.Rescale(static_cast<int>(width),
@@ -332,11 +338,14 @@ void StereoFusion::InitFusedPixelMask(int image_idx,
     for (size_t row = 0; row < height; ++row) {
       for (size_t col = 0; col < width; ++col) {
         const auto color = mask.GetPixel(col, row);
-        fused_pixel_mask.Set(row, col, (!color || color->r == 0) ? 1 : 0);
+        fused_pixel_mask[row * width + col].store(
+            (!color || color->r == 0) ? 1 : 0, std::memory_order_relaxed);
       }
     }
   } else {
-    fused_pixel_mask.Fill(0);
+    for (auto& pixel : fused_pixel_mask) {
+      pixel.store(0, std::memory_order_relaxed);
+    }
   }
 }
 
@@ -373,8 +382,10 @@ void StereoFusion::Fuse(const int thread_id,
     fusion_queue.pop_back();
 
     // Check if pixel already fused.
-    auto& fused_pixel_mask = fused_pixel_masks_.at(image_idx);
-    if (fused_pixel_mask.Get(row, col) > 0) {
+    const size_t width = depth_map_sizes_.at(image_idx).first;
+    auto& fused_pixel = fused_pixel_masks_.at(image_idx).at(row * width + col);
+    // The flag carries only its own value.
+    if (fused_pixel.load(std::memory_order_relaxed) > 0) {
       continue;
     }
 
@@ -437,7 +448,7 @@ void StereoFusion::Fuse(const int thread_id,
             .value_or(BitmapColor<uint8_t>(0));
 
     // Set the current pixel as visited.
-    fused_pixel_mask.Set(row, col, 1);
+    fused_pixel.store(1, std::memory_order_relaxed);
 
     // Pixels out of bounds are filtered
     if (xyz(0) < options_.bounding_box.first(0) ||

@@ -123,6 +123,92 @@ TEST(StereoFusion, Integration) {
   EXPECT_TRUE(cancelled_fusion.GetFusedPoints().empty());
 }
 
+TEST(StereoFusion, OverlappingRowTasksTouchSameProjectedMaskPixel) {
+  constexpr int kWidth = 80;
+  constexpr int kHeight = 100;
+  const auto temp_dir = CreateTestDir();
+  for (const char* name :
+       {"sparse", "images", "stereo/depth_maps", "stereo/normal_maps"}) {
+    CreateDirIfNotExists(temp_dir / name, true);
+  }
+
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synth;
+  synth.num_rigs = 2;
+  synth.num_cameras_per_rig = 1;
+  synth.num_frames_per_rig = 1;
+  synth.num_points3D = 20;
+  synth.camera_width = kWidth;
+  synth.camera_height = kHeight;
+  synth.camera_model_id = CameraModelId::kPinhole;
+  synth.camera_params = {50.0, 50.0, 40.5, 50.5};
+  SynthesizeDataset(synth, &reconstruction);
+  ASSERT_EQ(reconstruction.NumRegImages(), 2);
+  // Read back registration order as used by the MVS model.
+  reconstruction.Write(temp_dir / "sparse");
+  Reconstruction ordered;
+  ordered.Read(temp_dir / "sparse");
+  const auto ids = ordered.RegImageIds();
+  ASSERT_EQ(ids.size(), 2);
+  ASSERT_NE(ordered.Image(ids[0]).CameraId(), ordered.Image(ids[1]).CameraId());
+  for (int i = 0; i < 2; ++i) {
+    const auto& image = ordered.Image(ids[i]);
+    ordered.Frame(image.FrameId()).SetRigFromWorld(Rigid3d());
+    auto& camera = ordered.Camera(image.CameraId());
+    camera.model_id = CameraModelId::kPinhole;
+    const double focal = i == 0 ? 500.0 : 1.0;
+    camera.params = {focal, focal, 40.5, 50.5};
+  }
+  bool has_shared_track = false;
+  for (const auto& [id, point] : ordered.Points3D()) {
+    has_shared_track |= point.track.Length() == 2;
+  }
+  ASSERT_TRUE(has_shared_track);
+
+  // Under identity poses the second camera projects all roots into
+  // its center pixel. Roots in disjoint row strips therefore compete
+  // for one target flag even with no traversal back to the root.
+  ordered.Write(temp_dir / "sparse");
+  Reconstruction verified;
+  verified.Read(temp_dir / "sparse");
+  ASSERT_EQ(verified.RegImageIds(), ids);
+  Model mvs_model;
+  mvs_model.ReadFromCOLMAP(temp_dir);
+  const auto neighbors = mvs_model.GetMaxOverlappingImages(2, 0.0);
+  ASSERT_EQ(neighbors.size(), 2);
+  ASSERT_EQ(neighbors[0], std::vector<int>{1});
+  ASSERT_EQ(neighbors[1], std::vector<int>{0});
+  std::ofstream fusion_cfg(temp_dir / "stereo/fusion.cfg");
+  for (const auto id : ids) {
+    const std::string name = ordered.Image(id).Name();
+    Mat<float> depth(kWidth, kHeight, 1);
+    depth.Fill(1.0f);
+    depth.Write(temp_dir / "stereo/depth_maps" / (name + ".geometric.bin"));
+    Mat<float> normal(kWidth, kHeight, 3);
+    for (int y = 0; y < kHeight; ++y) {
+      for (int x = 0; x < kWidth; ++x) {
+        normal.Set(y, x, 2, 1.0f);
+      }
+    }
+    normal.Write(temp_dir / "stereo/normal_maps" / (name + ".geometric.bin"));
+    Bitmap bitmap(kWidth, kHeight, true);
+    bitmap.Fill(BitmapColor<uint8_t>(31, 85, 127));
+    ASSERT_TRUE(bitmap.Write(temp_dir / "images" / name));
+    fusion_cfg << name << "\n";
+  }
+  fusion_cfg.close();
+  StereoFusionOptions options;
+  options.num_threads = 2;
+  options.min_num_pixels = 1;
+  options.max_traversal_depth = 2;
+  options.use_cache = false;
+  StereoFusion fusion(options, temp_dir, "COLMAP", "", "geometric");
+  fusion.Run();
+  EXPECT_FALSE(fusion.GetFusedPoints().empty());
+  EXPECT_EQ(fusion.GetFusedPoints().size(),
+            fusion.GetFusedPointsVisibility().size());
+}
+
 TEST(ReadPointsVisibility, RoundTrip) {
   const auto test_dir = CreateTestDir();
   const auto vis_path = test_dir / "test.vis";
