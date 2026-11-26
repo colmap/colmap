@@ -227,8 +227,8 @@ class DelaunayMeshingInput {
 
       const K::Point_3 point_position = EigenToCGAL(point.position);
 
-      // Insert point into triangulation until there is one cell.
-      if (triangulation.number_of_vertices() < 4) {
+      // Insert points until the triangulation contains a 3D cell.
+      if (triangulation.dimension() < 3) {
         triangulation.insert(point_position);
         continue;
       }
