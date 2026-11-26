@@ -271,14 +271,19 @@ std::vector<std::pair<double, double>> SquaredFocalLengthsFromFundamental(
 // the prior and closest to the essential manifold. A camera with at least
 // three votes of small spread is initialized to their median. Otherwise, it
 // falls back to its prior focal length scaled by the median ratio of
-// estimated to prior focal lengths over all votes. Cameras with prior focal
-// length keep it.
+// estimated to prior focal lengths over all votes, or to its unscaled prior if
+// these votes have a large spread. Cameras with prior focal length keep it.
 FlatHashMap<camera_t, double> InitializeFocalLengths(
     const ViewGraphCalibrationOptions& options,
     const std::vector<FocalLengthCalibInput>& inputs,
     const NodeHashMap<camera_t, Camera>& cameras) {
   constexpr size_t kMinNumVotes = 3;
   constexpr double kMaxVoteSpread = 1.2;
+  const auto has_consistent_votes = [](std::vector<double> ratios) {
+    return ratios.size() >= kMinNumVotes &&
+           Percentile(ratios, 75) <
+               kMaxVoteSpread * std::max(Percentile(ratios, 25), 1e-12);
+  };
 
   // Collect votes as ratios of estimated to prior focal length.
   FlatHashMap<camera_t, std::vector<double>> votes;
@@ -340,8 +345,12 @@ FlatHashMap<camera_t, double> InitializeFocalLengths(
           scene_ratios.end(), camera_votes.begin(), camera_votes.end());
     }
   }
-  const double scene_ratio =
-      scene_ratios.empty() ? 1.0 : Median(std::move(scene_ratios));
+  // Only trust the scene-wide ratio if the votes agree. Otherwise, e.g., when
+  // all optical axes intersect and focal lengths are unobservable, keep the
+  // priors.
+  const double scene_ratio = has_consistent_votes(scene_ratios)
+                                 ? Median(std::move(scene_ratios))
+                                 : 1.0;
 
   FlatHashMap<camera_t, double> focal_lengths;
   size_t num_consensus_cameras = 0;
@@ -358,10 +367,7 @@ FlatHashMap<camera_t, double> InitializeFocalLengths(
       }
       double ratio = scene_ratio;
       const auto votes_it = votes.find(camera_id);
-      if (votes_it != votes.end() && votes_it->second.size() >= kMinNumVotes &&
-          Percentile(votes_it->second, 75) <
-              kMaxVoteSpread *
-                  std::max(Percentile(votes_it->second, 25), 1e-12)) {
+      if (votes_it != votes.end() && has_consistent_votes(votes_it->second)) {
         ratio = Median(votes_it->second);
         ++num_consensus_cameras;
       } else {
