@@ -78,5 +78,21 @@ TEST(ComputeEqualPartsBboxes, WithOffset) {
   EXPECT_THAT(covered.max(), EigenMatrixNear(bbox.max(), 1e-10));
 }
 
+TEST(ComputeEqualPartsBboxes, FractionalBoundaries) {
+  const Eigen::AlignedBox3d bbox(Eigen::Vector3d::Constant(0.3),
+                                 Eigen::Vector3d::Constant(1.3));
+  for (int axis = 0; axis < 3; ++axis) {
+    Eigen::Vector3i split = Eigen::Vector3i::Ones();
+    split(axis) = 7;
+    const auto bboxes = ComputeEqualPartsBboxes(bbox, split);
+    ASSERT_EQ(bboxes.size(), 7);
+    EXPECT_TRUE(bboxes.front().contains(bbox.min()));
+    EXPECT_TRUE(bboxes.back().contains(bbox.max()));
+    for (size_t i = 1; i < bboxes.size(); ++i) {
+      EXPECT_EQ(bboxes[i - 1].max()(axis), bboxes[i].min()(axis));
+    }
+  }
+}
+
 }  // namespace
 }  // namespace colmap
