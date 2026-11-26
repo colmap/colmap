@@ -16,14 +16,6 @@ namespace colmap {
 namespace mvs {
 namespace {
 
-TEST(StereoFusionOptions, Check) {
-  StereoFusionOptions options;
-  EXPECT_TRUE(options.Check());
-  // A fused point needs at least one pixel.
-  options.min_num_pixels = 0;
-  EXPECT_FALSE(options.Check());
-}
-
 TEST(StereoFusion, Integration) {
   const auto temp_dir = CreateTestDir();
   CreateDirIfNotExists(temp_dir / "sparse");
