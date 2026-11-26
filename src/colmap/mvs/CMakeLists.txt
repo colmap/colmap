@@ -327,3 +327,61 @@ if(HIP_ENABLED)
         PROPERTIES LANGUAGE HIP
     )
 endif()
+
+# The ordinary production controls compile and register on both GPU backends.
+if(CUDA_ENABLED OR HIP_ENABLED)
+    COLMAP_ADD_TEST(
+        NAME patch_match_probability_test
+        SRCS patch_match_probability_test.cc
+        LINK_LIBS colmap_mvs_cuda
+    )
+
+    # Keep all wrap flags and definitions local to this test executable.
+    # COLMAP_ADD_TEST creates no target when TESTS_ENABLED is OFF.
+    if(TESTS_ENABLED)
+        get_target_property(_COLMAP_MVS_OWNER_TYPE colmap_mvs_cuda TYPE)
+        if(CUDA_ENABLED AND NOT HIP_ENABLED AND UNIX AND NOT APPLE AND NOT WIN32
+           AND _COLMAP_MVS_OWNER_TYPE STREQUAL "STATIC_LIBRARY"
+           AND CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang)$")
+            # Compile AND link the real CUDA symbol/forwarding contract; do not
+            # run it or rely solely on acceptance of a linker option. Function
+            # scope prevents changes to any other capability check or target.
+            function(colmap_mvs_check_cuda_wrap)
+                include(CheckCXXSourceCompiles)
+                set(CMAKE_TRY_COMPILE_TARGET_TYPE EXECUTABLE)
+                set(CMAKE_REQUIRED_LIBRARIES CUDA::cudart)
+                set(CMAKE_REQUIRED_LINK_OPTIONS
+                    "LINKER:--wrap=cudaMallocPitch"
+                    "LINKER:--wrap=cudaFree")
+                check_cxx_source_compiles([=[
+                    #include <cuda_runtime_api.h>
+                    extern "C" cudaError_t __real_cudaMallocPitch(
+                        void**, size_t*, size_t, size_t);
+                    extern "C" cudaError_t __real_cudaFree(void*);
+                    extern "C" cudaError_t __wrap_cudaMallocPitch(
+                        void** p, size_t* s, size_t w, size_t h) {
+                        return __real_cudaMallocPitch(p, s, w, h);
+                    }
+                    extern "C" cudaError_t __wrap_cudaFree(void* p) {
+                        return __real_cudaFree(p);
+                    }
+                    int main() {
+                        void* p = nullptr;
+                        size_t s = 0;
+                        cudaError_t status = cudaMallocPitch(&p, &s, 1, 1);
+                        return static_cast<int>(status == cudaSuccess
+                            ? cudaFree(p) : status);
+                    }
+                ]=] _COLMAP_MVS_HAS_CUDA_WRAP)
+                if(_COLMAP_MVS_HAS_CUDA_WRAP)
+                    target_compile_definitions(colmap_mvs_patch_match_probability_test
+                        PRIVATE COLMAP_MVS_CUDA_ALLOCATION_WRAP=1)
+                    target_link_options(colmap_mvs_patch_match_probability_test PRIVATE
+                        "LINKER:--wrap=cudaMallocPitch"
+                        "LINKER:--wrap=cudaFree")
+                endif()
+            endfunction()
+            colmap_mvs_check_cuda_wrap()
+        endif()
+    endif()
+endif()
