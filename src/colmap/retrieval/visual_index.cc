@@ -28,6 +28,35 @@ namespace colmap {
 namespace retrieval {
 namespace {
 
+template <typename Func>
+void RunFaissWithNumThreads([[maybe_unused]] const int num_threads,
+                            const Func& func) {
+  std::exception_ptr error;
+#ifdef _OPENMP
+#pragma omp parallel num_threads(1)
+#endif
+  {
+#ifdef _OPENMP
+    omp_set_num_threads(GetEffectiveNumThreads(num_threads));
+#ifdef _MSC_VER
+    omp_set_nested(1);
+#else
+    omp_set_max_active_levels(1);
+#endif
+#endif
+    // Exceptions cannot cross an OpenMP region. Rethrow after restoring the
+    // caller's OpenMP settings on leaving the region.
+    try {
+      func();
+    } catch (...) {
+      error = std::current_exception();
+    }
+  }
+  if (error) {
+    std::rethrow_exception(error);
+  }
+}
+
 std::unique_ptr<faiss::IndexIVF> BuildFaissIndex(
     const VisualIndex::BuildOptions& options,
     const Eigen::RowMajorMatrixXf& visual_words) {
@@ -45,20 +74,10 @@ std::unique_ptr<faiss::IndexIVF> BuildFaissIndex(
       faiss::index_factory(visual_words.cols(), index_type.str().c_str())));
   faiss::index_factory_verbose = index_factory_verbose;
 
-#pragma omp parallel num_threads(1)
-  {
-#ifdef _OPENMP
-    omp_set_num_threads(GetEffectiveNumThreads(options.num_threads));
-#ifdef _MSC_VER
-    omp_set_nested(1);
-#else
-    omp_set_max_active_levels(1);
-#endif
-#endif
-
+  RunFaissWithNumThreads(options.num_threads, [&] {
     index->train(visual_words.rows(), visual_words.data());
     index->add(visual_words.rows(), visual_words.data());
-  }
+  });
 
   return index;
 }
@@ -526,28 +545,9 @@ class FaissVisualIndex : public VisualIndex {
     clustering.verbose = VLOG_IS_ON(3);
 
     faiss::IndexFlatL2 index(kDescDim);
-    std::exception_ptr error;
-#pragma omp parallel num_threads(1)
-    {
-#ifdef _OPENMP
-      omp_set_num_threads(GetEffectiveNumThreads(options.num_threads));
-#ifdef _MSC_VER
-      omp_set_nested(1);
-#else
-      omp_set_max_active_levels(1);
-#endif
-#endif
-      // Exceptions cannot cross an OpenMP region. Propagate training failures
-      // after leaving the region, which also restores the caller's settings.
-      try {
-        clustering.train(descriptors.rows(), descriptors.data(), index);
-      } catch (...) {
-        error = std::current_exception();
-      }
-    }
-    if (error) {
-      std::rethrow_exception(error);
-    }
+    RunFaissWithNumThreads(options.num_threads, [&] {
+      clustering.train(descriptors.rows(), descriptors.data(), index);
+    });
 
     VLOG(2) << "Quantized into " << options.num_visual_words
             << " visual words with error "
@@ -625,24 +625,14 @@ class FaissVisualIndex : public VisualIndex {
     faiss::IVFSearchParameters search_params;
     search_params.nprobe = num_checks;
 
-#pragma omp parallel num_threads(1)
-    {
-#ifdef _OPENMP
-      omp_set_num_threads(GetEffectiveNumThreads(num_threads));
-#ifdef _MSC_VER
-      omp_set_nested(1);
-#else
-      omp_set_max_active_levels(1);
-#endif
-#endif
-
+    RunFaissWithNumThreads(num_threads, [&] {
       index_->search(descriptors.rows(),
                      descriptors.data(),
                      num_neighbors,
                      distances.data(),
                      word_ids.data(),
                      &search_params);
-    }
+    });
 
     return word_ids;
   }

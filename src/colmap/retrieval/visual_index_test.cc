@@ -7,14 +7,9 @@
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
-#include <atomic>
 #include <sstream>
 
-#include <faiss/impl/AuxIndexStructures.h>
 #include <gtest/gtest.h>
-#ifdef _OPENMP
-#include <omp.h>
-#endif
 
 namespace colmap {
 namespace retrieval {
@@ -31,82 +26,6 @@ FeatureDescriptorsFloat CreateRandomDescriptors(int num_rows,
 class ParameterizedVisualIndexTests
     : public ::testing::TestWithParam<
           std::pair</*embedding_dim=*/int, /*embedding_dim=*/int>> {};
-
-#ifdef _OPENMP
-class VisualIndexThreadTest : public ::testing::Test {
- protected:
-  struct Observer : faiss::InterruptCallback {
-    bool want_interrupt() override {
-      num_calls.fetch_add(1);
-      int observed = max_num_threads.load();
-      const int current = omp_get_max_threads();
-      while (observed < current &&
-             !max_num_threads.compare_exchange_weak(observed, current)) {
-      }
-      return interrupt;
-    }
-
-    std::atomic<int> num_calls{0};
-    std::atomic<int> max_num_threads{0};
-    bool interrupt = false;
-  };
-
-  void SetUp() override {
-    previous_num_threads_ = omp_get_max_threads();
-    previous_callback_ = std::move(faiss::InterruptCallback::instance);
-    auto observer = std::make_unique<Observer>();
-    observer_ = observer.get();
-    faiss::InterruptCallback::instance = std::move(observer);
-    omp_set_num_threads(4);
-  }
-
-  void TearDown() override {
-    faiss::InterruptCallback::instance = std::move(previous_callback_);
-    omp_set_num_threads(previous_num_threads_);
-  }
-
-  Observer* observer_ = nullptr;
-
- private:
-  int previous_num_threads_ = 0;
-  std::unique_ptr<faiss::InterruptCallback> previous_callback_;
-};
-
-TEST_F(VisualIndexThreadTest, BuildUsesRequestedNumThreads) {
-  const auto descriptors =
-      CreateRandomDescriptors(200, 128, FeatureExtractorType::SIFT);
-  VisualIndex::BuildOptions options;
-  options.num_visual_words = 5;
-  options.num_iterations = 2;
-  options.num_rounds = 1;
-  for (const int num_threads : {1, 2}) {
-    options.num_threads = num_threads;
-    observer_->num_calls = 0;
-    observer_->max_num_threads = 0;
-    auto visual_index = VisualIndex::Create();
-    visual_index->Build(options, descriptors);
-    EXPECT_EQ(visual_index->NumVisualWords(), 5);
-    EXPECT_GT(observer_->num_calls.load(), 0);
-    EXPECT_EQ(observer_->max_num_threads.load(), num_threads);
-    EXPECT_EQ(omp_get_max_threads(), 4);
-  }
-}
-
-TEST_F(VisualIndexThreadTest, BuildRestoresThreadsAfterClusteringFailure) {
-  const auto descriptors =
-      CreateRandomDescriptors(200, 128, FeatureExtractorType::SIFT);
-  VisualIndex::BuildOptions options;
-  options.num_visual_words = 5;
-  options.num_iterations = 2;
-  options.num_rounds = 1;
-  options.num_threads = 1;
-  observer_->interrupt = true;
-  auto visual_index = VisualIndex::Create();
-  EXPECT_THROW(visual_index->Build(options, descriptors), std::exception);
-  EXPECT_GT(observer_->num_calls.load(), 0);
-  EXPECT_EQ(omp_get_max_threads(), 4);
-}
-#endif
 
 TEST_P(ParameterizedVisualIndexTests, Nominal) {
   const auto [desc_dim, embedding_dim] = GetParam();

@@ -44,6 +44,11 @@ BundleAdjustmentWidget::BundleAdjustmentWidget(MainWindow* main_window,
       "parameter_tolerance [10eX]",
       -1000,
       1000);
+  AddOptionDoubleLog(&options->bundle_adjustment->ceres->solver_options
+                          .max_trust_region_radius,
+                     "max_trust_region_radius [10eX]",
+                     -1000,
+                     1000);
 
   AddOptionBool(&options->bundle_adjustment->refine_focal_length,
                 "refine_focal_length");
