@@ -18,9 +18,12 @@
 #include "colmap/util/cuda.h"
 #endif
 
+#include <cmath>
 #include <functional>
+#include <memory>
 #include <set>
 #include <utility>
+#include <vector>
 
 namespace colmap {
 namespace {
@@ -262,6 +265,74 @@ struct FeatureDescriptorIndexCacheHelper {
   std::map<image_t, std::shared_ptr<const FeatureDescriptors>>
       image_descriptors_;
 };
+
+// Each feature supplies its x coordinate and first descriptor component.
+FeatureMatcher::Image CreateGuidedMatchingTestImage(
+    const image_t image_id,
+    const Camera* camera,
+    const std::vector<std::pair<float, uint8_t>>& features) {
+  auto keypoints = std::make_shared<FeatureKeypoints>();
+  auto descriptors = std::make_shared<FeatureDescriptors>(
+      FeatureExtractorType::SIFT,
+      FeatureDescriptorsData::Zero(features.size(), 128));
+  for (size_t i = 0; i < features.size(); ++i) {
+    keypoints->emplace_back(features[i].first, 0);
+    descriptors->data(i, 0) = features[i].second;
+  }
+  return {image_id, camera, keypoints, descriptors};
+}
+
+TEST(SiftCPUFeatureMatcher, GuidedRejectedNeighborRatio) {
+  const Camera camera = Camera::CreateFromModelId(
+      1, CameraModelId::kSimplePinhole, 100.0, 256, 256);
+  const auto image1 = CreateGuidedMatchingTestImage(1, &camera, {{0, 0}});
+  const auto image2 =
+      CreateGuidedMatchingTestImage(2, &camera, {{0, 200}, {10, 0}});
+  for (const bool cross_check : {false, true}) {
+    SCOPED_TRACE(cross_check);
+    FeatureMatchingOptions options;
+    options.use_gpu = false;
+    options.sift->cross_check = cross_check;
+    options.sift->max_ratio = 0.3;
+    auto matcher = CreateSiftFeatureMatcher(options);
+    auto geometry = CreatePlanarTwoViewGeometry();
+
+    // The rejected neighbor has distance 512, so 200 >= 0.3 * 512.
+    matcher->MatchGuided(1, image1, image2, &geometry);
+    EXPECT_TRUE(geometry.inlier_matches.empty());
+
+    // The same ratio rejection must also participate in the reverse check.
+    matcher->MatchGuided(1, image2, image1, &geometry);
+    CheckEqualMatches(geometry.inlier_matches,
+                      cross_check ? FeatureMatches{} : FeatureMatches{{0, 0}});
+  }
+}
+
+TEST(SiftCPUFeatureMatcher, GuidedForwardGeometryCrossCheck) {
+  const Camera camera = Camera::CreateFromModelId(
+      1, CameraModelId::kSimplePinhole, 100.0, 256, 256);
+  const auto image1 =
+      CreateGuidedMatchingTestImage(1, &camera, {{0, 0}, {10, 0}});
+  const auto image2 =
+      CreateGuidedMatchingTestImage(2, &camera, {{3.75f, 0}, {8.75f, 0}});
+  for (const bool cross_check : {false, true}) {
+    SCOPED_TRACE(cross_check);
+    FeatureMatchingOptions options;
+    options.use_gpu = false;
+    options.sift->cross_check = cross_check;
+    auto matcher = CreateSiftFeatureMatcher(options);
+    auto geometry = CreatePlanarTwoViewGeometry();
+    (*geometry.H)(0, 0) = 0.5;
+    (*geometry.H)(0, 2) = 3;
+    // The forward error is 0.75 pixels; inverse projection gives 1.5 pixels.
+    // Cross-checking must reuse the forward filter, including its boundary.
+    matcher->MatchGuided(0.75, image1, image2, &geometry);
+    CheckEqualMatches(geometry.inlier_matches, FeatureMatches{{0, 0}, {1, 1}});
+    matcher->MatchGuided(
+        std::nextafter(0.75f, 0.0f), image1, image2, &geometry);
+    EXPECT_TRUE(geometry.inlier_matches.empty());
+  }
+}
 
 TEST(SiftCPUFeatureMatcher, Nominal) {
   const Camera camera = Camera::CreateFromModelId(
