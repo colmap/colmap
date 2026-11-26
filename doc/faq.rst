@@ -473,6 +473,28 @@ In both cases no features will be extracted in regions,
 where the mask image is black (pixel intensity value 0 in grayscale).
 
 
+Undistorting image masks
+------------------------
+
+To undistort masks together with images, pass ``--mask_path`` to
+``image_undistorter`` with ``--output_type COLMAP`` (or the ``mask_path`` keyword
+argument to ``pycolmap.undistort_images``). Each selected image must have a
+readable mask with the same dimensions as its original camera. For example,
+``images/abc/012.jpg`` uses ``masks/abc/012.jpg.png``; ``masks/abc/012.png`` is
+also accepted if the first name does not exist. Missing, unreadable, or
+incorrectly sized masks produce an error.
+
+Masks are read as grayscale and written to
+``<output_path>/masks/abc/012.jpg.png``. They use the same output camera, crop,
+and resolution as the corresponding images. Nearest-neighbor sampling
+preserves mask values, including when downscaling; pixels outside the source
+image are set to zero. Already-undistorted and spherical images also retain
+matching masks. Other output formats do not support ``mask_path``.
+
+The output masks can be passed to dense fusion with
+``--StereoFusion.mask_path <output_path>/masks``.
+
+
 Image orientation and EXIF
 --------------------------
 
