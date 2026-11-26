@@ -83,6 +83,23 @@ bool DelaunayMeshingOptions::Check() const {
 
 #if defined(COLMAP_CGAL_ENABLED)
 
+namespace internal {
+
+double ComputeDelaunayVisibilityProbability(
+    const uint32_t num_visible_images,
+    const double visibility_threshold,
+    const double visibility_normalization) {
+  const double visibility_squared =
+      static_cast<double>(num_visible_images) * num_visible_images;
+  if (visibility_squared < visibility_threshold) {
+    return std::max(
+        0.0, 1.0 - std::exp(visibility_squared * visibility_normalization));
+  }
+  return 1.0;
+}
+
+}  // namespace internal
+
 K::Point_3 EigenToCGAL(const Eigen::Vector3f& point) {
   return K::Point_3(point.x(), point.y(), point.z());
 }
@@ -332,13 +349,9 @@ struct DelaunayMeshingEdgeWeightComputer {
 
   double DistanceSigma() const { return distance_sigma_; }
 
-  double ComputeVisibilityProb(const double visibility_squared) const {
-    if (visibility_squared < visibility_threshold_) {
-      return std::max(
-          0.0, 1.0 - std::exp(visibility_squared * visibility_normalization_));
-    } else {
-      return 1.0;
-    }
+  double ComputeVisibilityProb(const uint32_t num_visible_images) const {
+    return internal::ComputeDelaunayVisibilityProbability(
+        num_visible_images, visibility_threshold_, visibility_normalization_);
   }
 
   double ComputeDistanceProb(const double distance_squared) const {
@@ -650,8 +663,8 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
       const auto& point = input_data.points[point_idx];
 
       // Likelihood of the point observation.
-      const double alpha = edge_weight_computer.ComputeVisibilityProb(
-          point.num_visible_images * point.num_visible_images);
+      const double alpha =
+          edge_weight_computer.ComputeVisibilityProb(point.num_visible_images);
 
       const K::Point_3 point_position = EigenToCGAL(point.position);
       const K::Vector_3 viewing_direction = point_position - image_position;

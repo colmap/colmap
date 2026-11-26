@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 
 namespace colmap {
@@ -43,6 +44,15 @@ struct DelaunayMeshingOptions {
 };
 
 #if defined(COLMAP_CGAL_ENABLED)
+
+namespace internal {
+
+// Converts the visibility count before squaring it for the weighting model.
+double ComputeDelaunayVisibilityProbability(uint32_t num_visible_images,
+                                            double visibility_threshold,
+                                            double visibility_normalization);
+
+}  // namespace internal
 
 // Delaunay meshing of sparse and dense COLMAP reconstructions. This is an
 // implementation of the approach described in:

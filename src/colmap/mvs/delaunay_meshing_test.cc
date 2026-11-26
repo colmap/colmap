@@ -34,6 +34,22 @@ Reconstruction CreateAndWriteSyntheticReconstruction(
 
 #if defined(COLMAP_CGAL_ENABLED)
 
+TEST(DelaunayMeshing, VisibilityCountDoesNotWrap) {
+  constexpr double kVisibilitySigma = 3.0;
+  const auto probability = [=](const uint32_t count) {
+    return internal::ComputeDelaunayVisibilityProbability(
+        count,
+        5 * kVisibilitySigma,
+        -0.5 / (kVisibilitySigma * kVisibilitySigma));
+  };
+
+  EXPECT_DOUBLE_EQ(probability(0), 0.0);
+  EXPECT_GT(probability(1), 0.0);
+  EXPECT_LT(probability(1), 1.0);
+  EXPECT_DOUBLE_EQ(probability(65535), 1.0);
+  EXPECT_DOUBLE_EQ(probability(65536), 1.0);
+}
+
 TEST(SparseDelaunayMeshing, Integration) {
   const auto test_dir = CreateTestDir();
   const auto sparse_path = test_dir / "sparse";
