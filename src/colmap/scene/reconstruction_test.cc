@@ -746,6 +746,37 @@ TEST(Reconstruction, RegisterFrame) {
   EXPECT_FALSE(reconstruction.Frame(1).HasPose());
 }
 
+TEST(Reconstruction, NormalizeSingleFrameRig) {
+  for (const bool fixed_scale : {false, true}) {
+    Reconstruction reconstruction;
+    SyntheticDatasetOptions options;
+    options.num_rigs = 1;
+    options.num_cameras_per_rig = 2;
+    options.num_frames_per_rig = 1;
+    options.num_points3D = 1;
+    options.num_points2D_without_point3D = 0;
+    SynthesizeDataset(options, &reconstruction);
+    reconstruction.Frame(1).SetRigFromWorld(Rigid3d(
+        Eigen::Quaterniond::Identity(), Eigen::Vector3d(-10, -20, -30)));
+    reconstruction.Rig(1).SetSensorFromRig(
+        reconstruction.Camera(2).SensorId(),
+        Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(-2, 0, 0)));
+    ASSERT_EQ(reconstruction.NumRegFrames(), 1);
+    ASSERT_EQ(reconstruction.NumRegImages(), 2);
+
+    const Sim3d tform = reconstruction.Normalize(fixed_scale, 10, 0, 1);
+
+    const double scale = fixed_scale ? 1 : 5;
+    EXPECT_EQ(tform.scale(), scale);
+    EXPECT_TRUE(
+        tform.translation().isApprox(scale * Eigen::Vector3d(-11, -20, -30)));
+    EXPECT_TRUE(reconstruction.Image(1).ProjectionCenter().isApprox(
+        Eigen::Vector3d(-scale, 0, 0)));
+    EXPECT_TRUE(reconstruction.Image(2).ProjectionCenter().isApprox(
+        Eigen::Vector3d(scale, 0, 0)));
+  }
+}
+
 TEST(Reconstruction, Normalize) {
   Reconstruction reconstruction;
   GenerateReconstruction(7, &reconstruction);
