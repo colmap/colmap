@@ -448,7 +448,8 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
 
       if (!ExistsFile(image_path) ||
           (options.geom_consistency && !ExistsFile(depth_path)) ||
-          (options.geom_consistency && !ExistsFile(normal_path))) {
+          (options.geom_consistency && image_idx == problem.ref_image_idx &&
+           !ExistsFile(normal_path))) {
         if (options.allow_missing_files) {
           LOG(WARNING) << StringPrintf(
               "Skipping source image %d: %s for missing "
@@ -478,7 +479,10 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
         images.at(image_idx).SetBitmap(workspace_->GetBitmap(image_idx));
         if (options.geom_consistency) {
           depth_maps.at(image_idx) = workspace_->GetDepthMap(image_idx);
-          normal_maps.at(image_idx) = workspace_->GetNormalMap(image_idx);
+          // Only the reference normal map is used to initialize PatchMatch.
+          if (image_idx == problem.ref_image_idx) {
+            normal_maps.at(image_idx) = workspace_->GetNormalMap(image_idx);
+          }
         }
       }));
     }

@@ -16,16 +16,6 @@ def test_bundle_adjustment_termination_type_enum() -> None:
     }
 
 
-def test_bundle_adjustment_gauge_enum() -> None:
-    assert {
-        k: int(v) for k, v in pycolmap.BundleAdjustmentGauge.__members__.items()
-    } == {
-        "UNSPECIFIED": -1,
-        "TWO_CAMS_FROM_WORLD": 0,
-        "THREE_POINTS": 1,
-    }
-
-
 def test_bundle_adjustment_backend_enum() -> None:
     assert {
         k: int(v)
@@ -48,6 +38,7 @@ def test_loss_function_type_enum() -> None:
         "SOFT_L1": 1,
         "CAUCHY": 2,
         "HUBER": 3,
+        "GEMAN_MCCLURE": 4,
     }
 
 

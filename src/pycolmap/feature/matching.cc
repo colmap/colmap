@@ -183,11 +183,9 @@ void BindFeatureMatching(py::module& m) {
               &FlexGlueMatchingOptions::max_distance_px,
               "Maximum distance between a keypoint and the predicted "
               "correspondence of its mutual nearest neighbor, averaged "
-              "over both matching directions, in pixels at the "
-              "descriptor resolution (512x512): in the original images, "
-              "the threshold is scaled by the long image side / 512, "
-              "averaged over both images. Non-positive values disable "
-              "the check.")
+              "over both matching directions, in pixels of the resized "
+              "descriptor input (512x512 by default). Non-positive "
+              "values disable the check.")
           .def_readwrite("min_covisibility",
                          &FlexGlueMatchingOptions::min_covisibility,
                          "Reject all matches of a pair whose covisibility "
@@ -218,6 +216,14 @@ void BindFeatureMatching(py::module& m) {
                          "Whether to use the float16 matcher on CUDA GPUs "
                          "with compute capability 7.0 or newer (falls back to "
                          "float32 otherwise).")
+          .def_readwrite("num_workers_per_gpu",
+                         &FlexGlueMatchingOptions::num_workers_per_gpu,
+                         "Number of matching worker threads per CUDA GPU that "
+                         "share one FlexGlue matcher instance.")
+          .def_readwrite("num_inferences_per_gpu",
+                         &FlexGlueMatchingOptions::num_inferences_per_gpu,
+                         "Maximum number of concurrent ONNX model inferences "
+                         "per CUDA GPU across the shared worker threads.")
           .def("check", &FlexGlueMatchingOptions::Check);
   MakeDataclass(PyFlexGlueMatchingOptions);
 #endif

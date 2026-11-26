@@ -8,11 +8,15 @@
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/testing.h"
 
+#include <condition_variable>
 #include <cstdlib>
 #include <filesystem>
 #include <limits>
 #include <memory>
+#include <mutex>
 #include <string>
+#include <thread>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -183,6 +187,16 @@ TEST(FlexGlueMatchingOptions, Check) {
   // Without the float16 matcher, the float32 matcher is used.
   options.matcher_model_path_fp16.clear();
   EXPECT_TRUE(options.Check());
+  EXPECT_EQ(options.num_workers_per_gpu, 4);
+  options.num_workers_per_gpu = 0;
+  EXPECT_FALSE(options.Check());
+  options.num_workers_per_gpu = 4;
+  EXPECT_TRUE(options.Check());
+  EXPECT_EQ(options.num_inferences_per_gpu, 2);
+  options.num_inferences_per_gpu = 0;
+  EXPECT_FALSE(options.Check());
+  options.num_inferences_per_gpu = 1;
+  EXPECT_TRUE(options.Check());
 }
 
 TEST(FlexGlueMatchingOptions, FeatureMatchingOptions) {
@@ -220,6 +234,36 @@ TEST_F(FlexGlueTest, MatchTranslatedImages) {
   // Matching the same pair again reuses the cached dense features and must
   // give identical results.
   EXPECT_EQ(Match(matcher_.get(), keypoints1, keypoints2), matches);
+
+  // Mutual nearest-neighbor distances and max_distance_px operate in the
+  // resized descriptor input frame, so anisotropically rescaling an image's
+  // camera dimensions and keypoints must leave the matches unchanged.
+  FeatureKeypoints rescaled_keypoints2;
+  rescaled_keypoints2.reserve(keypoints2.size());
+  for (const FeatureKeypoint& kp : keypoints2) {
+    rescaled_keypoints2.emplace_back(4.f * kp.x, 2.f * kp.y);
+  }
+  const Camera camera1 = Camera::CreateFromModelId(
+      1, CameraModelId::kPinhole, 500, kWidth, kHeight);
+  const Camera camera2 = Camera::CreateFromModelId(
+      2, CameraModelId::kPinhole, 1500, 4 * kWidth, 2 * kHeight);
+  const FeatureMatcher::Image image1{
+      /*image_id=*/1,
+      &camera1,
+      std::make_shared<FeatureKeypoints>(keypoints1),
+      /*descriptors=*/nullptr,
+      /*pose_prior=*/nullptr,
+      /*name=*/"image1.png"};
+  const FeatureMatcher::Image image2{
+      /*image_id=*/2,
+      &camera2,
+      std::make_shared<FeatureKeypoints>(rescaled_keypoints2),
+      /*descriptors=*/nullptr,
+      /*pose_prior=*/nullptr,
+      /*name=*/"image2.png"};
+  FeatureMatches rescaled_matches;
+  matcher_->Match(image1, image2, &rescaled_matches);
+  EXPECT_EQ(rescaled_matches, matches);
 }
 
 TEST_F(FlexGlueTest, HeavyMinCovisibilityRejectsAllMatches) {
@@ -298,6 +342,102 @@ TEST_F(FlexGlueTest, MissingImageThrows) {
   } catch (const std::exception& e) {
     EXPECT_THAT(e.what(), testing::HasSubstr("Failed to read image"));
     EXPECT_THAT(e.what(), testing::HasSubstr("does_not_exist.png"));
+  }
+}
+
+TEST_F(FlexGlueTest, ConcurrentMatchThreadSafety) {
+  FeatureKeypoints keypoints1;
+  FeatureKeypoints keypoints2;
+  CreateKeypoints(&keypoints1, &keypoints2);
+  const Camera camera = Camera::CreateFromModelId(
+      1, CameraModelId::kPinhole, 500, kWidth, kHeight);
+  const auto kpts1_ptr = std::make_shared<FeatureKeypoints>(keypoints1);
+  const auto kpts2_ptr = std::make_shared<FeatureKeypoints>(keypoints2);
+
+  const FeatureMatches expected_matches =
+      Match(matcher_.get(), keypoints1, keypoints2);
+  ASSERT_FALSE(expected_matches.empty());
+  FeatureMatches expected_swapped_matches;
+  matcher_->Match(FeatureMatcher::Image{/*image_id=*/2,
+                                        &camera,
+                                        kpts2_ptr,
+                                        /*descriptors=*/nullptr,
+                                        /*pose_prior=*/nullptr,
+                                        /*name=*/"image2.png"},
+                  FeatureMatcher::Image{/*image_id=*/1,
+                                        &camera,
+                                        kpts1_ptr,
+                                        /*descriptors=*/nullptr,
+                                        /*pose_prior=*/nullptr,
+                                        /*name=*/"image1.png"},
+                  &expected_swapped_matches);
+  ASSERT_FALSE(expected_swapped_matches.empty());
+
+  // Fresh image names ensure all threads hit cold entries in
+  // ThreadSafeLRUCache simultaneously in the first round; after a barrier,
+  // the second round re-matches the warm entries (in both pair orders).
+  std::filesystem::copy_file(*test_dir_ / "image1.png",
+                             *test_dir_ / "concurrent_image1.png",
+                             std::filesystem::copy_options::overwrite_existing);
+  std::filesystem::copy_file(*test_dir_ / "image2.png",
+                             *test_dir_ / "concurrent_image2.png",
+                             std::filesystem::copy_options::overwrite_existing);
+
+  constexpr int kNumThreads = 3;
+  int barrier_arrived = 0;
+  int barrier_phase = 0;
+  std::mutex barrier_mutex;
+  std::condition_variable barrier_cv;
+  auto arrive_and_wait = [&]() {
+    std::unique_lock<std::mutex> lock(barrier_mutex);
+    const int phase = barrier_phase;
+    if (++barrier_arrived == kNumThreads) {
+      barrier_arrived = 0;
+      ++barrier_phase;
+      lock.unlock();
+      barrier_cv.notify_all();
+    } else {
+      barrier_cv.wait(lock, [&]() { return barrier_phase != phase; });
+    }
+  };
+
+  std::vector<FeatureMatches> cold_results(kNumThreads);
+  std::vector<FeatureMatches> warm_results(kNumThreads);
+  std::vector<std::thread> threads;
+  threads.reserve(kNumThreads);
+
+  for (int t = 0; t < kNumThreads; ++t) {
+    threads.emplace_back([&, t]() {
+      const FeatureMatcher::Image image1{/*image_id=*/1,
+                                         &camera,
+                                         kpts1_ptr,
+                                         /*descriptors=*/nullptr,
+                                         /*pose_prior=*/nullptr,
+                                         /*name=*/"concurrent_image1.png"};
+      const FeatureMatcher::Image image2{/*image_id=*/2,
+                                         &camera,
+                                         kpts2_ptr,
+                                         /*descriptors=*/nullptr,
+                                         /*pose_prior=*/nullptr,
+                                         /*name=*/"concurrent_image2.png"};
+      arrive_and_wait();
+      matcher_->Match(image1, image2, &cold_results[t]);
+      arrive_and_wait();
+      if (t % 2 == 0) {
+        matcher_->Match(image1, image2, &warm_results[t]);
+      } else {
+        matcher_->Match(image2, image1, &warm_results[t]);
+      }
+    });
+  }
+
+  for (std::thread& thread : threads) {
+    thread.join();
+  }
+  for (int t = 0; t < kNumThreads; ++t) {
+    EXPECT_EQ(cold_results[t], expected_matches);
+    EXPECT_EQ(warm_results[t],
+              t % 2 == 0 ? expected_matches : expected_swapped_matches);
   }
 }
 

@@ -23,6 +23,7 @@ set(ESTIMATORS_SRCS
     rotation_averaging_l1_irls.h rotation_averaging_l1_irls.cc
     triangulation.h triangulation.cc
     two_view_geometry.h two_view_geometry.cc
+    two_view_rotation_covariance.h two_view_rotation_covariance.cc
     view_graph_calibration.h view_graph_calibration.cc
 )
 
@@ -76,6 +77,11 @@ if(CASPAR_ENABLED)
     )
 endif()
 COLMAP_ADD_TEST(
+    NAME ceres_loss_function_test
+    SRCS ceres_loss_function_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
     NAME coordinate_frame_test
     SRCS coordinate_frame_test.cc
     LINK_LIBS colmap_estimators
@@ -103,6 +109,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME two_view_geometry_test
     SRCS two_view_geometry_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
+    NAME two_view_rotation_covariance_test
+    SRCS two_view_rotation_covariance_test.cc
     LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(

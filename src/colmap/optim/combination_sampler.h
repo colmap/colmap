@@ -6,7 +6,7 @@
 
 namespace colmap {
 
-// Random sampler for RANSAC-based methods that generates unique samples.
+// Exhaustive sampler that generates combinations in lexicographic order.
 //
 // Note that a separate sampler should be instantiated per thread and it assumes
 // that the input data is shuffled in advance.
@@ -22,7 +22,8 @@ class CombinationSampler : public Sampler {
 
  private:
   const size_t num_samples_;
-  std::vector<size_t> total_sample_idxs_;
+  size_t total_num_samples_ = 0;
+  std::vector<size_t> sample_idxs_;
 };
 
 template <>

@@ -22,6 +22,7 @@ def test_rotation_averaging_reweighting_enum() -> None:
     } == {
         "UNIFORM": 0,
         "INLIER_MATCH_COUNT": 1,
+        "COVARIANCE": 2,
     }
 
 
@@ -43,6 +44,8 @@ def test_rotation_estimator_options_default_init() -> None:
     assert isinstance(options.l1_irls, pycolmap.L1IrlsRotationAveragerOptions)
     assert isinstance(options.ceres, pycolmap.CeresRotationAveragerOptions)
     assert options.ceres.loss_function_type == pycolmap.LossFunctionType.CAUCHY
+    assert options.ceres.covariance_loss_scale == 3.0
+    assert options.ceres.covariance_sigma_floor_deg == 0.02
 
 
 def test_rotation_estimator_options_reweighting_readwrite() -> None:
@@ -56,6 +59,10 @@ def test_rotation_estimator_options_reweighting_readwrite() -> None:
     )
     options.reweighting = "UNIFORM"  # type: ignore[assignment]
     assert options.reweighting == pycolmap.RotationAveragingReweighting.UNIFORM
+    options.reweighting = "COVARIANCE"  # type: ignore[assignment]
+    assert (
+        options.reweighting == pycolmap.RotationAveragingReweighting.COVARIANCE
+    )
     options.backend = "CERES"  # type: ignore[assignment]
     assert options.backend == pycolmap.RotationAveragingBackend.CERES
     options.ceres.loss_function_type = "HUBER"  # type: ignore[assignment]
@@ -79,8 +86,12 @@ def test_rotation_estimator_options_ceres_readwrite() -> None:
     assert options.ceres.max_num_warm_start_iterations == 5
     options.ceres.loss_function_scale = 0.1
     options.ceres.max_num_warm_start_iterations = 0
+    options.ceres.covariance_loss_scale = 2.5
+    options.ceres.covariance_sigma_floor_deg = 0.1
     assert options.ceres.loss_function_scale == 0.1
     assert options.ceres.max_num_warm_start_iterations == 0
+    assert options.ceres.covariance_loss_scale == 2.5
+    assert options.ceres.covariance_sigma_floor_deg == 0.1
 
 
 def test_gravity_refiner_options_default_init() -> None:
@@ -216,9 +227,53 @@ def test_global_positioner_frame_center_parameter_block() -> None:
     assert center.base.problem.has_parameter_block(center)
 
 
+def test_maybe_estimate_pose_graph_rotation_covariances() -> None:
+    dataset_options = pycolmap.SyntheticDatasetOptions()
+    dataset_options.num_rigs = 1
+    dataset_options.num_cameras_per_rig = 1
+    dataset_options.num_frames_per_rig = 3
+    dataset_options.num_points3D = 50
+    dataset_options.two_view_geometry_has_relative_pose = True
+    dataset_options.match_config = pycolmap.SyntheticDatasetMatchConfig.CHAINED
+    with pycolmap.Database.open(":memory:") as database:
+        pycolmap.synthesize_dataset(dataset_options, database)
+        database_cache = pycolmap.DatabaseCache.create(
+            database, pycolmap.DatabaseCacheOptions()
+        )
+    pose_graph = pycolmap.PoseGraph()
+    pose_graph.load(database_cache.correspondence_graph)
+    pose_graph.add_edge(1, 3, pycolmap.PoseGraphEdge())
+    unmatched_pair_id = pycolmap.image_pair_to_pair_id(1, 3)
+
+    options = pycolmap.RotationEstimatorOptions()
+    options.reweighting = pycolmap.RotationAveragingReweighting.COVARIANCE
+    with pytest.raises(ValueError, match="L1_IRLS"):
+        pycolmap.maybe_estimate_pose_graph_rotation_covariances(
+            options, database_cache, pose_graph
+        )
+
+    options.backend = pycolmap.RotationAveragingBackend.CERES
+    pycolmap.maybe_estimate_pose_graph_rotation_covariances(
+        options, database_cache, pose_graph
+    )
+    assert not pose_graph.edges[unmatched_pair_id].valid
+    for pair_id, edge in pose_graph.edges.items():
+        if pair_id != unmatched_pair_id:
+            assert edge.valid
+            assert edge.cam2_from_cam1_rotation_cov is not None
+
+    reconstruction = pycolmap.Reconstruction()
+    reconstruction.load(database_cache)
+    assert pycolmap.run_rotation_averaging(
+        options, pose_graph, reconstruction, []
+    )
+    assert reconstruction.num_reg_frames() == 3
+
+
 @pytest.mark.parametrize(
     "name",
     [
+        "maybe_estimate_pose_graph_rotation_covariances",
         "run_rotation_averaging",
         "run_gravity_refinement",
         "run_global_positioning",
