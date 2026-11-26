@@ -694,6 +694,99 @@ TEST_F(CudaTest, SameWindowScalarAndCooperativeSweep) {
   }
 }
 
+TEST_F(CudaTest,
+       PerimeterRngPreservesProductionInitializationAndRotatedSweeps) {
+  for (const auto& [width, height] :
+       std::array<std::pair<int, int>, 2>{{{32, 16}, {35, 65}}}) {
+    for (const bool geometry : {false, true}) {
+      for (const bool empty_support : {false, true}) {
+        SCOPED_TRACE(::testing::Message()
+                     << width << "x" << height << " geo=" << geometry
+                     << " empty=" << empty_support);
+        auto inputs = MakeInputs(0, 2, height, width);
+        if (empty_support) {
+          for (auto& image : inputs.images) {
+            Bitmap black(image.GetWidth(), image.GetHeight(), false);
+            black.Fill(BitmapColor<uint8_t>(0));
+            image.SetBitmap(std::move(black));
+          }
+        } else {
+          MakeSourceTexturesDistinct(&inputs);
+          for (int row = 0; row < height; ++row)
+            for (int col = 0; col < width; ++col)
+              inputs.depths[0].Set(row, col, row % 2 == 0 ? 3.2f : 5.2f);
+        }
+        PatchMatch::Problem problem;
+        problem.ref_image_idx = 0;
+        problem.src_image_idxs = {2, 1};
+        problem.images = &inputs.images;
+        problem.depth_maps = &inputs.depths;
+        problem.normal_maps = &inputs.normals;
+        auto options = MakeOptions(geometry, false, false);
+        options.window_radius = 5;
+        options.sigma_spatial = 5.0;
+        options.num_samples = 17;
+        if (empty_support) options.ncc_sigma = 1.0f / 16.0f;
+        PatchMatchCuda scalar(options, problem), cooperative(options, problem);
+        const auto a = internal::ProbeSweepSequence(scalar, false);
+        const auto b = internal::ProbeSweepSequence(cooperative, true);
+        ASSERT_TRUE(a.initialization_matches);
+        ASSERT_TRUE(b.initialization_matches);
+        ASSERT_EQ(a.sweeps.size(), 8);
+        ASSERT_EQ(b.sweeps.size(), 8);
+        ASSERT_EQ(a.continuation_matches.size(), 8);
+        ASSERT_EQ(b.continuation_matches.size(), 8);
+        size_t strict_new_winners = 0;
+        for (size_t step = 0; step < a.sweeps.size(); ++step) {
+          SCOPED_TRACE(::testing::Message() << "sweep=" << step);
+          size_t supported_pixels = 0;
+          const auto& x = a.sweeps[step];
+          const auto& y = b.sweeps[step];
+          ASSERT_TRUE(a.continuation_matches[step]);
+          ASSERT_TRUE(b.continuation_matches[step]);
+          ASSERT_EQ(x.depth.GetWidth(), step % 2 == 0 ? width : height);
+          ASSERT_EQ(x.depth.GetHeight(), step % 2 == 0 ? height : width);
+          ASSERT_EQ(x.draws.GetData(), y.draws.GetData());
+          ASSERT_EQ(x.winners.GetData(), y.winners.GetData());
+          ASSERT_EQ(x.support.GetData(), y.support.GetData());
+          ASSERT_EQ(x.continuation.GetData(), y.continuation.GetData());
+          ExpectExactlyEqual(x.initial_cost, y.initial_cost);
+          ExpectExactlyEqual(x.hypotheses, y.hypotheses);
+          ExpectExactlyEqual(x.hypothesis_costs, y.hypothesis_costs);
+          ExpectExactlyEqual(x.forward, y.forward);
+          ExpectExactlyEqual(x.cost, y.cost);
+          ExpectExactlyEqual(x.depth, y.depth);
+          ExpectExactlyEqual(x.normal, y.normal);
+          ExpectExactlyEqual(x.selection, y.selection);
+          for (size_t row = 0; row < x.depth.GetHeight(); ++row) {
+            for (size_t col = 0; col < x.depth.GetWidth(); ++col) {
+              const int winner = x.winners.Get(row, col);
+              ASSERT_GE(winner, 0);
+              ASSERT_LT(winner, 5);
+              supported_pixels += x.support.Get(row, col) != 0;
+              strict_new_winners +=
+                  winner > 0 && x.hypothesis_costs.Get(row, col, winner) <
+                                    x.hypothesis_costs.Get(row, col, 0);
+              if (empty_support) {
+                EXPECT_EQ(winner, 0);
+              }
+            }
+          }
+          if (empty_support) {
+            EXPECT_EQ(supported_pixels, 0);
+            for (const int draw : x.draws.GetData()) EXPECT_EQ(draw, -1);
+          } else {
+            EXPECT_GT(supported_pixels, 0);
+          }
+        }
+        if (!empty_support) {
+          EXPECT_GT(strict_new_winners, 0);
+        }
+      }
+    }
+  }
+}
+
 TEST_F(CudaTest, SamplingSupportHelpersPreserveNativeDrawCount) {
   EXPECT_EQ(internal::ProbeSamplingSupport(), 0);
 }
