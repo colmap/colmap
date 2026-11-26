@@ -323,6 +323,37 @@ TEST(Ply, ReadMeshVerticesAsPoints) {
   }
 }
 
+TEST(Ply, ReadPointsWithFixedWidthByteColors) {
+  const std::vector<std::string> properties = {"float32 x",
+                                               "float32 y",
+                                               "float32 z",
+                                               "uint8 r",
+                                               "uint8 green",
+                                               "uint8 diffuse_blue"};
+  const auto text_file = WriteTextPlyMesh(
+      "byte_colors.ply", properties, {"1.5 -2.5 3.5 0 128 255"});
+  std::vector<std::filesystem::path> files = {text_file};
+  for (const std::string format :
+       {"binary_little_endian", "binary_big_endian"}) {
+    files.push_back(WriteBinaryPlyMesh(
+        format + ".ply", format, 1, properties, [](const auto& Write) {
+          Write(1.5f);
+          Write(-2.5f);
+          Write(3.5f);
+          Write(uint8_t(0));
+          Write(uint8_t(128));
+          Write(uint8_t(255));
+        }));
+  }
+  for (const auto& file : files) {
+    SCOPED_TRACE(file.string());
+    const auto points = ReadPly(file);
+    ASSERT_EQ(points.size(), 1);
+    ExpectPositionEq(points[0], 1.5f, -2.5f, 3.5f);
+    ExpectColorEq(points[0], 0, 128, 255);
+  }
+}
+
 TEST(Ply, ReadTextZeroVerticesIgnoresFollowingElements) {
   const auto test_file = CreateTestDir() / "empty.ply";
   std::ofstream file(test_file);

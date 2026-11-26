@@ -125,6 +125,9 @@ std::vector<PlyPoint> ReadPly(const std::filesystem::path& path) {
       }
     }
 
+    if (in_vertex_section && StringStartsWith(line, "property uint8 ")) {
+      line.replace(9, 5, "uchar");
+    }
     const std::vector<std::string> line_elems = StringSplit(line, " ");
 
     if (line_elems.size() >= 3 && line_elems[0] == "element") {
