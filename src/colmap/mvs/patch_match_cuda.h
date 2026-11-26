@@ -107,6 +107,7 @@ class PatchMatchCuda {
   // Adjacent sweep orientations share one canonical corner state.
   std::unique_ptr<GpuMat<curandState>> rand_state_map_;
   std::unique_ptr<GpuMat<uint8_t>> consistency_mask_;
+  bool consistency_mask_valid_ = false;
 
   // Instance-owned packed regions: forward[s * M + c] and
   // sampling[M * S + s * M + c], where M is the maximum image dimension

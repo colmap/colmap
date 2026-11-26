@@ -119,6 +119,7 @@ if(CUDA_ENABLED)
         SRCS
             gpu_mat_prng.h gpu_mat_prng.cu
             gpu_mat_ref_image.h gpu_mat_ref_image.cu
+            packed_consistency_mask.h
             patch_match.h patch_match.cc
             patch_match_cuda.h patch_match_cuda.cu patch_match_geometry.cuh
             patch_match_sampling.cuh
@@ -295,6 +296,7 @@ if(HIP_ENABLED)
         SRCS
             gpu_mat_prng.h gpu_mat_prng.cu
             gpu_mat_ref_image.h gpu_mat_ref_image.cu
+            packed_consistency_mask.h
             patch_match.h patch_match.cc
             patch_match_cuda.h patch_match_cuda.cu patch_match_geometry.cuh
             patch_match_sampling.cuh
@@ -327,12 +329,18 @@ if(HIP_ENABLED)
         gpu_mat_test.cu
         patch_match_sampling_test.cu
         patch_match_rng_perimeter_test.cu
+        packed_consistency_mask_test.cu
         PROPERTIES LANGUAGE HIP
     )
 endif()
 
 # The ordinary production controls compile and register on both GPU backends.
 if(CUDA_ENABLED OR HIP_ENABLED)
+    COLMAP_ADD_TEST(
+        NAME packed_consistency_mask_test
+        SRCS packed_consistency_mask_test.cu
+        LINK_LIBS colmap_mvs_cuda
+    )
     COLMAP_ADD_TEST(
         NAME patch_match_rng_perimeter_test
         SRCS patch_match_rng_perimeter_test.cu
