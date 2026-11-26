@@ -390,6 +390,7 @@ class CovariantSiftCPUFeatureExtractor : public FeatureExtractor {
 
     // Copy detected keypoints and clamp when maximum number of features
     // reached.
+    keypoints->clear();
     int prev_octave_scale_idx = std::numeric_limits<int>::max();
     for (int i = 0; i < num_features; ++i) {
       FeatureKeypoint keypoint;
