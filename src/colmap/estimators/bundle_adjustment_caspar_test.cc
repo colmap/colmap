@@ -742,5 +742,59 @@ TEST(DefaultBundleAdjuster,
                                  /*num_obs_tolerance=*/0.0));
 }
 
+TEST(DefaultBundleAdjuster, FreeGaugeMatchesFixedGauge) {
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 10;
+  synthetic_dataset_options.num_points3D = 200;
+  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction);
+
+  Reconstruction noisy_reconstruction = gt_reconstruction;
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 0.5;
+  synthetic_noise_options.point3D_stddev = 0.1;
+  synthetic_noise_options.rig_from_world_rotation_stddev = 0.5;
+  synthetic_noise_options.rig_from_world_translation_stddev = 0.1;
+  SynthesizeNoise(synthetic_noise_options, &noisy_reconstruction);
+
+  const auto solve = [](BundleAdjustmentGauge gauge,
+                        Reconstruction& reconstruction) {
+    BundleAdjustmentConfig config;
+    for (const image_t image_id : reconstruction.RegImageIds()) {
+      config.AddImage(image_id);
+    }
+    config.FixGauge(gauge);
+    BundleAdjustmentOptions options;
+    options.caspar->collect_iteration_data = true;
+    const auto summary =
+        CreateDefaultCasparBundleAdjuster(options, config, reconstruction)
+            ->Solve();
+    EXPECT_EQ(summary->termination_type,
+              BundleAdjustmentTerminationType::CONVERGENCE);
+    const auto& caspar_summary =
+        dynamic_cast<const CasparBundleAdjustmentSummary&>(*summary);
+    THROW_CHECK(!caspar_summary.iterations.empty());
+    return caspar_summary.iterations.back().score_best;
+  };
+
+  Reconstruction fixed_reconstruction = noisy_reconstruction;
+  const double fixed_cost =
+      solve(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD, fixed_reconstruction);
+  Reconstruction free_reconstruction = noisy_reconstruction;
+  const double free_cost =
+      solve(BundleAdjustmentGauge::UNSPECIFIED, free_reconstruction);
+
+  // The gauge does not change the optimum, only its representative.
+  EXPECT_NEAR(free_cost, fixed_cost, 1e-4 * fixed_cost);
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(free_reconstruction,
+                                 /*max_rotation_error_deg=*/0.1,
+                                 /*max_proj_center_error=*/0.1,
+                                 /*max_scale_error=*/std::nullopt,
+                                 /*num_obs_tolerance=*/0.0));
+}
+
 }  // namespace
 }  // namespace colmap

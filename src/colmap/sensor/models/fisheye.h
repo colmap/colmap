@@ -82,8 +82,7 @@ struct SimpleFisheyeCameraModel
     T uu, vv;
     FisheyeFromImg(params, x, y, &uu, &vv);
     // No undistortion needed
-    NormalFromFisheye(uu, vv, u, v);
-    return true;
+    return NormalFromFisheye(uu, vv, u, v);
   }
 };
 
@@ -160,8 +159,7 @@ struct FisheyeCameraModel
     T uu, vv;
     FisheyeFromImg(params, x, y, &uu, &vv);
     // No undistortion needed
-    NormalFromFisheye(uu, vv, u, v);
-    return true;
+    return NormalFromFisheye(uu, vv, u, v);
   }
 };
 

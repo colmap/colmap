@@ -52,6 +52,9 @@ class BundleAdjustmentConfig {
  public:
   BundleAdjustmentConfig() = default;
 
+  // Optionally fix the gauge of the bundle adjustment problem. By default,
+  // bundle adjustment leaves the gauge free and relies on Levenberg-Marquardt
+  // damping, while callers such as EstimateBACovariance require a fixed gauge.
   void FixGauge(BundleAdjustmentGauge gauge);
   BundleAdjustmentGauge FixedGauge() const;
 
