@@ -76,6 +76,9 @@ COLMAP_ADD_TEST(
     SRCS delaunay_meshing_test.cc
     LINK_LIBS colmap_mvs
 )
+if(TESTS_ENABLED AND CGAL_ENABLED)
+    target_link_libraries(colmap_mvs_delaunay_meshing_test CGAL)
+endif()
 COLMAP_ADD_TEST(
     NAME advancing_front_meshing_test
     SRCS advancing_front_meshing_test.cc

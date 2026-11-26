@@ -2,18 +2,37 @@
 
 #include "colmap/mvs/delaunay_meshing.h"
 
+#include "colmap/math/random.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/endian.h"
 #include "colmap/util/file.h"
 #include "colmap/util/ply.h"
 #include "colmap/util/testing.h"
 
+#include <algorithm>
+#include <cfenv>
+#include <cmath>
 #include <fstream>
 
 #include <gtest/gtest.h>
 
+#if defined(COLMAP_CGAL_ENABLED)
+#include <CGAL/Delaunay_triangulation_3.h>
+#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
+#endif
+
 namespace colmap {
 namespace mvs {
+
+#if defined(COLMAP_CGAL_ENABLED)
+using FacetAngleKernel = CGAL::Exact_predicates_inexact_constructions_kernel;
+using FacetAngleDelaunay =
+    CGAL::Delaunay_triangulation_3<FacetAngleKernel, CGAL::Fast_location>;
+
+double ComputeCosFacetCellAngle(const FacetAngleDelaunay& triangulation,
+                                const FacetAngleDelaunay::Facet& facet);
+#endif
+
 namespace {
 
 Reconstruction CreateAndWriteSyntheticReconstruction(
@@ -33,6 +52,64 @@ Reconstruction CreateAndWriteSyntheticReconstruction(
 }
 
 #if defined(COLMAP_CGAL_ENABLED)
+
+TEST(DelaunayMeshingFacetAngle, LargeFiniteSquaredNorms) {
+  std::fenv_t environment;
+  ASSERT_EQ(std::fegetenv(&environment), 0);
+  struct RestoreEnvironment {
+    const std::fenv_t& environment;
+    ~RestoreEnvironment() { std::fesetenv(&environment); }
+  } restore{environment};
+  ASSERT_EQ(std::fesetround(FE_TONEAREST), 0);
+  for (const int exponent : {0, 104}) {
+    SCOPED_TRACE(exponent);
+    const double length = std::ldexp(1.0, exponent);
+    const double height = std::ldexp(1.0, -exponent);
+    FacetAngleDelaunay triangulation;
+    triangulation.insert(FacetAngleKernel::Point_3(0, 0, 0));
+    triangulation.insert(FacetAngleKernel::Point_3(length, 0, 0));
+    triangulation.insert(FacetAngleKernel::Point_3(0, length, 0));
+    const FacetAngleKernel::Point_3 top(2 * length, 2 * length, height);
+    const auto top_vertex = triangulation.insert(top);
+    ASSERT_EQ(triangulation.dimension(), 3);
+    const FacetAngleDelaunay::Cell_handle cell =
+        triangulation.finite_cells_begin();
+    const FacetAngleDelaunay::Facet facet(cell, cell->index(top_vertex));
+    const auto triangle = triangulation.triangle(facet);
+    const auto orientation =
+        CGAL::orientation(triangle[0], triangle[1], triangle[2], top);
+    ASSERT_NE(orientation, CGAL::COPLANAR);
+    // The analytic center is (L/2,L/2,2L^2/H+H/2). Its cosine rounds to
+    // one in the large case; the ordinary L=H=1 cosine is 5/sqrt(27).
+    const double magnitude = exponent == 0 ? 5 / std::sqrt(27.0) : 1.0;
+    const double expected =
+        orientation == CGAL::POSITIVE ? magnitude : -magnitude;
+    ASSERT_EQ(std::feclearexcept(FE_ALL_EXCEPT), 0);
+    const double cosine = ComputeCosFacetCellAngle(triangulation, facet);
+    EXPECT_EQ(std::fetestexcept(FE_INVALID | FE_DIVBYZERO | FE_OVERFLOW), 0);
+    ASSERT_TRUE(std::isfinite(cosine));
+    EXPECT_NEAR(cosine, expected, 1e-15);
+  }
+}
+
+TEST(DelaunayMeshingFacetAngle, SmallFiniteSquaredNorms) {
+  constexpr double length = 0x1p-200;
+  FacetAngleDelaunay triangulation;
+  triangulation.insert(FacetAngleKernel::Point_3(0, 0, 0));
+  triangulation.insert(FacetAngleKernel::Point_3(length, 0, 0));
+  triangulation.insert(FacetAngleKernel::Point_3(0, length, 0));
+  const auto top_vertex =
+      triangulation.insert(FacetAngleKernel::Point_3(0, 0, length));
+  ASSERT_EQ(triangulation.dimension(), 3);
+  const FacetAngleDelaunay::Cell_handle cell =
+      triangulation.finite_cells_begin();
+  const FacetAngleDelaunay::Facet facet(cell, cell->index(top_vertex));
+
+  // The two squared norms are nonzero, but their product underflows to zero.
+  const double cosine = ComputeCosFacetCellAngle(triangulation, facet);
+  ASSERT_TRUE(std::isfinite(cosine));
+  EXPECT_NEAR(std::abs(cosine), 1.0 / std::sqrt(3.0), 1e-15);
+}
 
 TEST(SparseDelaunayMeshing, Integration) {
   const auto test_dir = CreateTestDir();
@@ -91,6 +168,39 @@ TEST(SparseDelaunayMeshing, PointAtCameraCenter) {
   EXPECT_TRUE(ExistsFile(output_path));
   const std::vector<PlyPoint> mesh_vertices = ReadPly(output_path);
   EXPECT_GE(mesh_vertices.size(), 3);
+}
+
+TEST(SparseDelaunayMeshing, NearlyPlanarPoints) {
+  const auto test_dir = CreateTestDir();
+  const auto sparse_path = test_dir / "sparse";
+  const auto output_path = test_dir / "mesh.ply";
+  SetPRNGSeed(17);
+  Reconstruction reconstruction =
+      CreateAndWriteSyntheticReconstruction(sparse_path, 5, 500);
+  std::vector<point3D_t> point3D_ids;
+  point3D_ids.reserve(reconstruction.NumPoints3D());
+  for (const auto point3D_id : reconstruction.Point3DIds()) {
+    point3D_ids.push_back(point3D_id);
+  }
+  std::sort(point3D_ids.begin(), point3D_ids.end());
+  for (const auto point3D_id : point3D_ids) {
+    auto& position = reconstruction.Point3D(point3D_id).xyz;
+    position *= RandomUniformReal<double>(0.2, 1.0);
+    position.z() *= 1e-5;
+  }
+  reconstruction.Write(sparse_path);
+
+  // The thin but still volumetric cloud produces nearly parallel facet
+  // normals and cell co-tangents. Rounding just one squared norm to float can
+  // make their computed cosine exceed one and create a negative graph weight.
+  DelaunayMeshingOptions options;
+  options.num_threads = 1;
+  SetPRNGSeed(0);
+  SparseDelaunayMeshing(options, sparse_path, output_path);
+
+  const auto mesh = ReadPlyMesh(output_path).mesh;
+  EXPECT_GE(mesh.vertices.size(), 3);
+  EXPECT_FALSE(mesh.faces.empty());
 }
 
 TEST(DenseDelaunayMeshing, Integration) {

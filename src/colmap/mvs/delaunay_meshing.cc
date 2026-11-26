@@ -11,6 +11,7 @@
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 
+#include <algorithm>
 #include <cmath>
 #include <fstream>
 #include <vector>
@@ -521,9 +522,18 @@ double ComputeCosFacetCellAngle(const Delaunay& triangulation,
   }
 
   const K::Vector_3 co_tangent = facet.first->circumcenter() - triangle[0];
-  const float co_tangent_length_squared = co_tangent.squared_length();
+  const double co_tangent_length_squared = co_tangent.squared_length();
   if (co_tangent_length_squared == 0.0) {
     return 0.5;
+  }
+
+  // In this range, the product of the squared norms is normal and finite.
+  const auto [min_length_squared, max_length_squared] =
+      std::minmax(facet_normal_length_squared, co_tangent_length_squared);
+  if (min_length_squared < 0x1p-511 || max_length_squared > 0x1p511) {
+    return (facet_normal * co_tangent) /
+           (std::sqrt(facet_normal_length_squared) *
+            std::sqrt(co_tangent_length_squared));
   }
 
   return (facet_normal * co_tangent) /
