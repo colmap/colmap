@@ -69,7 +69,7 @@ void StereoFusionOptions::Print() const {
 }
 
 bool StereoFusionOptions::Check() const {
-  CHECK_OPTION_IN(min_num_pixels, 0, max_num_pixels);
+  CHECK_OPTION_IN(min_num_pixels, 1, max_num_pixels);
   CHECK_OPTION_GT(max_traversal_depth, 0);
   CHECK_OPTION_GE(max_reproj_error, 0);
   CHECK_OPTION_GE(max_depth_error, 0);
@@ -499,8 +499,7 @@ void StereoFusion::Fuse(const int thread_id,
   }
 
   const size_t num_pixels = fused_point_x.size();
-  if (num_pixels > 0 &&
-      num_pixels >= static_cast<size_t>(options_.min_num_pixels)) {
+  if (num_pixels >= static_cast<size_t>(options_.min_num_pixels)) {
     PlyPoint fused_point;
 
     Eigen::Vector3f fused_normal;

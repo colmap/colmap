@@ -86,7 +86,7 @@ class FusionOptionsTab : public OptionsWidget {
   FusionOptionsTab(QWidget* parent, OptionManager* options)
       : OptionsWidget(parent) {
     AddOptionInt(&options->stereo_fusion->max_image_size, "max_image_size", -1);
-    AddOptionInt(&options->stereo_fusion->min_num_pixels, "min_num_pixels", 0);
+    AddOptionInt(&options->stereo_fusion->min_num_pixels, "min_num_pixels", 1);
     AddOptionInt(&options->stereo_fusion->max_num_pixels, "max_num_pixels", 0);
     AddOptionInt(
         &options->stereo_fusion->max_traversal_depth, "max_traversal_depth", 1);
