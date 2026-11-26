@@ -604,6 +604,11 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
   const auto triangulation = input_data.CreateSubSampledDelaunayTriangulation(
       options.max_proj_dist, options.max_depth_dist);
 
+  // Ray traversal and graph construction require three-dimensional cells.
+  if (triangulation.dimension() < 3) {
+    return {};
+  }
+
   // Helper class to efficiently trace rays through the triangulation.
   LOG(INFO) << "Initializing ray tracer...";
   const DelaunayTriangulationRayCaster ray_caster(triangulation);

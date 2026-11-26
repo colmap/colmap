@@ -13,6 +13,8 @@
 #include <cmath>
 #include <fstream>
 #include <numeric>
+#include <tuple>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -224,6 +226,51 @@ TEST(DenseDelaunayMeshing, Integration) {
     ExpectValidMesh(output_path);
   }
 }
+
+// Final lower-dimensional input is distinct from the temporary prefixes above.
+class DelaunayDegenerateInputTest
+    : public ::testing::TestWithParam<std::tuple<int, double>> {};
+
+TEST_P(DelaunayDegenerateInputTest, EmptyMesh) {
+  const auto [dimension, max_proj_dist] = GetParam();
+  const auto test_dir = CreateTestDir();
+  const auto sparse_path = test_dir / "sparse";
+  const auto output_path = test_dir / "mesh.ply";
+  SetPRNGSeed(17);
+  auto reconstruction = CreateAndWriteSyntheticReconstruction(
+      sparse_path, 5, dimension < 0 ? 0 : 20);
+  std::vector<point3D_t> point_ids;
+  for (const auto point_id : reconstruction.Point3DIds()) {
+    point_ids.push_back(point_id);
+  }
+  std::sort(point_ids.begin(), point_ids.end());
+  for (size_t i = 0; i < point_ids.size(); ++i) {
+    auto& position = reconstruction.Point3D(point_ids[i]).xyz;
+    if (dimension == 0) {
+      position = Eigen::Vector3d(1.25, 0.5, 2.0);
+    } else if (dimension == 1) {
+      position = Eigen::Vector3d(0.25 * i, 0, 0);
+    } else {
+      const size_t row = i / 5;
+      position = Eigen::Vector3d(0.25 * (i % 5), 0.25 * row, 0);
+    }
+  }
+  reconstruction.Write(sparse_path);
+
+  DelaunayMeshingOptions options;
+  options.max_proj_dist = max_proj_dist;
+  options.num_threads = 1;
+  SetPRNGSeed(0);
+  SparseDelaunayMeshing(options, sparse_path, output_path);
+  const auto mesh = ReadPlyMesh(output_path).mesh;
+  EXPECT_TRUE(mesh.vertices.empty());
+  EXPECT_TRUE(mesh.faces.empty());
+}
+
+INSTANTIATE_TEST_SUITE_P(FiniteDegeneracy,
+                         DelaunayDegenerateInputTest,
+                         ::testing::Combine(::testing::Values(-1, 0, 1, 2),
+                                            ::testing::Values(0.0, 20.0)));
 
 #endif  // COLMAP_CGAL_ENABLED
 
