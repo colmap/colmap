@@ -6,6 +6,7 @@
 #include "colmap/util/hash_containers.h"
 
 #include <memory>
+#include <stdexcept>
 
 #include <gtest/gtest.h>
 
@@ -18,28 +19,16 @@ void GenerateReconstruction(const image_t num_images,
 
   Camera camera =
       Camera::CreateFromModelId(1, CameraModelId::kPinhole, 1, 1, 1);
-  reconstruction.AddCamera(camera);
-
-  Rig rig;
-  rig.SetRigId(1);
-  rig.AddRefSensor(camera.SensorId());
-  reconstruction.AddRig(rig);
+  reconstruction.AddCameraWithTrivialRig(camera);
 
   for (image_t image_id = 1; image_id <= num_images; ++image_id) {
-    Frame frame;
-    frame.SetFrameId(image_id);
-    frame.SetRigId(rig.RigId());
-    frame.AddDataId(data_t(camera.SensorId(), image_id));
-    frame.SetRigFromWorld(Rigid3d());
-    reconstruction.AddFrame(frame);
     Image image;
     image.SetImageId(image_id);
     image.SetCameraId(camera.camera_id);
-    image.SetFrameId(frame.FrameId());
     image.SetName("image" + std::to_string(image_id));
     image.SetPoints2D(
         std::vector<Eigen::Vector2d>(kNumPoints2D, Eigen::Vector2d::Zero()));
-    reconstruction.AddImage(image);
+    reconstruction.AddImageWithTrivialFrame(image, Rigid3d());
   }
 }
 
@@ -129,16 +118,11 @@ TEST(ObservationManager, FilterPoints3DWithLargeReprojectionErrorTypes) {
   // This gives: pixel_error = 100 * normalized_error
   Camera camera = Camera::CreateFromModelId(
       kCameraId, CameraModelId::kPinhole, 100, 100, 100);
-  reconstruction.AddCamera(camera);
-
-  Rig rig;
-  rig.SetRigId(1);
-  rig.AddRefSensor(camera.SensorId());
-  reconstruction.AddRig(rig);
+  reconstruction.AddCameraWithTrivialRig(camera);
 
   Frame frame;
   frame.SetFrameId(1);
-  frame.SetRigId(rig.RigId());
+  frame.SetRigId(kCameraId);
   frame.AddDataId(data_t(camera.SensorId(), 1));
   frame.AddDataId(data_t(camera.SensorId(), 2));
   frame.SetRigFromWorld(Rigid3d());
@@ -209,16 +193,11 @@ TEST(ObservationManager, FilterPoints3DSphericalSeam) {
                                 /*focal_length=*/0.0,
                                 1000,
                                 500);
-  reconstruction.AddCamera(camera);
-
-  Rig rig;
-  rig.SetRigId(1);
-  rig.AddRefSensor(camera.SensorId());
-  reconstruction.AddRig(rig);
+  reconstruction.AddCameraWithTrivialRig(camera);
 
   Frame frame;
   frame.SetFrameId(1);
-  frame.SetRigId(rig.RigId());
+  frame.SetRigId(kCameraId);
   frame.AddDataId(data_t(camera.SensorId(), 1));
   frame.AddDataId(data_t(camera.SensorId(), 2));
   frame.SetRigFromWorld(Rigid3d());
@@ -436,14 +415,10 @@ TEST(ObservationManager, NumVisiblePoints3D) {
                                                   /*focal_length=*/10,
                                                   /*width=*/10,
                                                   /*height=*/10);
-  reconstruction.AddCamera(camera);
-  Rig rig;
-  rig.SetRigId(1);
-  rig.AddRefSensor(camera.SensorId());
-  reconstruction.AddRig(rig);
+  reconstruction.AddCameraWithTrivialRig(camera);
   Frame frame;
   frame.SetFrameId(1);
-  frame.SetRigId(rig.RigId());
+  frame.SetRigId(kCameraId);
   frame.AddDataId(data_t(camera.SensorId(), kImageId1));
   frame.AddDataId(data_t(camera.SensorId(), kImageId2));
   reconstruction.AddFrame(frame);
@@ -496,16 +471,11 @@ TEST(ObservationManager, NumVisibleCorrespondences) {
                                                   /*focal_length=*/10,
                                                   /*width=*/10,
                                                   /*height=*/10);
-  reconstruction.AddCamera(camera);
-
-  Rig rig;
-  rig.SetRigId(1);
-  rig.AddRefSensor(camera.SensorId());
-  reconstruction.AddRig(rig);
+  reconstruction.AddCameraWithTrivialRig(camera);
 
   Frame frame;
   frame.SetFrameId(1);
-  frame.SetRigId(rig.RigId());
+  frame.SetRigId(kCameraId);
   frame.AddDataId(data_t(camera.SensorId(), kImageId1));
   frame.AddDataId(data_t(camera.SensorId(), kImageId2));
   frame.AddDataId(data_t(camera.SensorId(), kImageId3));
@@ -604,14 +574,10 @@ TEST(ObservationManager, Point3DVisibilityScore) {
                                                   /*focal_length=*/4,
                                                   /*width=*/4,
                                                   /*height=*/4);
-  reconstruction.AddCamera(camera);
-  Rig rig;
-  rig.SetRigId(1);
-  rig.AddRefSensor(camera.SensorId());
-  reconstruction.AddRig(rig);
+  reconstruction.AddCameraWithTrivialRig(camera);
   Frame frame;
   frame.SetFrameId(1);
-  frame.SetRigId(rig.RigId());
+  frame.SetRigId(kCameraId);
   frame.AddDataId(data_t(camera.SensorId(), kImageId1));
   frame.AddDataId(data_t(camera.SensorId(), kImageId2));
   reconstruction.AddFrame(frame);
@@ -625,6 +591,8 @@ TEST(ObservationManager, Point3DVisibilityScore) {
       points2D.emplace_back(i, j);
     }
   }
+  // Distinct features can occupy the same cell at every pyramid level.
+  points2D.back() = points2D[1];
   image.SetPoints2D(points2D);
   reconstruction.AddImage(image);
   image.SetImageId(kImageId2);
@@ -677,6 +645,38 @@ TEST(ObservationManager, Point3DVisibilityScore) {
   obs_manager.IncrementCorrespondenceHasPoint3D(kImageId1, 2);
   EXPECT_EQ(obs_manager.Point3DVisibilityScore(kImageId1),
             2 * scores.sum() + 2 * scores.bottomRows(scores.size() - 1).sum());
+
+  const size_t score = obs_manager.Point3DVisibilityScore(kImageId1);
+  obs_manager.IncrementCorrespondenceHasPoint3D(kImageId1, 15);
+  EXPECT_EQ(obs_manager.Point3DVisibilityScore(kImageId1), score);
+  EXPECT_EQ(obs_manager.NumVisiblePoints3D(kImageId1), 5);
+
+  // Partial removals preserve visibility, including shared coarse cells.
+  for (const point2D_t point2D_idx : {1, 4, 1}) {
+    obs_manager.DecrementCorrespondenceHasPoint3D(kImageId1, point2D_idx);
+    EXPECT_EQ(obs_manager.Point3DVisibilityScore(kImageId1), score);
+    EXPECT_EQ(obs_manager.NumVisiblePoints3D(kImageId1), 5);
+  }
+  // Removing one feature leaves its cell occupied by the colliding feature.
+  obs_manager.DecrementCorrespondenceHasPoint3D(kImageId1, 1);
+  EXPECT_EQ(obs_manager.Point3DVisibilityScore(kImageId1), score);
+  EXPECT_EQ(obs_manager.NumVisiblePoints3D(kImageId1), 4);
+  obs_manager.DecrementCorrespondenceHasPoint3D(kImageId1, 15);
+  EXPECT_EQ(obs_manager.Point3DVisibilityScore(kImageId1),
+            2 * scores.sum() + scores.bottomRows(scores.size() - 1).sum());
+  EXPECT_EQ(obs_manager.NumVisiblePoints3D(kImageId1), 3);
+
+  for (const point2D_t point2D_idx : {4, 5}) {
+    obs_manager.DecrementCorrespondenceHasPoint3D(kImageId1, point2D_idx);
+  }
+  EXPECT_EQ(obs_manager.Point3DVisibilityScore(kImageId1), scores.sum());
+  obs_manager.DecrementCorrespondenceHasPoint3D(kImageId1, 2);
+  EXPECT_EQ(obs_manager.Point3DVisibilityScore(kImageId1), 0);
+  EXPECT_EQ(obs_manager.NumVisiblePoints3D(kImageId1), 0);
+  EXPECT_THROW(obs_manager.DecrementCorrespondenceHasPoint3D(kImageId1, 2),
+               std::invalid_argument);
+  EXPECT_EQ(obs_manager.Point3DVisibilityScore(kImageId1), 0);
+  EXPECT_EQ(obs_manager.NumVisiblePoints3D(kImageId1), 0);
 }
 
 TEST(ObservationManager, AddImage) {
@@ -715,20 +715,13 @@ TEST(ObservationManager, AddImage) {
   graph->AddTwoViewGeometry(2, 3, tvg23);
 
   {
-    const Camera& camera = reconstruction.Camera(1);
-    Frame frame;
-    frame.SetFrameId(3);
-    frame.SetRigId(1);
-    frame.AddDataId(data_t(camera.SensorId(), 3));
-    reconstruction.AddFrame(frame);
     Image image;
     image.SetImageId(3);
-    image.SetCameraId(camera.camera_id);
-    image.SetFrameId(3);
+    image.SetCameraId(1);
     image.SetName("image3");
     image.SetPoints2D(
         std::vector<Eigen::Vector2d>(10, Eigen::Vector2d::Zero()));
-    reconstruction.AddImage(image);
+    reconstruction.AddImageWithTrivialFrame(image);
   }
   obs_manager.AddImage(3);
 
@@ -736,6 +729,9 @@ TEST(ObservationManager, AddImage) {
   EXPECT_EQ(obs_manager.NumVisiblePoints3D(3), 1);
   EXPECT_EQ(obs_manager.NumObservations(3), 2);
   EXPECT_EQ(obs_manager.NumCorrespondences(3), 3);
+
+  const size_t visibility_score = obs_manager.Point3DVisibilityScore(3);
+  EXPECT_GT(visibility_score, 0);
 
   // Verify AddImage refreshed image 1's cached stats (was 2 obs, now 3).
   EXPECT_EQ(obs_manager.NumObservations(1), 3);
@@ -754,7 +750,26 @@ TEST(ObservationManager, AddImage) {
   Track track2;
   track2.AddElement(1, 2);
   track2.AddElement(3, 1);
-  obs_manager.AddPoint3D(Eigen::Vector3d(1, 0, 1), track2);
+  const point3D_t point3D_id2 =
+      obs_manager.AddPoint3D(Eigen::Vector3d(1, 0, 1), track2);
+  // Both visible features occupy the same image-3 pyramid cell.
+  EXPECT_EQ(obs_manager.NumVisiblePoints3D(3), 2);
+  EXPECT_EQ(obs_manager.Point3DVisibilityScore(3), visibility_score);
+  {
+    ObservationManager rebuilt(reconstruction, graph);
+    EXPECT_EQ(rebuilt.NumVisiblePoints3D(3), 2);
+    EXPECT_EQ(rebuilt.Point3DVisibilityScore(3), visibility_score);
+  }
+  // Removing one of two supporting correspondences preserves visibility.
+  obs_manager.DeleteObservation(1, 0);
+  EXPECT_EQ(obs_manager.NumVisiblePoints3D(3), 2);
+  EXPECT_EQ(obs_manager.Point3DVisibilityScore(3), visibility_score);
+  obs_manager.DeletePoint3D(point3D_id);
+  EXPECT_EQ(obs_manager.NumVisiblePoints3D(3), 1);
+  EXPECT_EQ(obs_manager.Point3DVisibilityScore(3), visibility_score);
+  obs_manager.DeletePoint3D(point3D_id2);
+  EXPECT_EQ(obs_manager.NumVisiblePoints3D(3), 0);
+  EXPECT_EQ(obs_manager.Point3DVisibilityScore(3), 0);
 }
 
 }  // namespace

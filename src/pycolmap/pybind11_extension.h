@@ -75,7 +75,8 @@ namespace detail {
 // Rotation3dWrapper.
 template <>
 struct type_caster<Eigen::Quaterniond> {
-  PYBIND11_TYPE_CASTER(Eigen::Quaterniond, const_name("Rotation3d"));
+  PYBIND11_TYPE_CASTER(Eigen::Quaterniond,
+                       const_name<pycolmap::Rotation3dWrapper>());
 
   // Python -> C++ (when calling functions that take Eigen::Quaterniond)
   bool load(handle src, bool) {

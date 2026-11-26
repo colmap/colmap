@@ -2,44 +2,38 @@
 
 #include "colmap/optim/combination_sampler.h"
 
-#include "colmap/util/hash_containers.h"
+#include "colmap/math/math.h"
+
+#include <numeric>
 
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace {
 
-TEST(CombinationSampler, LessSamples) {
-  CombinationSampler sampler(2);
-  sampler.Initialize(5);
-  EXPECT_EQ(sampler.MaxNumSamples(), 10);
-  std::vector<FlatHashSet<size_t>> sample_sets;
-  for (size_t i = 0; i < 10; ++i) {
-    std::vector<size_t> samples;
-    sampler.Sample(&samples);
-    EXPECT_EQ(samples.size(), 2);
-    sample_sets.emplace_back(samples.begin(), samples.end());
-    EXPECT_EQ(sample_sets.back().size(), 2);
-    for (size_t j = 0; j < i; ++j) {
-      EXPECT_TRUE(sample_sets[j].count(samples[0]) == 0 ||
-                  sample_sets[j].count(samples[1]) == 0);
+TEST(CombinationSampler, MatchesNextCombinationAcrossCyclesAndReinit) {
+  for (size_t num_samples = 0; num_samples <= 6; ++num_samples) {
+    // Reuse one sampler to check that Initialize resets mid-cycle progress.
+    CombinationSampler sampler(num_samples);
+    for (size_t total = num_samples; total <= 6; ++total) {
+      sampler.Initialize(total);
+      const size_t max_num_samples = NChooseK(total, num_samples);
+      EXPECT_EQ(sampler.MaxNumSamples(), max_num_samples);
+      std::vector<size_t> population(total);
+      std::iota(population.begin(), population.end(), 0);
+      std::vector<size_t> sample;
+      for (size_t i = 0; i < 2 * max_num_samples + 1; ++i) {
+        sampler.Sample(&sample);
+        ASSERT_EQ(sample,
+                  std::vector<size_t>(population.begin(),
+                                      population.begin() + num_samples));
+        if (!NextCombination(population.begin(),
+                             population.begin() + num_samples,
+                             population.end())) {
+          std::iota(population.begin(), population.end(), 0);
+        }
+      }
     }
-  }
-  std::vector<size_t> samples;
-  sampler.Sample(&samples);
-  EXPECT_TRUE(sample_sets[0].count(samples[0]) == 1 &&
-              sample_sets[0].count(samples[1]) == 1);
-}
-
-TEST(CombinationSampler, EqualSamples) {
-  CombinationSampler sampler(5);
-  sampler.Initialize(5);
-  EXPECT_EQ(sampler.MaxNumSamples(), 1);
-  for (size_t i = 0; i < 100; ++i) {
-    std::vector<size_t> samples;
-    sampler.Sample(&samples);
-    EXPECT_EQ(samples.size(), 5);
-    EXPECT_EQ(FlatHashSet<size_t>(samples.begin(), samples.end()).size(), 5);
   }
 }
 

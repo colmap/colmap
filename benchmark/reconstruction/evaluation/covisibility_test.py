@@ -41,22 +41,16 @@ def _add_image(
     for i, p in enumerate(points2d):
         p.xy = np.array([100.0 + i * 10, 200.0])
 
-    frame = pycolmap.Frame()
-    frame.rig_id = 1
-    frame.frame_id = image_id
-
     img = pycolmap.Image()
     img.name = name
     img.camera_id = 1
-    img.frame_id = image_id
     img.image_id = image_id
     if num_points2D > 0:
         img.points2D = pycolmap.Point2DList(points2d)
 
-    frame.add_data_id(img.data_id)
-    frame.rig_from_world = pycolmap.Rigid3d(rotation, translation)
-    recon.add_frame(frame)
-    recon.add_image(img)
+    recon.add_image_with_trivial_frame(
+        img, pycolmap.Rigid3d(rotation, translation)
+    )
 
 
 class TestEstimateDepthRanges:

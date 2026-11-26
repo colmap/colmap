@@ -4,6 +4,8 @@
 
 #include "colmap/util/hash_containers.h"
 
+#include <numeric>
+
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
@@ -38,74 +40,64 @@ class MetisGraph {
  public:
   MetisGraph(const std::vector<std::pair<int, int>>& edges,
              const std::vector<int>& weights) {
-    NodeHashMap<int, std::vector<std::pair<int, int>>> adjacency_list;
+    // Map vertex ids to contiguous indices in first-seen order.
+    std::vector<std::pair<int, int>> edge_idxs;
+    edge_idxs.reserve(edges.size());
+    for (const auto& [vertex_id1, vertex_id2] : edges) {
+      edge_idxs.emplace_back(GetVertexIdx(vertex_id1),
+                             GetVertexIdx(vertex_id2));
+    }
+
+    // Count vertex degrees and convert them to CSR row offsets.
+    xadj_.assign(vertex_idx_to_id_.size() + 1, 0);
+    for (const auto& [vertex_idx1, vertex_idx2] : edge_idxs) {
+      ++xadj_[vertex_idx1 + 1];
+      ++xadj_[vertex_idx2 + 1];
+    }
+    std::partial_sum(xadj_.begin(), xadj_.end(), xadj_.begin());
+
+    // Fill rows in input edge order, storing both directions of every edge.
+    adjncy_.resize(2 * edges.size());
+    adjwgt_.resize(2 * edges.size());
+    std::vector<idx_t> cursors(xadj_.begin(), xadj_.end() - 1);
     for (size_t i = 0; i < edges.size(); ++i) {
-      const auto& edge = edges[i];
-      const auto weight = weights[i];
-      const int vertex_idx1 = GetVertexIdx(edge.first);
-      const int vertex_idx2 = GetVertexIdx(edge.second);
-      adjacency_list[vertex_idx1].emplace_back(vertex_idx2, weight);
-      adjacency_list[vertex_idx2].emplace_back(vertex_idx1, weight);
+      const auto [vertex_idx1, vertex_idx2] = edge_idxs[i];
+      const idx_t edge_idx1 = cursors[vertex_idx1]++;
+      const idx_t edge_idx2 = cursors[vertex_idx2]++;
+      adjncy_[edge_idx1] = vertex_idx2;
+      adjwgt_[edge_idx1] = weights[i];
+      adjncy_[edge_idx2] = vertex_idx1;
+      adjwgt_[edge_idx2] = weights[i];
     }
 
-    xadj_.reserve(vertex_id_to_idx_.size() + 1);
-    adjncy_.reserve(2 * edges.size());
-    adjwgt_.reserve(2 * edges.size());
+    THROW_CHECK_EQ(xadj_.back(), 2 * edges.size());
 
-    idx_t edge_idx = 0;
-    for (size_t i = 0; i < vertex_id_to_idx_.size(); ++i) {
-      xadj_.push_back(edge_idx);
-
-      if (adjacency_list.count(i) == 0) {
-        continue;
-      }
-
-      for (const auto& [neighbor_idx, weight] : adjacency_list[i]) {
-        edge_idx += 1;
-        adjncy_.push_back(neighbor_idx);
-        adjwgt_.push_back(weight);
-      }
-    }
-
-    xadj_.push_back(edge_idx);
-
-    THROW_CHECK_EQ(edge_idx, 2 * edges.size());
-    THROW_CHECK_EQ(xadj_.size(), vertex_id_to_idx_.size() + 1);
-    THROW_CHECK_EQ(adjncy_.size(), 2 * edges.size());
-    THROW_CHECK_EQ(adjwgt_.size(), 2 * edges.size());
-
-    nvtxs = vertex_id_to_idx_.size();
+    nvtxs = vertex_idx_to_id_.size();
 
     xadj = xadj_.data();
     adjncy = adjncy_.data();
-
-    vwgt = nullptr;
     adjwgt = adjwgt_.data();
-  }
-
-  int GetVertexIdx(const int id) {
-    const auto it = vertex_id_to_idx_.find(id);
-    if (it == vertex_id_to_idx_.end()) {
-      const int idx = vertex_id_to_idx_.size();
-      vertex_id_to_idx_.emplace(id, idx);
-      vertex_idx_to_id_.emplace(idx, id);
-      return idx;
-    } else {
-      return it->second;
-    }
   }
 
   int GetVertexId(const int idx) { return vertex_idx_to_id_.at(idx); }
 
   idx_t nvtxs = 0;
   idx_t* xadj = nullptr;
-  idx_t* vwgt = nullptr;
   idx_t* adjncy = nullptr;
   idx_t* adjwgt = nullptr;
 
  private:
-  NodeHashMap<int, int> vertex_id_to_idx_;
-  NodeHashMap<int, int> vertex_idx_to_id_;
+  int GetVertexIdx(const int id) {
+    const auto [it, inserted] = vertex_id_to_idx_.try_emplace(
+        id, static_cast<int>(vertex_idx_to_id_.size()));
+    if (inserted) {
+      vertex_idx_to_id_.push_back(id);
+    }
+    return it->second;
+  }
+
+  FlatHashMap<int, int> vertex_id_to_idx_;
+  std::vector<int> vertex_idx_to_id_;
   std::vector<idx_t> xadj_;
   std::vector<idx_t> adjncy_;
   std::vector<idx_t> adjwgt_;
