@@ -469,23 +469,27 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
     }
 
     // Read images in parallel using the shared I/O thread pool.
-    std::vector<std::shared_future<void>> futures;
-    futures.reserve(valid_image_idxs.size());
-    for (const auto image_idx : valid_image_idxs) {
-      futures.push_back(io_thread_pool_->AddTask([&, image_idx]() {
-        images.at(image_idx).SetBitmap(workspace_->GetBitmap(image_idx));
-        if (options.geom_consistency) {
-          depth_maps.at(image_idx) = workspace_->GetDepthMap(image_idx);
-          // Only the reference normal map is used to initialize PatchMatch.
-          if (image_idx == problem.ref_image_idx) {
-            normal_maps.at(image_idx) = workspace_->GetNormalMap(image_idx);
+    // Keep the workspace lock and destinations alive until accepted reads
+    // finish.
+    internal::RunPatchMatchPhase(*io_thread_pool_, [&] {
+      std::vector<std::shared_future<void>> futures;
+      futures.reserve(valid_image_idxs.size());
+      for (const auto image_idx : valid_image_idxs) {
+        futures.push_back(io_thread_pool_->AddTask([&, image_idx]() {
+          images.at(image_idx).SetBitmap(workspace_->GetBitmap(image_idx));
+          if (options.geom_consistency) {
+            depth_maps.at(image_idx) = workspace_->GetDepthMap(image_idx);
+            // Only the reference normal map is used to initialize PatchMatch.
+            if (image_idx == problem.ref_image_idx) {
+              normal_maps.at(image_idx) = workspace_->GetNormalMap(image_idx);
+            }
           }
-        }
-      }));
-    }
-    for (auto& future : futures) {
-      future.get();
-    }
+        }));
+      }
+      for (auto& future : futures) {
+        future.get();
+      }
+    });
 
     problem.src_image_idxs = src_image_idxs;
   }
