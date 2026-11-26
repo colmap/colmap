@@ -19,6 +19,10 @@
 namespace colmap {
 namespace mvs {
 
+namespace internal {
+struct PatchMatchCudaTestAccess;
+}  // namespace internal
+
 class PatchMatchCuda {
  public:
   PatchMatchCuda(const PatchMatchOptions& options,
@@ -32,6 +36,8 @@ class PatchMatchCuda {
   std::vector<int> GetConsistentImageIdxs() const;
 
  private:
+  friend struct internal::PatchMatchCudaTestAccess;
+
   template <int kWindowSize, int kWindowStep>
   void RunWithWindowSizeAndStep();
 

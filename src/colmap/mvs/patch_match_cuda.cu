@@ -12,6 +12,9 @@
 #include "colmap/mvs/patch_match_cuda.h"
 #include "colmap/mvs/patch_match_geometry.cuh"
 #include "colmap/mvs/patch_match_sampling.cuh"
+#ifdef COLMAP_PATCH_MATCH_TESTING
+#include "colmap/mvs/patch_match_cuda_test.h"
+#endif
 #include "colmap/util/cuda.h"
 #include "colmap/util/cudacc.h"
 #include "colmap/util/logging.h"
@@ -859,11 +862,29 @@ struct SweepOptions {
   float filter_geom_consistency_max_cost = 1.0f;
 };
 
+#ifdef COLMAP_PATCH_MATCH_TESTING
+// Only the test specialization records the two propagation hypotheses.
+struct SweepTrace {
+  GpuMatView<int> winners;
+  GpuMatView<int> support;
+  GpuMatView<float> hypotheses;
+};
+#define SWEEP_TRACE_ARGUMENT \
+  , SweepTrace {}
+#else
+#define SWEEP_TRACE_ARGUMENT
+#endif
+
 template <int kWindowSize,
           int kWindowStep,
           bool kGeomConsistencyTerm = false,
           bool kFilterPhotoConsistency = false,
-          bool kFilterGeomConsistency = false>
+          bool kFilterGeomConsistency = false
+#ifdef COLMAP_PATCH_MATCH_TESTING
+          ,
+          bool kTrace = false
+#endif
+          >
 __global__ void SweepFromTopToBottom(
     GpuMatView<float> global_workspace,
     GpuMatView<curandState> rand_state_map,
@@ -879,7 +900,12 @@ __global__ void SweepFromTopToBottom(
     const cudaTextureObject_t src_images_texture,
     const cudaTextureObject_t src_depth_maps_texture,
     const cudaTextureObject_t poses_texture,
-    const SweepOptions options) {
+    const SweepOptions options
+#ifdef COLMAP_PATCH_MATCH_TESTING
+    ,
+    SweepTrace trace
+#endif
+) {
   const int col = blockDim.x * blockIdx.x + threadIdx.x;
 
   // Probability for boundary pixels.
@@ -973,12 +999,14 @@ __global__ void SweepFromTopToBottom(
     // of the normal of the previous ray. This helps to better estimate
     // the depth of very oblique structures, i.e. pixels whose normal direction
     // is significantly different from their viewing direction.
-    prev_param_state.depth = internal::PropagateDepth(ref_inv_K,
-                                                      prev_param_state.depth,
-                                                      prev_param_state.normal,
-                                                      row - 1,
-                                                      row,
-                                                      col);
+    if (row > 0) {
+      prev_param_state.depth = internal::PropagateDepth(ref_inv_K,
+                                                        prev_param_state.depth,
+                                                        prev_param_state.normal,
+                                                        row - 1,
+                                                        row,
+                                                        col);
+    }
 
     // Read parameters for current pixel from previous sweep.
     curr_param_state.depth = depth_map.Get(row, col);
@@ -1103,6 +1131,18 @@ __global__ void SweepFromTopToBottom(
     // degenerate distributions retain the existing winner policy.
     const int min_cost_idx =
         empty_sampling_support ? 0 : FindMinCost<kNumCosts>(costs);
+#ifdef COLMAP_PATCH_MATCH_TESTING
+    if constexpr (kTrace) {
+      trace.winners.Set(row, col, min_cost_idx);
+      trace.support.Set(row, col, !empty_sampling_support);
+      for (int i = 0; i < 2; ++i) {
+        trace.hypotheses.Set(row, col, 4 * i, depths[i]);
+        for (int axis = 0; axis < 3; ++axis) {
+          trace.hypotheses.Set(row, col, 4 * i + axis + 1, normals[i][axis]);
+        }
+      }
+    }
+#endif
     const float best_depth = depths[min_cost_idx];
     const float* best_normal = normals[min_cost_idx];
 
@@ -1404,7 +1444,7 @@ void PatchMatchCuda::RunWithWindowSizeAndStep() {
               ? 0                                         \
               : src_depth_maps_texture_->GetObj(),        \
           poses_texture_[rotation_in_half_pi_]->GetObj(), \
-          sweep_options);
+          sweep_options SWEEP_TRACE_ARGUMENT);
 
       if (last_sweep) {
         if (options_.filter) {
@@ -1881,6 +1921,94 @@ void PatchMatchCuda::Rotate() {
   // Recompute Cuda configuration for rotated reference image.
   ComputeCudaConfig();
 }
+
+#ifdef COLMAP_PATCH_MATCH_TESTING
+namespace internal {
+namespace {
+__global__ void SeedOwnershipTest(GpuMatView<curandState> states,
+                                  const unsigned long long seed) {
+  const int col = blockIdx.x * blockDim.x + threadIdx.x;
+  const int row = blockIdx.y * blockDim.y + threadIdx.y;
+  if (col < states.GetWidth() && row < states.GetHeight()) {
+    curand_init(
+        seed, row * states.GetWidth() + col, 0, &states.GetRef(row, col));
+  }
+}
+}  // namespace
+
+// Uses the existing scalar initial-cost and sweep kernels. The fixture is a
+// single unrotated GEO sweep, so constructor-owned calibration is unchanged.
+struct PatchMatchCudaTestAccess {
+  static SweepTraceResult Sweep(PatchMatchCuda& pm,
+                                const unsigned long long seed) {
+    THROW_CHECK(pm.options_.geom_consistency);
+    THROW_CHECK_EQ(pm.options_.window_radius, 5);
+    THROW_CHECK_EQ(pm.options_.window_step, 1);
+    THROW_CHECK_EQ(pm.rotation_in_half_pi_, 0);
+    const dim3 block(32, 16);
+    const dim3 grid((pm.ref_width_ + block.x - 1) / block.x,
+                    (pm.ref_height_ + block.y - 1) / block.y);
+    SeedOwnershipTest<<<grid, block>>>(pm.rand_state_map_->View(), seed);
+    pm.ComputeCudaConfig();
+    ComputeInitialCost<11, 1><<<pm.sweep_grid_size_, pm.sweep_block_size_>>>(
+        pm.cost_map_->View(),
+        pm.depth_map_->View(),
+        pm.normal_map_->View(),
+        pm.ref_image_texture_->GetObj(),
+        pm.ref_image_->sum_image->View(),
+        pm.ref_image_->squared_sum_image->View(),
+        pm.src_images_texture_->GetObj(),
+        pm.poses_texture_[0]->GetObj(),
+        pm.options_.sigma_spatial,
+        pm.options_.sigma_color);
+    CUDA_SYNC_AND_CHECK();
+    const size_t width = pm.cost_map_->GetWidth();
+    const size_t height = pm.cost_map_->GetHeight();
+    GpuMat<int> winners(width, height);
+    GpuMat<int> support(width, height);
+    GpuMat<float> hypotheses(width, height, 8);
+    const SweepTrace trace{winners.View(), support.View(), hypotheses.View()};
+    SweepOptions options;
+    options.depth_min = pm.options_.depth_min;
+    options.depth_max = pm.options_.depth_max;
+    options.sigma_spatial = pm.options_.sigma_spatial;
+    options.sigma_color = pm.options_.sigma_color;
+    options.num_samples = pm.options_.num_samples;
+    options.ncc_sigma = pm.options_.ncc_sigma;
+    options.min_triangulation_angle =
+        DEG2RAD(pm.options_.min_triangulation_angle);
+    options.incident_angle_sigma = pm.options_.incident_angle_sigma;
+    options.geom_consistency_regularizer =
+        pm.options_.geom_consistency_regularizer;
+    options.geom_consistency_max_cost = pm.options_.geom_consistency_max_cost;
+    SweepFromTopToBottom<11, 1, true, false, false, true>
+        <<<pm.sweep_grid_size_, pm.sweep_block_size_>>>(
+            pm.global_workspace_->View(),
+            pm.rand_state_map_->View(),
+            pm.cost_map_->View(),
+            pm.depth_map_->View(),
+            pm.normal_map_->View(),
+            pm.consistency_mask_->View(),
+            pm.sel_prob_map_->View(),
+            pm.prev_sel_prob_map_->View(),
+            pm.ref_image_texture_->GetObj(),
+            pm.ref_image_->sum_image->View(),
+            pm.ref_image_->squared_sum_image->View(),
+            pm.src_images_texture_->GetObj(),
+            pm.src_depth_maps_texture_->GetObj(),
+            pm.poses_texture_[0]->GetObj(),
+            options,
+            trace);
+    CUDA_SYNC_AND_CHECK();
+    return {winners.CopyToMat(), support.CopyToMat(), hypotheses.CopyToMat()};
+  }
+};
+
+SweepTraceResult ProbeSweep(PatchMatchCuda& pm, const unsigned long long seed) {
+  return PatchMatchCudaTestAccess::Sweep(pm, seed);
+}
+}  // namespace internal
+#endif  // COLMAP_PATCH_MATCH_TESTING
 
 }  // namespace mvs
 }  // namespace colmap
