@@ -17,8 +17,8 @@ namespace colmap {
 
 // Options for sparse photometric bundle adjustment (LSPBA + Least-Squares NCC).
 struct PhotometricBundleAdjustmentOptions {
-  // Side length P of the square corner-grid patch (M = P * P samples per
-  // residual). Default 4x4 (16 samples) matches LSPBA.
+  // Side length P of the square corner-grid patch (2 <= P <= 8, M = P * P
+  // samples per residual). Default 4x4 (16 samples) matches LSPBA.
   int patch_size = 4;
 
   // Comma-separated coarse-to-fine power-of-two image pyramid levels
@@ -29,15 +29,9 @@ struct PhotometricBundleAdjustmentOptions {
   // original resolution).
   int max_image_size = -1;
 
-  // Select each target view's pyramid level so the warped patch spacing is
-  // closest to 1 pixel, reducing aliasing under scale changes (LSPBA §3.4).
-  bool use_target_mipmap = true;
-
-  // Optimize landmark planes n_k (depth + surface normal) with cameras held
-  // constant before joint optimization at each pyramid level.
-  bool refine_structure_first = true;
-
-  // Maximum Ceres iterations for the structure-only warmup stage.
+  // Maximum Ceres iterations for the structure-only warmup stage (optimizing
+  // landmark planes with cameras held constant before joint optimization at
+  // each pyramid level; 0 disables warmup).
   int structure_warmup_max_num_iterations = 20;
 
   // Minimum per-pixel intensity standard deviation (on [0, 255] grayscale)
@@ -45,10 +39,6 @@ struct PhotometricBundleAdjustmentOptions {
   // min_patch_std = 2.0 corresponds to ||I - mean||_2 >= 8.0 = 0.5 * M,
   // matching LSPBA §3.4.
   double min_patch_std = 2.0;
-
-  // Optional cap on the number of target observations per 3D point
-  // (0 = use all track observations).
-  int max_num_observations_per_point = 0;
 
   // Robust loss applied to each patch's squared LS-NCC residual ||r||^2 in
   // [0, 4]. Default Geman-McClure with scale 0.5 matches LSPBA §3.2.

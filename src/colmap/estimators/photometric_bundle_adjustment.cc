@@ -3,6 +3,7 @@
 #include "colmap/estimators/photometric_bundle_adjustment.h"
 
 #include "colmap/estimators/bundle_adjustment_ceres.h"
+#include "colmap/estimators/bundle_adjustment_ceres_utils.h"
 #include "colmap/estimators/cost_functions/photometric_error.h"
 #include "colmap/estimators/cost_functions/reprojection_error.h"
 #include "colmap/sensor/bitmap.h"
@@ -28,6 +29,7 @@ std::vector<int> PhotometricBundleAdjustmentOptions::ParsePyramidLevels()
 
 bool PhotometricBundleAdjustmentOptions::Check() const {
   CHECK_OPTION_GE(patch_size, 2);
+  CHECK_OPTION_LE(patch_size, kPhotometricMaxPatchSize);
   CHECK_OPTION(max_image_size == -1 || max_image_size >= patch_size);
   const std::vector<int> levels = ParsePyramidLevels();
   CHECK_OPTION(!levels.empty());
@@ -38,7 +40,6 @@ bool PhotometricBundleAdjustmentOptions::Check() const {
   CHECK_OPTION_GE(structure_warmup_max_num_iterations, 0);
   CHECK_OPTION(std::isfinite(min_patch_std));
   CHECK_OPTION_GE(min_patch_std, 0.0);
-  CHECK_OPTION_GE(max_num_observations_per_point, 0);
   CHECK_OPTION(
       IsValidCeresLossFunction(loss_function_type, loss_function_scale, 1.0));
   CHECK_OPTION(std::isfinite(geometric_reprojection_weight));
@@ -187,23 +188,19 @@ void BuildTangentBasis(const Eigen::Vector3d& n_unit,
 
 // Normalize a patch intensity vector to zero mean and unit L2 norm.
 // Returns false if ||vals - mean||_2 < min_norm.
-bool NormalizePatchVector(const std::vector<double>& vals,
+bool NormalizePatchVector(const Eigen::Ref<const Eigen::VectorXd>& vals,
                           const double min_norm,
-                          std::vector<double>* out_norm,
+                          Eigen::VectorXd* out_norm,
                           double* out_l2_norm = nullptr) {
-  const Eigen::Index n = static_cast<Eigen::Index>(vals.size());
-  out_norm->resize(vals.size());
-  const Eigen::Map<const Eigen::VectorXd> vals_vec(vals.data(), n);
-  Eigen::Map<Eigen::VectorXd> out_vec(out_norm->data(), n);
-  out_vec = vals_vec.array() - vals_vec.mean();
-  const double l2 = out_vec.norm();
+  *out_norm = vals.array() - vals.mean();
+  const double l2 = out_norm->norm();
   if (out_l2_norm != nullptr) {
     *out_l2_norm = l2;
   }
   if (!(l2 > 0.0 && l2 >= min_norm)) {
     return false;
   }
-  out_vec /= l2;
+  *out_norm /= l2;
   return true;
 }
 
@@ -272,13 +269,14 @@ SourceSelectionResult SelectRobustSourceImage(
 
   struct ViewCandidate {
     image_t image_id = kInvalidImageId;
-    std::vector<double> norm_patch;
+    Eigen::VectorXd norm_patch;
     double l2_norm = 0.0;
   };
   std::vector<ViewCandidate> candidates;
   candidates.reserve(obs.size());
 
-  std::vector<double> xs(M), ys(M), vals(M);
+  std::vector<double> xs(M), ys(M);
+  Eigen::VectorXd vals(M);
   int num_interpolated = 0;
   for (const auto& [image_id, p2d_idx] : obs) {
     const auto pyr_it = pyramids.find(image_id);
@@ -920,8 +918,8 @@ class PhotometricBundleAdjusterImpl : public BundleAdjuster {
       const double min_patch_norm,
       const double irls_scale,
       TrackState* tr,
-      std::vector<double>* src_vals,
-      std::vector<Eigen::Vector3d>* pts_tgt,
+      Eigen::VectorXd* src_vals,
+      Eigen::Matrix3Xd* pts_tgt,
       std::vector<double>* tgt_xs,
       std::vector<double>* tgt_ys,
       ActiveLandmark* out_lm) const {
@@ -987,7 +985,7 @@ class PhotometricBundleAdjusterImpl : public BundleAdjuster {
     patch.src_cam_params_init = src_cam.params;
     patch.src_xs.resize(M);
     patch.src_ys.resize(M);
-    patch.src_rays_init.resize(M);
+    patch.src_rays_init.resize(3, M);
 
     for (int dy = 0; dy < P; ++dy) {
       for (int dx = 0; dx < P; ++dx) {
@@ -1005,7 +1003,7 @@ class PhotometricBundleAdjusterImpl : public BundleAdjuster {
         if (!ray_opt.has_value() || !(plane.dot(*ray_opt) > 1e-8)) {
           return LandmarkFilterStatus::kInvalid;
         }
-        patch.src_rays_init[m] = *ray_opt;
+        patch.src_rays_init.col(m) = *ray_opt;
       }
     }
 
@@ -1020,7 +1018,6 @@ class PhotometricBundleAdjusterImpl : public BundleAdjuster {
     lm.patch = std::move(patch);
     lm.targets.reserve(tr->obs.size());
 
-    const int max_obs = photometric_options_.max_num_observations_per_point;
     for (const auto& [tgt_img_id, p2d_idx] : tr->obs) {
       if (tgt_img_id == tr->src_image_id) {
         continue;
@@ -1035,26 +1032,19 @@ class PhotometricBundleAdjusterImpl : public BundleAdjuster {
       const Eigen::Matrix3d H_ji =
           tgt_from_src.rotation().toRotationMatrix() +
           tgt_from_src.translation() * plane.transpose();
-      Eigen::Map<Eigen::Matrix3Xd>(pts_tgt->data()->data(), 3, M).noalias() =
-          H_ji * Eigen::Map<const Eigen::Matrix3Xd>(
-                     lm.patch.src_rays_init.data()->data(), 3, M);
-      if (!photometric_internal::ProjectBatch(
-              tgt_cam.model_id,
-              span<const double>(tgt_cam.params.data(), tgt_cam.params.size()),
-              span<const Eigen::Vector3d>(pts_tgt->data(), M),
-              span<double>(tgt_xs->data(), M),
-              span<double>(tgt_ys->data(), M),
-              span<double>(nullptr, 0),
-              span<double>(nullptr, 0))) {
+      pts_tgt->noalias() = H_ji * lm.patch.src_rays_init;
+      if (!photometric_internal::ProjectBatch(tgt_cam.model_id,
+                                              tgt_cam.params.data(),
+                                              *pts_tgt,
+                                              tgt_xs->data(),
+                                              tgt_ys->data())) {
         continue;
       }
 
-      int tgt_lvl_idx = std::min(req_level, tgt_pyr_it->second.NumLevels() - 1);
-      if (photometric_options_.use_target_mipmap) {
-        const double mean_spacing =
-            ComputeMeanPatchSpacing(*tgt_xs, *tgt_ys, P, fallback_step);
-        tgt_lvl_idx = tgt_pyr_it->second.SelectLevelForSpacing(mean_spacing);
-      }
+      const double mean_spacing =
+          ComputeMeanPatchSpacing(*tgt_xs, *tgt_ys, P, fallback_step);
+      const int tgt_lvl_idx =
+          tgt_pyr_it->second.SelectLevelForSpacing(mean_spacing);
       const GrayscaleImageLevel& tgt_lvl =
           tgt_pyr_it->second.Level(tgt_lvl_idx);
 
@@ -1074,9 +1064,6 @@ class PhotometricBundleAdjusterImpl : public BundleAdjuster {
       }
 
       lm.targets.emplace_back(tgt_img_id, &tgt_lvl);
-      if (max_obs > 0 && static_cast<int>(lm.targets.size()) >= max_obs) {
-        break;
-      }
     }
 
     if (lm.targets.empty()) {
@@ -1115,8 +1102,8 @@ class PhotometricBundleAdjusterImpl : public BundleAdjuster {
       for (size_t start = 0; start < n_tracks; start += chunk) {
         const size_t end = std::min(n_tracks, start + chunk);
         pool.AddTask([&, start, end]() {
-          std::vector<double> src_vals(M);
-          std::vector<Eigen::Vector3d> pts_tgt(M);
+          Eigen::VectorXd src_vals(M);
+          Eigen::Matrix3Xd pts_tgt(3, M);
           std::vector<double> tgt_xs(M), tgt_ys(M);
           for (size_t idx = start; idx < end; ++idx) {
             landmark_status[idx] = BuildLandmarkForTrack(idx,
@@ -1250,16 +1237,16 @@ class PhotometricBundleAdjusterImpl : public BundleAdjuster {
     data.camera_side_blocks = CollectCameraSideBlocks(
         data.parameterized_cameras, data.parameterized_images, *problem);
 
-    ceres_ba_internal::ParameterizeCameras(options_,
-                                           config_,
-                                           data.parameterized_cameras,
-                                           reconstruction_,
-                                           *problem);
-    ceres_ba_internal::ParameterizeRigsAndFrames(options_,
-                                                 config_,
-                                                 data.parameterized_images,
-                                                 reconstruction_,
-                                                 *problem);
+    ParameterizeCameras(options_,
+                        config_,
+                        data.parameterized_cameras,
+                        reconstruction_,
+                        *problem);
+    ParameterizeRigsAndFrames(options_,
+                              config_,
+                              data.parameterized_images,
+                              reconstruction_,
+                              *problem);
     return data;
   }
 
@@ -1324,16 +1311,16 @@ class PhotometricBundleAdjusterImpl : public BundleAdjuster {
     for (double* ptr : data->camera_side_blocks) {
       problem->SetParameterBlockVariable(ptr);
     }
-    ceres_ba_internal::ParameterizeCameras(options_,
-                                           config_,
-                                           data->parameterized_cameras,
-                                           reconstruction_,
-                                           *problem);
-    ceres_ba_internal::ParameterizeRigsAndFrames(options_,
-                                                 config_,
-                                                 data->parameterized_images,
-                                                 reconstruction_,
-                                                 *problem);
+    ParameterizeCameras(options_,
+                        config_,
+                        data->parameterized_cameras,
+                        reconstruction_,
+                        *problem);
+    ParameterizeRigsAndFrames(options_,
+                              config_,
+                              data->parameterized_images,
+                              reconstruction_,
+                              *problem);
   }
 
   LevelStatus RunStructureWarmup(
@@ -1341,8 +1328,7 @@ class PhotometricBundleAdjusterImpl : public BundleAdjuster {
       const LevelProblemData& data,
       ceres::Problem* problem,
       PhotometricBundleAdjustmentSummary* summary) const {
-    if (!photometric_options_.refine_structure_first ||
-        !options_.refine_points3D ||
+    if (!options_.refine_points3D ||
         photometric_options_.structure_warmup_max_num_iterations <= 0 ||
         data.plane_blocks.empty()) {
       return LevelStatus::kContinue;
@@ -1364,8 +1350,7 @@ class PhotometricBundleAdjusterImpl : public BundleAdjuster {
     warmup_opts.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
     warmup_opts.max_num_iterations =
         photometric_options_.structure_warmup_max_num_iterations;
-    ceres_ba_internal::CancellationCallback cancel_cb(
-        options_.check_if_stopped);
+    CeresCancellationCallback cancel_cb(options_.check_if_stopped);
     if (options_.check_if_stopped) {
       warmup_opts.callbacks.push_back(&cancel_cb);
     }
@@ -1392,9 +1377,8 @@ class PhotometricBundleAdjusterImpl : public BundleAdjuster {
     if (!warmup_summary.IsSolutionUsable()) {
       LOG(ERROR) << "Photometric BA level " << req_level
                  << " warmup failed: " << warmup_summary.message;
-      summary->termination_type =
-          ceres_ba_internal::CeresTerminationTypeToTerminationType(
-              warmup_summary.termination_type);
+      summary->termination_type = CeresTerminationTypeToTerminationType(
+          warmup_summary.termination_type);
       return LevelStatus::kFailed;
     }
     return LevelStatus::kContinue;
@@ -1495,8 +1479,7 @@ class PhotometricBundleAdjusterImpl : public BundleAdjuster {
       solver_opts.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
     }
 
-    ceres_ba_internal::CancellationCallback cancel_cb(
-        options_.check_if_stopped);
+    CeresCancellationCallback cancel_cb(options_.check_if_stopped);
     if (options_.check_if_stopped) {
       solver_opts.callbacks.push_back(&cancel_cb);
     }
@@ -1505,8 +1488,7 @@ class PhotometricBundleAdjusterImpl : public BundleAdjuster {
     ceres::Solve(solver_opts, &problem, &level_summary);
     *last_num_residuals = level_summary.num_residuals_reduced;
     summary->termination_type =
-        ceres_ba_internal::CeresTerminationTypeToTerminationType(
-            level_summary.termination_type);
+        CeresTerminationTypeToTerminationType(level_summary.termination_type);
 
     if (options_.print_summary) {
       const char* cost_unit = *level_used_geo ? "RMS weighted" : "RMS ZNSSD";

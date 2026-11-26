@@ -250,7 +250,6 @@ TEST(PhotometricBundleAdjustment, RecoversPerturbedPosesIntrinsicsAndPoints) {
 
   PhotometricBundleAdjustmentOptions photo_options;
   photo_options.pyramid_levels = "2,1,0";
-  photo_options.refine_structure_first = true;
   photo_options.geometric_reprojection_weight = 0.0;
 
   BundleAdjustmentConfig config;
@@ -338,9 +337,8 @@ TEST(PhotometricBundleAdjustment, FixedPoseTriangulationRefinement) {
 
   PhotometricBundleAdjustmentOptions photo_options;
   photo_options.pyramid_levels = "2,1,0";
-  // Keep default refine_structure_first = true to verify warmup is skipped
+  // Keep default warmup iterations > 0 to verify warmup is skipped
   // when all camera-side blocks are already constant.
-  photo_options.refine_structure_first = true;
 
   BundleAdjustmentConfig config;
   for (const image_t image_id : rec.RegImageIds()) {
@@ -363,6 +361,13 @@ TEST(PhotometricBundleAdjustment, FixedPoseTriangulationRefinement) {
 }
 
 TEST(PhotometricBundleAdjustment, ValidationGuardsAndOptionChecks) {
+  // Out-of-range patch_size rejected (2 <= patch_size <= 8).
+  for (const int bad_patch : {1, 9}) {
+    PhotometricBundleAdjustmentOptions bad_opts;
+    bad_opts.patch_size = bad_patch;
+    EXPECT_FALSE(bad_opts.Check());
+  }
+
   // Out-of-range pyramid level rejected to prevent shift UB.
   PhotometricBundleAdjustmentOptions bad_lvl;
   bad_lvl.pyramid_levels = "31";
@@ -390,7 +395,7 @@ TEST(PhotometricBundleAdjustment, ValidationGuardsAndOptionChecks) {
     ba_opts.print_summary = false;
     PhotometricBundleAdjustmentOptions photo_opts;
     photo_opts.pyramid_levels = "0";
-    photo_opts.refine_structure_first = false;
+    photo_opts.structure_warmup_max_num_iterations = 0;
     BundleAdjustmentConfig config;
     for (const image_t image_id : rec.RegImageIds()) {
       config.AddImage(image_id);
@@ -438,7 +443,7 @@ TEST(PhotometricBundleAdjustment, DownscaledPyramidsAndTrivialZeroScaleLoss) {
 
   PhotometricBundleAdjustmentOptions photo_opts;
   photo_opts.pyramid_levels = "1,0";
-  photo_opts.refine_structure_first = false;
+  photo_opts.structure_warmup_max_num_iterations = 0;
   photo_opts.loss_function_type = CeresLossFunctionType::TRIVIAL;
   photo_opts.loss_function_scale = 0.0;
 
@@ -573,7 +578,7 @@ TEST(PhotometricBundleAdjustment, IntraFrameRigDoesNotCrash) {
 
   PhotometricBundleAdjustmentOptions photo_opts;
   photo_opts.pyramid_levels = "0";
-  photo_opts.refine_structure_first = false;
+  photo_opts.structure_warmup_max_num_iterations = 0;
   // Explicitly test pure photometric BA so Frame 1's rig_from_world is absent
   // from Ceres.
   photo_opts.geometric_reprojection_weight = 0.0;
@@ -834,7 +839,7 @@ TEST(PhotometricBundleAdjustment, FinalizeInactiveTracksVceAndPurePhotometric) {
     PhotometricBundleAdjustmentOptions photo_opts;
     photo_opts.pyramid_levels = "1,0";
     photo_opts.geometric_reprojection_weight = 0.0;
-    photo_opts.refine_structure_first = false;
+    photo_opts.structure_warmup_max_num_iterations = 0;
 
     auto ba = CreatePhotometricBundleAdjuster(
         fixed_ba_opts, photo_opts, config, masked_pyramids, rec_pure);
@@ -953,7 +958,7 @@ TEST(PhotometricBundleAdjustment,
 
   PhotometricBundleAdjustmentOptions photo_opts;
   photo_opts.pyramid_levels = "1,0";
-  photo_opts.refine_structure_first = false;
+  photo_opts.structure_warmup_max_num_iterations = 0;
   photo_opts.geometric_reprojection_weight = 1.0;
 
   BundleAdjustmentConfig config;

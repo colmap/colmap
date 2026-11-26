@@ -442,29 +442,22 @@ void BindBundleAdjuster(py::module& m) {
           .def(py::init<>())
           .def_readwrite("patch_size",
                          &PhotoBAOpts::patch_size,
-                         "Side length of the square corner-grid patch.")
+                         "Side length of the square corner-grid patch "
+                         "(2 <= patch_size <= 8).")
           .def_readwrite("pyramid_levels",
                          &PhotoBAOpts::pyramid_levels,
                          "Comma-separated coarse-to-fine pyramid levels.")
           .def_readwrite("max_image_size",
                          &PhotoBAOpts::max_image_size,
                          "Optional maximum image dimension (-1 = full res).")
-          .def_readwrite("use_target_mipmap",
-                         &PhotoBAOpts::use_target_mipmap,
-                         "Select target pyramid level matching ~1 px spacing.")
-          .def_readwrite("refine_structure_first",
-                         &PhotoBAOpts::refine_structure_first,
-                         "Run structure-only warmup before joint optimization.")
           .def_readwrite("structure_warmup_max_num_iterations",
                          &PhotoBAOpts::structure_warmup_max_num_iterations,
-                         "Maximum iterations for structure-only warmup.")
+                         "Maximum iterations for structure-only warmup "
+                         "(0 disables warmup).")
           .def_readwrite("min_patch_std",
                          &PhotoBAOpts::min_patch_std,
                          "Minimum grayscale intensity std dev for textured "
                          "patches.")
-          .def_readwrite("max_num_observations_per_point",
-                         &PhotoBAOpts::max_num_observations_per_point,
-                         "Optional cap on target observations per 3D point.")
           .def_readwrite("loss_function_type",
                          &PhotoBAOpts::loss_function_type,
                          "Robust loss function for LS-NCC patch residuals.")

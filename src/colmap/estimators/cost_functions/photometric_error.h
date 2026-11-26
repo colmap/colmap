@@ -26,25 +26,32 @@ namespace colmap {
 // (RadTanThinPrismFisheye / FullOpenCV / ThinPrismFisheye have 12 params).
 constexpr int kPhotometricMaxCamParams = 16;
 
+// Maximum square patch side length P (M = P * P <= 64 samples). Bounding M at
+// compile time lets Evaluate() keep all scratch matrices on the stack with
+// zero heap allocations.
+constexpr int kPhotometricMaxPatchSize = 8;
+constexpr int kPhotometricMaxPatchSamples =
+    kPhotometricMaxPatchSize * kPhotometricMaxPatchSize;
+
 // Fixed per-landmark source patch data shared across all target views of the
 // landmark at a given pyramid level.
 struct PhotometricPatchData {
   // Full-resolution COLMAP pixel coordinates of the M patch samples in the
   // source image.
-  std::vector<double> src_xs;
-  std::vector<double> src_ys;
+  Eigen::VectorXd src_xs;
+  Eigen::VectorXd src_ys;
 
   // Precomputed zero-mean unit-norm source intensities Psi(I_src) of length M.
-  std::vector<double> src_norm;
+  Eigen::VectorXd src_norm;
 
-  // Initial undistorted source rays (u, v, w) at the start of the current
-  // pyramid level (w = 1 for perspective models, unit sphere ray for spherical
-  // models). Used directly when source intrinsics are constant or as a
-  // thread-safe warm-start for Newton undistortion when variable.
-  std::vector<Eigen::Vector3d> src_rays_init;
+  // Initial undistorted source rays (3 x M) at the start of the current pyramid
+  // level (z = 1 for perspective models, unit sphere ray for spherical models).
+  // Used directly when source intrinsics are constant, or as a thread-safe
+  // warm-start for Newton undistortion when variable.
+  Eigen::Matrix3Xd src_rays_init;
 
   // Snapshot of source camera parameters at the start of the current pyramid
-  // level so Evaluate() can detect whether undistortion needs refinement.
+  // level so Evaluate() can skip unprojection when intrinsics are unchanged.
   std::vector<double> src_cam_params_init;
 
   // Full-resolution anchor pixel (center of patch) used to reconstruct the
@@ -56,9 +63,59 @@ struct PhotometricPatchData {
 
 namespace photometric_internal {
 
+// Stack-allocated dynamic-size Eigen types (zero heap allocation for
+// M <= kPhotometricMaxPatchSamples).
+using VectorMaxM = Eigen::Matrix<double,
+                                 Eigen::Dynamic,
+                                 1,
+                                 Eigen::ColMajor,
+                                 kPhotometricMaxPatchSamples,
+                                 1>;
+using Matrix3xMaxM = Eigen::Matrix<double,
+                                   3,
+                                   Eigen::Dynamic,
+                                   Eigen::ColMajor,
+                                   3,
+                                   kPhotometricMaxPatchSamples>;
+using MatrixMaxMx2 = Eigen::Matrix<double,
+                                   Eigen::Dynamic,
+                                   2,
+                                   Eigen::ColMajor,
+                                   kPhotometricMaxPatchSamples,
+                                   2>;
+using MatrixMaxMx3RowMajor = Eigen::Matrix<double,
+                                           Eigen::Dynamic,
+                                           3,
+                                           Eigen::RowMajor,
+                                           kPhotometricMaxPatchSamples,
+                                           3>;
+using MatrixMaxMx6RowMajor = Eigen::Matrix<double,
+                                           Eigen::Dynamic,
+                                           6,
+                                           Eigen::RowMajor,
+                                           kPhotometricMaxPatchSamples,
+                                           6>;
+using MatrixMaxMx7RowMajor = Eigen::Matrix<double,
+                                           Eigen::Dynamic,
+                                           7,
+                                           Eigen::RowMajor,
+                                           kPhotometricMaxPatchSamples,
+                                           7>;
+using MatrixMaxCamJac = Eigen::Matrix<double,
+                                      Eigen::Dynamic,
+                                      Eigen::Dynamic,
+                                      Eigen::RowMajor,
+                                      2 * kPhotometricMaxPatchSamples,
+                                      kPhotometricMaxCamParams>;
+using MatrixMaxScratch = Eigen::Matrix<double,
+                                       Eigen::Dynamic,
+                                       Eigen::Dynamic,
+                                       Eigen::RowMajor,
+                                       kPhotometricMaxPatchSamples,
+                                       kPhotometricMaxCamParams>;
+
 using MatrixMx3RowMajor =
     Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>;
-using MatrixMx2ColMajor = Eigen::Matrix<double, Eigen::Dynamic, 2>;
 using Matrix3x4RowMajor = Eigen::Matrix<double, 3, 4, Eigen::RowMajor>;
 using Matrix2x3RowMajor = Eigen::Matrix<double, 2, 3, Eigen::RowMajor>;
 using RowVectorMaxCamParams = Eigen::Matrix<double,
@@ -68,50 +125,12 @@ using RowVectorMaxCamParams = Eigen::Matrix<double,
                                             1,
                                             kPhotometricMaxCamParams>;
 
-// Small stack-backed buffer with heap fallback for large patch sizes.
-template <typename T, size_t kStackCapacity>
-class InlineBuffer {
- public:
-  span<T> Resize(const size_t count) {
-    if (count <= kStackCapacity) {
-      return span<T>(stack_, count);
-    }
-    heap_.resize(count);
-    return span<T>(heap_.data(), count);
-  }
-
- private:
-  T stack_[kStackCapacity];
-  std::vector<T> heap_;
-};
-
-inline Eigen::Map<Eigen::VectorXd> MapVector(span<double> buf) {
-  return Eigen::Map<Eigen::VectorXd>(buf.begin(),
-                                     static_cast<Eigen::Index>(buf.size()));
-}
-
 template <int kCols>
 inline Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, kCols, Eigen::RowMajor>>
 MapFixedColMatrix(double* ptr, const int rows) {
   return Eigen::Map<
       Eigen::Matrix<double, Eigen::Dynamic, kCols, Eigen::RowMajor>>(
       ptr, rows, kCols);
-}
-
-template <int kCols>
-inline Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, kCols, Eigen::RowMajor>>
-MapFixedColMatrix(span<double> buf, const int rows) {
-  THROW_CHECK_EQ(buf.size(), static_cast<size_t>(rows) * kCols);
-  return Eigen::Map<
-      Eigen::Matrix<double, Eigen::Dynamic, kCols, Eigen::RowMajor>>(
-      buf.begin(), rows, kCols);
-}
-
-inline Eigen::Map<Eigen::RowMajorMatrixXd> MapRowMajorMatrix(span<double> buf,
-                                                             const int rows,
-                                                             const int cols) {
-  THROW_CHECK_EQ(buf.size(), static_cast<size_t>(rows) * cols);
-  return Eigen::Map<Eigen::RowMajorMatrixXd>(buf.begin(), rows, cols);
 }
 
 inline Eigen::Map<Eigen::RowMajorMatrixXd> MapRowMajorMatrix(double* ptr,
@@ -141,58 +160,61 @@ inline Matrix3x4RowMajor QuaternionInverseRotatePointJac(
 }
 
 // Bilinearly interpolate target intensities (and optional spatial gradients)
-// and compute the LS-NCC normalized patch `p_norm` and residuals
-// `r = p_norm - src_norm`.
+// and compute the LS-NCC normalized target patch:
+//   p_hat = Psi(I) = (I - mean(I) * 1) / sigma,   sigma = ||I - mean(I) * 1||_2
+// and residual vector `r = p_hat - src_norm`, where ||r||^2 = 2 * (1 - NCC).
 inline bool InterpolateAndComputeLSNCC(
     const GrayscaleImageLevel& level,
-    const span<const double> xs,
-    const span<const double> ys,
+    const Eigen::Ref<const Eigen::VectorXd>& xs,
+    const Eigen::Ref<const Eigen::VectorXd>& ys,
     const Eigen::Ref<const Eigen::VectorXd>& src_norm,
     const double min_norm,
     const bool compute_grad,
     Eigen::Ref<Eigen::VectorXd> dxs,
     Eigen::Ref<Eigen::VectorXd> dys,
-    Eigen::Ref<Eigen::VectorXd> p_norm,
+    Eigen::Ref<Eigen::VectorXd> tgt_norm,
     Eigen::Ref<Eigen::VectorXd> residuals,
     double& inv_sigma) {
-  const int n = static_cast<int>(xs.size());
+  const Eigen::Index num_samples = xs.size();
   if (compute_grad) {
-    for (int m = 0; m < n; ++m) {
+    for (Eigen::Index m = 0; m < num_samples; ++m) {
       const auto val =
           level.InterpolateBilinear(xs[m], ys[m], &dxs[m], &dys[m]);
       if (!val.has_value()) {
         return false;
       }
-      p_norm[m] = *val;
+      tgt_norm[m] = *val;
     }
   } else {
-    for (int m = 0; m < n; ++m) {
+    for (Eigen::Index m = 0; m < num_samples; ++m) {
       const auto val = level.InterpolateBilinear(xs[m], ys[m]);
       if (!val.has_value()) {
         return false;
       }
-      p_norm[m] = *val;
+      tgt_norm[m] = *val;
     }
   }
 
-  p_norm.array() -= p_norm.mean();
-  const double sq_norm = p_norm.squaredNorm();
+  tgt_norm.array() -= tgt_norm.mean();
+  const double sq_norm = tgt_norm.squaredNorm();
   if (!(sq_norm > 0.0 && sq_norm >= min_norm * min_norm)) {
     return false;
   }
   inv_sigma = 1.0 / std::sqrt(sq_norm);
-  p_norm *= inv_sigma;
-  residuals = p_norm - src_norm;
+  tgt_norm *= inv_sigma;
+  residuals = tgt_norm - src_norm;
   return true;
 }
 
-// Project a row-major [n x C] raw Jacobian matrix G through the LS-NCC
-// normalization Jacobian J_Psi = inv_sigma * (I - 1/n 11^T - p_norm p_norm^T).
-// Safe when G and out_jac alias (accumulate == false).
+// Project a raw intensity Jacobian G = dI/dtheta [M x C] through the LS-NCC
+// normalization Jacobian:
+//   dPsi / dI = (1 / sigma) * (I_M - (1/M) * 1 1^T - p_hat p_hat^T),
+// where p_hat = Psi(I) (`tgt_norm`) and inv_sigma = 1 / sigma.
+// Safe when `raw_jac` and `out_jac` alias (when `accumulate == false`).
 template <typename DerivedG, typename DerivedOut>
 inline void ProjectLSNCCJacobian(
-    const Eigen::MatrixBase<DerivedG>& G,
-    const Eigen::Ref<const Eigen::VectorXd>& p_norm,
+    const Eigen::MatrixBase<DerivedG>& raw_jac,
+    const Eigen::Ref<const Eigen::VectorXd>& tgt_norm,
     const double inv_sigma,
     Eigen::MatrixBase<DerivedOut>& out_jac,
     const bool accumulate) {
@@ -200,70 +222,79 @@ inline void ProjectLSNCCJacobian(
   using RowVec = std::conditional_t<kCols == Eigen::Dynamic,
                                     RowVectorMaxCamParams,
                                     Eigen::Matrix<double, 1, kCols>>;
-  const Eigen::Index rows = G.rows();
-  RowVec col_means = RowVec::Zero(G.cols());
-  RowVec col_dots = RowVec::Zero(G.cols());
+  const Eigen::Index rows = raw_jac.rows();
+  RowVec col_means = RowVec::Zero(raw_jac.cols());
+  RowVec col_dots = RowVec::Zero(raw_jac.cols());
   for (Eigen::Index m = 0; m < rows; ++m) {
-    col_means += G.row(m);
-    col_dots += p_norm[m] * G.row(m);
+    col_means += raw_jac.row(m);
+    col_dots += tgt_norm[m] * raw_jac.row(m);
   }
   col_means /= static_cast<double>(rows);
   if (accumulate) {
     for (Eigen::Index m = 0; m < rows; ++m) {
       out_jac.row(m) +=
-          inv_sigma * (G.row(m) - col_means - p_norm[m] * col_dots);
+          inv_sigma * (raw_jac.row(m) - col_means - tgt_norm[m] * col_dots);
     }
   } else {
     for (Eigen::Index m = 0; m < rows; ++m) {
       out_jac.row(m) =
-          inv_sigma * (G.row(m) - col_means - p_norm[m] * col_dots);
+          inv_sigma * (raw_jac.row(m) - col_means - tgt_norm[m] * col_dots);
     }
   }
 }
 
-// Chain rule G[m, :] = gx[m] * J_raw[m, 0, :] + gy[m] * J_raw[m, 1, :]
-// followed by LS-NCC projection J_Psi * G into out_jac.
+// Apply 2D chain rule G[m, :] = gx[m] * J_raw[m, 0, :] + gy[m] * J_raw[m, 1, :]
+// followed by LS-NCC projection J_Psi * G into `out_jac`.
 inline void ChainRuleAndProjectLSNCC(
     const Eigen::Ref<const Eigen::VectorXd>& gx,
     const Eigen::Ref<const Eigen::VectorXd>& gy,
-    const span<const double> J_raw,
-    const Eigen::Ref<const Eigen::VectorXd>& p_norm,
+    const double* J_raw,
+    const Eigen::Ref<const Eigen::VectorXd>& tgt_norm,
     const double inv_sigma,
-    Eigen::Map<Eigen::RowMajorMatrixXd> g_work,
     Eigen::Map<Eigen::RowMajorMatrixXd> out_jac,
     const bool accumulate) {
-  const int n = static_cast<int>(gx.size());
-  const int num_cols = static_cast<int>(out_jac.cols());
-  for (int m = 0; m < n; ++m) {
-    const Eigen::Map<const Eigen::RowMajorMatrixXd> J_m(
-        J_raw.begin() + static_cast<size_t>(m) * 2 * num_cols, 2, num_cols);
-    g_work.row(m) = gx[m] * J_m.row(0) + gy[m] * J_m.row(1);
+  const Eigen::Index num_samples = gx.size();
+  const Eigen::Index num_cols = out_jac.cols();
+  auto FillRaw = [&](Eigen::Ref<Eigen::RowMajorMatrixXd> dst) {
+    for (Eigen::Index m = 0; m < num_samples; ++m) {
+      const Eigen::Map<const Eigen::RowMajorMatrixXd> J_m(
+          J_raw + static_cast<size_t>(m) * 2 * num_cols, 2, num_cols);
+      dst.row(m) = gx[m] * J_m.row(0) + gy[m] * J_m.row(1);
+    }
+  };
+  if (accumulate) {
+    MatrixMaxScratch raw_jac(num_samples, num_cols);
+    FillRaw(raw_jac);
+    ProjectLSNCCJacobian(
+        raw_jac, tgt_norm, inv_sigma, out_jac, /*accumulate=*/true);
+  } else {
+    FillRaw(out_jac);
+    ProjectLSNCCJacobian(
+        out_jac, tgt_norm, inv_sigma, out_jac, /*accumulate=*/false);
   }
-  ProjectLSNCCJacobian(g_work, p_norm, inv_sigma, out_jac, accumulate);
 }
 
-// Project a batch of M 3D points `pts_in_cam` using
-// `CameraModel::ImgFromCamWithJac`. `J_params_out` (optional, size M * 2 *
-// num_params) and `J_uvw_out` (optional, size M * 6) are stored contiguously
-// per sample m; pass empty spans to skip computing them.
+// Project a batch of M 3D points `pts_in_cam` (3 x M) using
+// `CameraModel::ImgFromCamWithJac`. `J_params_out` (optional, M * 2 *
+// num_params) and `J_uvw_out` (optional, M * 6) are stored contiguously per
+// sample m; pass nullptr to skip computing them.
 template <typename CameraModel>
-bool ProjectBatchImpl(span<const double> params,
-                      span<const Eigen::Vector3d> pts_in_cam,
-                      span<double> xs_out,
-                      span<double> ys_out,
-                      span<double> J_params_out,
-                      span<double> J_uvw_out) {
+bool ProjectBatchImpl(const double* params,
+                      const Eigen::Ref<const Eigen::Matrix3Xd>& pts_in_cam,
+                      double* xs_out,
+                      double* ys_out,
+                      double* J_params_out,
+                      double* J_uvw_out) {
   constexpr int kNumParams = static_cast<int>(CameraModel::num_params);
-  const size_t n = pts_in_cam.size();
-  for (size_t m = 0; m < n; ++m) {
-    double* jp = J_params_out.empty()
-                     ? nullptr
-                     : (J_params_out.begin() + m * 2 * kNumParams);
-    double* ju = J_uvw_out.empty() ? nullptr : (J_uvw_out.begin() + m * 6);
-    if (!CameraModel::ImgFromCamWithJac(params.begin(),
-                                        pts_in_cam[m].x(),
-                                        pts_in_cam[m].y(),
-                                        pts_in_cam[m].z(),
+  const Eigen::Index num_samples = pts_in_cam.cols();
+  for (Eigen::Index m = 0; m < num_samples; ++m) {
+    double* jp =
+        J_params_out == nullptr ? nullptr : (J_params_out + m * 2 * kNumParams);
+    double* ju = J_uvw_out == nullptr ? nullptr : (J_uvw_out + m * 6);
+    if (!CameraModel::ImgFromCamWithJac(params,
+                                        pts_in_cam(0, m),
+                                        pts_in_cam(1, m),
+                                        pts_in_cam(2, m),
                                         &xs_out[m],
                                         &ys_out[m],
                                         jp,
@@ -275,12 +306,12 @@ bool ProjectBatchImpl(span<const double> params,
 }
 
 inline bool ProjectBatch(const CameraModelId model_id,
-                         span<const double> params,
-                         span<const Eigen::Vector3d> pts_in_cam,
-                         span<double> xs_out,
-                         span<double> ys_out,
-                         span<double> J_params_out,
-                         span<double> J_uvw_out) {
+                         const double* params,
+                         const Eigen::Ref<const Eigen::Matrix3Xd>& pts_in_cam,
+                         double* xs_out,
+                         double* ys_out,
+                         double* J_params_out = nullptr,
+                         double* J_uvw_out = nullptr) {
   switch (model_id) {
 #define CAMERA_MODEL_CASE(CameraModel)    \
   case CameraModel::model_id:             \
@@ -292,32 +323,33 @@ inline bool ProjectBatch(const CameraModelId model_id,
   return false;
 }
 
-// Unproject a batch of fixed source pixels (src_xs[m], src_ys[m]) to rays
-// (u_m, v_m, 1) for perspective models using warm-started Gauss-Newton with
-// ImgFromCamWithJac, and optionally compute the implicit-function Jacobian
-//   d(u_m, v_m) / d(params) = -J_uv^{-1} * J_params   (2 x num_params per m)
-// when `d_uv_d_params_out` is non-empty.
-// When `skip_newton` is true (source intrinsics unchanged from init), evaluates
-// ImgFromCamWithJac once at `init_rays[m]` without Newton iterations.
-// For spherical models (whose params are constant metadata), returns the
-// initial unit rays directly with zero param Jacobian.
+// Unproject fixed source pixels (src_xs[m], src_ys[m]) to perspective rays
+// (u_m, v_m, 1) via warm-started Gauss-Newton on `ImgFromCamWithJac`. When
+// `d_uv_d_params_out != nullptr`, also computes the implicit-function Jacobian
+// from F(uv, params) = pi(uv, 1; params) - x_src = 0:
+//   d(u_m, v_m) / d(params) = -J_uv^{-1} * J_params   (2 x num_params per m).
+// When `params` matches `init_rays`, the Newton loop exits on iteration 0 after
+// a single `ImgFromCamWithJac` call. For spherical models (whose params are
+// constant metadata), copies `init_rays` directly with zero Jacobian.
 template <typename CameraModel>
-bool UnprojectBatchWithJacImpl(span<const double> params,
-                               span<const double> src_xs,
-                               span<const double> src_ys,
-                               span<const Eigen::Vector3d> init_rays,
-                               const bool skip_newton,
-                               span<Eigen::Vector3d> rays_out,
-                               span<double> d_uv_d_params_out) {
+bool UnprojectBatchWithJacImpl(
+    const double* params,
+    const Eigen::Ref<const Eigen::VectorXd>& src_xs,
+    const Eigen::Ref<const Eigen::VectorXd>& src_ys,
+    const Eigen::Ref<const Eigen::Matrix3Xd>& init_rays,
+    Eigen::Ref<Eigen::Matrix3Xd> rays_out,
+    double* d_uv_d_params_out) {
   constexpr int kNumParams = static_cast<int>(CameraModel::num_params);
-  const size_t n = init_rays.size();
-  const bool compute_jac = !d_uv_d_params_out.empty();
+  const Eigen::Index num_samples = init_rays.cols();
+  const bool compute_jac = (d_uv_d_params_out != nullptr);
 
   if constexpr (!std::is_base_of_v<BasePerspectiveCameraModel<CameraModel>,
                                    CameraModel>) {
-    std::copy(init_rays.begin(), init_rays.end(), rays_out.begin());
+    rays_out = init_rays;
     if (compute_jac) {
-      std::fill(d_uv_d_params_out.begin(), d_uv_d_params_out.end(), 0.0);
+      std::fill(d_uv_d_params_out,
+                d_uv_d_params_out + num_samples * 2 * kNumParams,
+                0.0);
     }
     return true;
   } else {
@@ -326,8 +358,8 @@ bool UnprojectBatchWithJacImpl(span<const double> params,
     Eigen::Matrix<double, 2, kNumParams, Eigen::RowMajor> J_params;
     double* jp_out = compute_jac ? J_params.data() : nullptr;
 
-    for (size_t m = 0; m < n; ++m) {
-      Eigen::Vector2d uv = init_rays[m].head<2>();
+    for (Eigen::Index m = 0; m < num_samples; ++m) {
+      Eigen::Vector2d uv = init_rays.col(m).head<2>();
       const Eigen::Vector2d target(src_xs[m], src_ys[m]);
       // Scale pixel tolerance to 4 ULPs of the pixel coordinates so it stays
       // above double-precision rounding even at >6000 px while remaining tight
@@ -337,75 +369,59 @@ bool UnprojectBatchWithJacImpl(span<const double> params,
           4.0 * std::numeric_limits<double>::epsilon() * px_scale;
       const double tol_sq = px_tol * px_tol;
 
-      if (skip_newton) {
-        if (compute_jac) {
-          Eigen::Vector2d proj;
-          if (!CameraModel::ImgFromCamWithJac(params.begin(),
-                                              uv.x(),
-                                              uv.y(),
-                                              1.0,
-                                              &proj.x(),
-                                              &proj.y(),
-                                              jp_out,
-                                              J_uvw.data())) {
-            return false;
-          }
+      bool converged = false;
+      for (int iter = 0; iter < kMaxNewtonIters; ++iter) {
+        Eigen::Vector2d proj;
+        if (!CameraModel::ImgFromCamWithJac(params,
+                                            uv.x(),
+                                            uv.y(),
+                                            1.0,
+                                            &proj.x(),
+                                            &proj.y(),
+                                            jp_out,
+                                            J_uvw.data())) {
+          break;
         }
-      } else {
-        bool converged = false;
-        for (int iter = 0; iter < kMaxNewtonIters; ++iter) {
-          Eigen::Vector2d proj;
-          if (!CameraModel::ImgFromCamWithJac(params.begin(),
-                                              uv.x(),
-                                              uv.y(),
-                                              1.0,
-                                              &proj.x(),
-                                              &proj.y(),
-                                              jp_out,
-                                              J_uvw.data())) {
-            break;
-          }
-          const Eigen::Vector2d err = proj - target;
-          if (err.squaredNorm() <= tol_sq) {
-            converged = true;
-            break;
-          }
-          const Eigen::Matrix2d J_uv = J_uvw.leftCols<2>();
-          if (!(std::abs(J_uv.determinant()) > 1e-12)) {
-            break;
-          }
-          const Eigen::Vector2d delta = -J_uv.inverse() * err;
-          uv += delta;
-          if (delta.squaredNorm() < 1e-28) {
-            converged = true;
-            break;
-          }
+        const Eigen::Vector2d err = proj - target;
+        if (err.squaredNorm() <= tol_sq) {
+          converged = true;
+          break;
         }
-
-        if (!converged) {
-          // Fallback to model's full CamFromImg once before declaring failure.
-          if (!CameraModel::CamFromImg(
-                  params.begin(), target.x(), target.y(), &uv.x(), &uv.y())) {
-            return false;
-          }
-          Eigen::Vector2d proj;
-          if (!CameraModel::ImgFromCamWithJac(params.begin(),
-                                              uv.x(),
-                                              uv.y(),
-                                              1.0,
-                                              &proj.x(),
-                                              &proj.y(),
-                                              jp_out,
-                                              J_uvw.data())) {
-            return false;
-          }
-          if (!((proj - target).squaredNorm() < 1e-6)) {
-            return false;
-          }
+        const Eigen::Matrix2d J_uv = J_uvw.leftCols<2>();
+        if (!(std::abs(J_uv.determinant()) > 1e-12)) {
+          break;
+        }
+        const Eigen::Vector2d delta = -J_uv.inverse() * err;
+        uv += delta;
+        if (delta.squaredNorm() < 1e-28) {
+          converged = true;
+          break;
         }
       }
 
-      rays_out[m] = uv.homogeneous();
+      if (!converged) {
+        // Fallback to model's full CamFromImg once before declaring failure.
+        if (!CameraModel::CamFromImg(
+                params, target.x(), target.y(), &uv.x(), &uv.y())) {
+          return false;
+        }
+        Eigen::Vector2d proj;
+        if (!CameraModel::ImgFromCamWithJac(params,
+                                            uv.x(),
+                                            uv.y(),
+                                            1.0,
+                                            &proj.x(),
+                                            &proj.y(),
+                                            jp_out,
+                                            J_uvw.data())) {
+          return false;
+        }
+        if (!((proj - target).squaredNorm() < 1e-6)) {
+          return false;
+        }
+      }
+
+      rays_out.col(m) = uv.homogeneous();
 
       if (compute_jac) {
         const Eigen::Matrix2d J_uv = J_uvw.leftCols<2>();
@@ -413,7 +429,7 @@ bool UnprojectBatchWithJacImpl(span<const double> params,
           return false;
         }
         Eigen::Map<Eigen::Matrix<double, 2, kNumParams, Eigen::RowMajor>>(
-            d_uv_d_params_out.begin() + m * 2 * kNumParams) =
+            d_uv_d_params_out + m * 2 * kNumParams) =
             -J_uv.inverse() * J_params;
       }
     }
@@ -421,34 +437,28 @@ bool UnprojectBatchWithJacImpl(span<const double> params,
   }
 }
 
-inline bool UnprojectBatchWithJac(const CameraModelId model_id,
-                                  span<const double> params,
-                                  span<const double> src_xs,
-                                  span<const double> src_ys,
-                                  span<const Eigen::Vector3d> init_rays,
-                                  const bool skip_newton,
-                                  span<Eigen::Vector3d> rays_out,
-                                  span<double> d_uv_d_params_out) {
+inline bool UnprojectBatchWithJac(
+    const CameraModelId model_id,
+    const double* params,
+    const Eigen::Ref<const Eigen::VectorXd>& src_xs,
+    const Eigen::Ref<const Eigen::VectorXd>& src_ys,
+    const Eigen::Ref<const Eigen::Matrix3Xd>& init_rays,
+    Eigen::Ref<Eigen::Matrix3Xd> rays_out,
+    double* d_uv_d_params_out = nullptr) {
   switch (model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)                         \
-  case CameraModel::model_id:                                  \
-    return UnprojectBatchWithJacImpl<CameraModel>(params,      \
-                                                  src_xs,      \
-                                                  src_ys,      \
-                                                  init_rays,   \
-                                                  skip_newton, \
-                                                  rays_out,    \
-                                                  d_uv_d_params_out);
+#define CAMERA_MODEL_CASE(CameraModel)             \
+  case CameraModel::model_id:                      \
+    return UnprojectBatchWithJacImpl<CameraModel>( \
+        params, src_xs, src_ys, init_rays, rays_out, d_uv_d_params_out);
     CAMERA_MODEL_SWITCH_CASES
 #undef CAMERA_MODEL_CASE
   }
   return false;
 }
 
-inline bool HasSourceCamChanged(const span<const double> src_cam,
-                                const span<const double> src_cam_init) {
-  return !std::equal(
-      src_cam.begin(), src_cam.end(), src_cam_init.begin(), src_cam_init.end());
+inline bool HasSourceCamChanged(const double* src_cam,
+                                const std::vector<double>& src_cam_init) {
+  return !std::equal(src_cam_init.begin(), src_cam_init.end(), src_cam);
 }
 
 // Parameter-block layout for PhotometricNCCCostFunction. Deduplicates shared
@@ -467,10 +477,10 @@ struct SourceTargetBlockLayout {
   bool same_camera = false;
 
   int plane_idx = 0;
-  int src_rfw_idx = -1;
-  int tgt_rfw_idx = -1;
-  int src_sfr_idx = -1;
-  int tgt_sfr_idx = -1;
+  int src_rig_from_world_idx = -1;
+  int tgt_rig_from_world_idx = -1;
+  int src_cam_from_rig_idx = -1;
+  int tgt_cam_from_rig_idx = -1;
   int src_cam_idx = -1;
   int tgt_cam_idx = -1;
 
@@ -508,21 +518,24 @@ struct SourceTargetBlockLayout {
     layout.block_sizes.push_back(3);
 
     if (!layout.same_frame) {
-      layout.src_rfw_idx = static_cast<int>(layout.block_sizes.size());
+      layout.src_rig_from_world_idx =
+          static_cast<int>(layout.block_sizes.size());
       layout.block_sizes.push_back(7);
-      layout.tgt_rfw_idx = static_cast<int>(layout.block_sizes.size());
+      layout.tgt_rig_from_world_idx =
+          static_cast<int>(layout.block_sizes.size());
       layout.block_sizes.push_back(7);
     }
 
     if (!layout.src_is_ref_sensor) {
-      layout.src_sfr_idx = static_cast<int>(layout.block_sizes.size());
+      layout.src_cam_from_rig_idx = static_cast<int>(layout.block_sizes.size());
       layout.block_sizes.push_back(7);
     }
     if (!layout.tgt_is_ref_sensor) {
       if (layout.same_sensor) {
-        layout.tgt_sfr_idx = layout.src_sfr_idx;
+        layout.tgt_cam_from_rig_idx = layout.src_cam_from_rig_idx;
       } else {
-        layout.tgt_sfr_idx = static_cast<int>(layout.block_sizes.size());
+        layout.tgt_cam_from_rig_idx =
+            static_cast<int>(layout.block_sizes.size());
         layout.block_sizes.push_back(7);
       }
     }
@@ -540,24 +553,24 @@ struct SourceTargetBlockLayout {
   }
 
   std::vector<double*> BuildParameterPointers(double* plane_ptr,
-                                              double* src_rfw_ptr,
-                                              double* tgt_rfw_ptr,
-                                              double* src_sfr_ptr,
-                                              double* tgt_sfr_ptr,
+                                              double* src_rig_from_world_ptr,
+                                              double* tgt_rig_from_world_ptr,
+                                              double* src_cam_from_rig_ptr,
+                                              double* tgt_cam_from_rig_ptr,
                                               double* src_cam_ptr,
                                               double* tgt_cam_ptr) const {
     std::vector<double*> ptrs;
     ptrs.reserve(block_sizes.size());
     ptrs.push_back(plane_ptr);
     if (!same_frame) {
-      ptrs.push_back(src_rfw_ptr);
-      ptrs.push_back(tgt_rfw_ptr);
+      ptrs.push_back(src_rig_from_world_ptr);
+      ptrs.push_back(tgt_rig_from_world_ptr);
     }
     if (!src_is_ref_sensor) {
-      ptrs.push_back(src_sfr_ptr);
+      ptrs.push_back(src_cam_from_rig_ptr);
     }
     if (!tgt_is_ref_sensor && !same_sensor) {
-      ptrs.push_back(tgt_sfr_ptr);
+      ptrs.push_back(tgt_cam_from_rig_ptr);
     }
     ptrs.push_back(src_cam_ptr);
     if (!same_camera) {
@@ -568,107 +581,225 @@ struct SourceTargetBlockLayout {
   }
 };
 
-// Unpacked frame & rig poses and composed relative transform
-// T_ji = T_j * T_i^-1 for PhotometricNCCCostFunction.
+// Unpacked SE(3) rigid transform (quaternion, rotation matrix, translation).
+// Intentionally left uninitialized by default; construct via Identity() or
+// FromParams() to avoid redundant writes on the hot evaluation path.
+struct UnpackedPose {
+  Eigen::Quaterniond q;
+  Eigen::Matrix3d R;
+  Eigen::Vector3d t;
+
+  static UnpackedPose Identity() {
+    return {Eigen::Quaterniond::Identity(),
+            Eigen::Matrix3d::Identity(),
+            Eigen::Vector3d::Zero()};
+  }
+
+  static UnpackedPose FromParams(const double* params) {
+    const Eigen::Quaterniond q = EigenQuaternionMap<double>(params);
+    return {q, q.toRotationMatrix(), EigenVector3Map<double>(params + 4)};
+  }
+};
+
+// Unpacked frame & rig transforms and composed relative transform
+//   T_tgt_from_src = T_tgt_from_world * T_src_from_world^{-1}
+// where T_cam_from_world = T_cam_from_rig * T_rig_from_world.
+// All members are written once in FromParameters(); no default initializers.
 struct RelativePoseState {
-  Eigen::Quaterniond q_fi = Eigen::Quaterniond::Identity();
-  Eigen::Matrix3d R_fi = Eigen::Matrix3d::Identity();
-  Eigen::Vector3d t_fi = Eigen::Vector3d::Zero();
-  Eigen::Quaterniond q_fj = Eigen::Quaterniond::Identity();
-  Eigen::Matrix3d R_fj = Eigen::Matrix3d::Identity();
-  Eigen::Vector3d t_fj = Eigen::Vector3d::Zero();
-  Eigen::Quaterniond q_si = Eigen::Quaterniond::Identity();
-  Eigen::Matrix3d R_si = Eigen::Matrix3d::Identity();
-  Eigen::Vector3d t_si = Eigen::Vector3d::Zero();
-  Eigen::Quaterniond q_sj = Eigen::Quaterniond::Identity();
-  Eigen::Matrix3d R_sj = Eigen::Matrix3d::Identity();
-  Eigen::Vector3d t_sj = Eigen::Vector3d::Zero();
-  Eigen::Matrix3d R_j = Eigen::Matrix3d::Identity();
-  Eigen::Matrix3d R_ji = Eigen::Matrix3d::Identity();
-  Eigen::Vector3d t_ji = Eigen::Vector3d::Zero();
+  UnpackedPose src_rig_from_world;
+  UnpackedPose tgt_rig_from_world;
+  UnpackedPose src_cam_from_rig;
+  UnpackedPose tgt_cam_from_rig;
+
+  Eigen::Matrix3d tgt_cam_from_world_rot;
+  Eigen::Matrix3d tgt_cam_from_src_cam_rot;
+  Eigen::Vector3d tgt_cam_from_src_cam_trans;
 
   static RelativePoseState FromParameters(const SourceTargetBlockLayout& layout,
                                           double const* const* parameters) {
-    RelativePoseState s;
-    if (!layout.same_frame) {
-      const double* src_rfw = parameters[layout.src_rfw_idx];
-      const double* tgt_rfw = parameters[layout.tgt_rfw_idx];
-      s.q_fi = EigenQuaternionMap<double>(src_rfw);
-      s.R_fi = s.q_fi.toRotationMatrix();
-      s.t_fi = EigenVector3Map<double>(src_rfw + 4);
-      s.q_fj = EigenQuaternionMap<double>(tgt_rfw);
-      s.R_fj = s.q_fj.toRotationMatrix();
-      s.t_fj = EigenVector3Map<double>(tgt_rfw + 4);
+    RelativePoseState state;
+    if (layout.same_frame) {
+      state.src_rig_from_world = UnpackedPose::Identity();
+      state.tgt_rig_from_world = UnpackedPose::Identity();
+    } else {
+      state.src_rig_from_world =
+          UnpackedPose::FromParams(parameters[layout.src_rig_from_world_idx]);
+      state.tgt_rig_from_world =
+          UnpackedPose::FromParams(parameters[layout.tgt_rig_from_world_idx]);
     }
-    if (!layout.src_is_ref_sensor) {
-      const double* src_sfr = parameters[layout.src_sfr_idx];
-      s.q_si = EigenQuaternionMap<double>(src_sfr);
-      s.R_si = s.q_si.toRotationMatrix();
-      s.t_si = EigenVector3Map<double>(src_sfr + 4);
-    }
-    if (!layout.tgt_is_ref_sensor) {
-      const double* tgt_sfr = parameters[layout.tgt_sfr_idx];
-      s.q_sj = EigenQuaternionMap<double>(tgt_sfr);
-      s.R_sj = s.q_sj.toRotationMatrix();
-      s.t_sj = EigenVector3Map<double>(tgt_sfr + 4);
-    }
+    state.src_cam_from_rig =
+        layout.src_is_ref_sensor
+            ? UnpackedPose::Identity()
+            : UnpackedPose::FromParams(parameters[layout.src_cam_from_rig_idx]);
+    state.tgt_cam_from_rig =
+        layout.tgt_is_ref_sensor
+            ? UnpackedPose::Identity()
+            : UnpackedPose::FromParams(parameters[layout.tgt_cam_from_rig_idx]);
 
-    const Eigen::Matrix3d R_i = s.R_si * s.R_fi;
-    const Eigen::Vector3d t_i = s.R_si * s.t_fi + s.t_si;
-    s.R_j = s.R_sj * s.R_fj;
-    const Eigen::Vector3d t_j = s.R_sj * s.t_fj + s.t_sj;
-    s.R_ji = s.R_j * R_i.transpose();
-    s.t_ji = t_j - s.R_ji * t_i;
-    return s;
+    const Eigen::Matrix3d src_cam_from_world_rot =
+        state.src_cam_from_rig.R * state.src_rig_from_world.R;
+    const Eigen::Vector3d src_cam_from_world_trans =
+        state.src_cam_from_rig.R * state.src_rig_from_world.t +
+        state.src_cam_from_rig.t;
+    state.tgt_cam_from_world_rot =
+        state.tgt_cam_from_rig.R * state.tgt_rig_from_world.R;
+    const Eigen::Vector3d tgt_cam_from_world_trans =
+        state.tgt_cam_from_rig.R * state.tgt_rig_from_world.t +
+        state.tgt_cam_from_rig.t;
+
+    state.tgt_cam_from_src_cam_rot =
+        state.tgt_cam_from_world_rot * src_cam_from_world_rot.transpose();
+    state.tgt_cam_from_src_cam_trans =
+        tgt_cam_from_world_trans -
+        state.tgt_cam_from_src_cam_rot * src_cam_from_world_trans;
+    return state;
   }
 };
 
 struct BlockJacobianPtrs {
   double* plane = nullptr;
-  double* src_rfw = nullptr;
-  double* tgt_rfw = nullptr;
-  double* src_sfr = nullptr;
-  double* tgt_sfr = nullptr;
+  double* src_rig_from_world = nullptr;
+  double* tgt_rig_from_world = nullptr;
+  double* src_cam_from_rig = nullptr;
+  double* tgt_cam_from_rig = nullptr;
   double* src_cam = nullptr;
   double* tgt_cam = nullptr;
 
   static BlockJacobianPtrs FromJacobians(const SourceTargetBlockLayout& layout,
                                          double** jacobians) {
-    BlockJacobianPtrs j;
+    BlockJacobianPtrs jac;
     if (jacobians == nullptr) {
-      return j;
+      return jac;
     }
-    j.plane = jacobians[layout.plane_idx];
+    jac.plane = jacobians[layout.plane_idx];
     if (!layout.same_frame) {
-      j.src_rfw = jacobians[layout.src_rfw_idx];
-      j.tgt_rfw = jacobians[layout.tgt_rfw_idx];
+      jac.src_rig_from_world = jacobians[layout.src_rig_from_world_idx];
+      jac.tgt_rig_from_world = jacobians[layout.tgt_rig_from_world_idx];
     }
     if (!layout.src_is_ref_sensor) {
-      j.src_sfr = jacobians[layout.src_sfr_idx];
+      jac.src_cam_from_rig = jacobians[layout.src_cam_from_rig_idx];
     }
     if (!layout.tgt_is_ref_sensor) {
-      j.tgt_sfr = jacobians[layout.tgt_sfr_idx];
+      jac.tgt_cam_from_rig = jacobians[layout.tgt_cam_from_rig_idx];
     }
-    j.src_cam = jacobians[layout.src_cam_idx];
-    j.tgt_cam = jacobians[layout.tgt_cam_idx];
-    return j;
+    jac.src_cam = jacobians[layout.src_cam_idx];
+    jac.tgt_cam = jacobians[layout.tgt_cam_idx];
+    return jac;
   }
 
   bool NeedAny() const {
-    return plane || src_rfw || tgt_rfw || src_sfr || tgt_sfr || src_cam ||
-           tgt_cam;
+    return plane || src_rig_from_world || tgt_rig_from_world ||
+           src_cam_from_rig || tgt_cam_from_rig || src_cam || tgt_cam;
   }
   bool NeedJUvw() const {
-    return plane || src_rfw || tgt_rfw || src_sfr || tgt_sfr || src_cam;
+    return plane || src_rig_from_world || tgt_rig_from_world ||
+           src_cam_from_rig || tgt_cam_from_rig || src_cam;
   }
-  bool NeedPoses() const { return src_rfw || tgt_rfw || src_sfr || tgt_sfr; }
+  bool NeedPoses() const {
+    return src_rig_from_world || tgt_rig_from_world || src_cam_from_rig ||
+           tgt_cam_from_rig;
+  }
 };
+
+// Transform alpha-scaled 3D points backwards through `child_from_parent`:
+//   p_parent_m = R^T * (p_child_m - alpha_m * t)
+//              = R^T * p_child_m - (R^T * t) * alpha_m.
+inline void TransformScaledPointsInverse(
+    const UnpackedPose& child_from_parent,
+    const Eigen::Ref<const Eigen::Matrix3Xd>& pts_in_child,
+    const Eigen::Ref<const Eigen::VectorXd>& plane_dots,
+    Matrix3xMaxM& pts_in_parent) {
+  const Eigen::Matrix3d R_T = child_from_parent.R.transpose();
+  const Eigen::Vector3d rotated_t = R_T * child_from_parent.t;
+  pts_in_parent.noalias() = R_T.lazyProduct(pts_in_child);
+  pts_in_parent.noalias() -= rotated_t.lazyProduct(plane_dots.transpose());
+}
+
+// Transform alpha-scaled 3D points forwards through `child_from_parent`:
+//   p_child_m = R * p_parent_m + alpha_m * t.
+inline void TransformScaledPointsForward(
+    const UnpackedPose& child_from_parent,
+    const Eigen::Ref<const Eigen::Matrix3Xd>& pts_in_parent,
+    const Eigen::Ref<const Eigen::VectorXd>& plane_dots,
+    Matrix3xMaxM& pts_in_child) {
+  pts_in_child.noalias() = child_from_parent.R.lazyProduct(pts_in_parent);
+  pts_in_child.noalias() +=
+      child_from_parent.t.lazyProduct(plane_dots.transpose());
+}
+
+// Write the LS-NCC-projected 7-DOF Jacobian (quaternion xyzw + translation) for
+// a forward pose `child_from_parent` along the target branch:
+//   p_child_m = R(q) * p_parent_m + alpha_m * t
+//   dI_m / dq = (dI_m / dp_child_m) * d(R(q) * p_parent_m) / dq
+//   dI_m / dt = alpha_m * (dI_m / dp_child_m).
+inline void WriteForwardPoseJacobian(
+    const UnpackedPose& child_from_parent,
+    const Eigen::Ref<const Eigen::Matrix3Xd>& pts_in_parent,
+    const Eigen::Ref<const Eigen::VectorXd>& plane_dots,
+    const Eigen::Ref<const MatrixMx3RowMajor>& dI_d_child_pt,
+    const Eigen::Ref<const Eigen::VectorXd>& tgt_norm,
+    const double inv_sigma,
+    double* jac_out) {
+  const int num_samples = static_cast<int>(plane_dots.size());
+  auto J_out = MapFixedColMatrix<7>(jac_out, num_samples);
+  for (int m = 0; m < num_samples; ++m) {
+    J_out.row(m).head<4>().noalias() =
+        dI_d_child_pt.row(m) *
+        QuaternionRotatePointJac(child_from_parent.q, pts_in_parent.col(m));
+    J_out.row(m).tail<3>() = plane_dots[m] * dI_d_child_pt.row(m);
+  }
+  ProjectLSNCCJacobian(J_out, tgt_norm, inv_sigma, J_out, /*accumulate=*/false);
+}
+
+// Write (or accumulate, when `same_sensor`) the LS-NCC-projected 7-DOF Jacobian
+// for an inverted pose `child_from_parent` along the source branch:
+//   shifted_m  = p_child_m - alpha_m * t
+//   p_parent_m = R(q)^T * shifted_m
+//   dI_m / dq  = (dI_m / dp_parent_m) * d(R(q)^T * shifted_m) / dq
+//   dI_m / dt  = -alpha_m * (dI_m / dp_parent_m) * R(q)^T.
+inline void WriteInversePoseJacobian(
+    const UnpackedPose& child_from_parent,
+    const Eigen::Ref<const Eigen::Matrix3Xd>& pts_in_child,
+    const Eigen::Ref<const Eigen::VectorXd>& plane_dots,
+    const Eigen::Ref<const MatrixMx3RowMajor>& dI_d_parent_pt,
+    const Eigen::Ref<const Eigen::VectorXd>& tgt_norm,
+    const double inv_sigma,
+    double* jac_out,
+    const bool accumulate) {
+  const int num_samples = static_cast<int>(plane_dots.size());
+  const Eigen::Matrix3d R_T = child_from_parent.R.transpose();
+  auto FillRaw =
+      [&](Eigen::Ref<Eigen::Matrix<double, Eigen::Dynamic, 7, Eigen::RowMajor>>
+              dst) {
+        for (int m = 0; m < num_samples; ++m) {
+          const Eigen::Vector3d shifted =
+              pts_in_child.col(m) - plane_dots[m] * child_from_parent.t;
+          dst.row(m).head<4>().noalias() =
+              dI_d_parent_pt.row(m) *
+              QuaternionInverseRotatePointJac(child_from_parent.q, shifted);
+          dst.row(m).tail<3>().noalias() =
+              (-plane_dots[m]) * (dI_d_parent_pt.row(m) * R_T);
+        }
+      };
+
+  auto J_out = MapFixedColMatrix<7>(jac_out, num_samples);
+  if (accumulate) {
+    MatrixMaxMx7RowMajor raw_jac(num_samples, 7);
+    FillRaw(raw_jac);
+    ProjectLSNCCJacobian(
+        raw_jac, tgt_norm, inv_sigma, J_out, /*accumulate=*/true);
+  } else {
+    FillRaw(J_out);
+    ProjectLSNCCJacobian(
+        J_out, tgt_norm, inv_sigma, J_out, /*accumulate=*/false);
+  }
+}
 
 }  // namespace photometric_internal
 
 // Analytical Least-Squares NCC (Woodford 2018) photometric bundle adjustment
 // cost function using LSPBA's (Woodford & Rosten 2020) source-anchored plane
-// parameterization n in R^3.
+// parameterization n in R^3 (points on the plane satisfy n^T X_src = 1).
 //
 // Residual vector (length M = patch.NumSamples()):
 //   r = Psi(I_tgt(x')) - Psi(I_src(x))
@@ -686,6 +817,7 @@ class PhotometricNCCCostFunction : public ceres::CostFunction {
         min_target_norm_(min_target_norm) {
     const int num_samples = patch_.NumSamples();
     THROW_CHECK_GE(num_samples, 4);
+    THROW_CHECK_LE(num_samples, kPhotometricMaxPatchSamples);
     set_num_residuals(num_samples);
     *mutable_parameter_block_sizes() = layout_.block_sizes;
   }
@@ -693,21 +825,21 @@ class PhotometricNCCCostFunction : public ceres::CostFunction {
   bool Evaluate(double const* const* parameters,
                 double* residuals,
                 double** jacobians) const override {
-    const int M = patch_.NumSamples();
+    const int num_samples = patch_.NumSamples();
     const int num_blocks = static_cast<int>(layout_.block_sizes.size());
 
     auto SetBarrierAndZeroJacobians = [&]() {
       // Worst-case ZNSSD residual: ||r||^2 = 4.0 (NCC = -1), zero gradient.
       // Prevents Levenberg-Marquardt from being rewarded for pushing patches
       // out of bounds, behind a camera, or into textureless regions.
-      const double barrier = 2.0 / std::sqrt(static_cast<double>(M));
-      Eigen::Map<Eigen::VectorXd>(residuals, M).setConstant(barrier);
+      const double barrier = 2.0 / std::sqrt(static_cast<double>(num_samples));
+      Eigen::Map<Eigen::VectorXd>(residuals, num_samples).setConstant(barrier);
       if (jacobians != nullptr) {
         for (int b = 0; b < num_blocks; ++b) {
           if (jacobians[b] != nullptr) {
             Eigen::Map<Eigen::VectorXd>(
                 jacobians[b],
-                static_cast<Eigen::Index>(M) * layout_.block_sizes[b])
+                static_cast<Eigen::Index>(num_samples) * layout_.block_sizes[b])
                 .setZero();
           }
         }
@@ -715,12 +847,10 @@ class PhotometricNCCCostFunction : public ceres::CostFunction {
       return true;
     };
 
-    const Eigen::Vector3d n =
+    const Eigen::Vector3d plane =
         EigenVector3Map<double>(parameters[layout_.plane_idx]);
-    const span<const double> src_cam(parameters[layout_.src_cam_idx],
-                                     layout_.src_num_cam_params);
-    const span<const double> tgt_cam(parameters[layout_.tgt_cam_idx],
-                                     layout_.tgt_num_cam_params);
+    const double* src_cam = parameters[layout_.src_cam_idx];
+    const double* tgt_cam = parameters[layout_.tgt_cam_idx];
 
     const auto pose = photometric_internal::RelativePoseState::FromParameters(
         layout_, parameters);
@@ -729,115 +859,99 @@ class PhotometricNCCCostFunction : public ceres::CostFunction {
     const bool need_any_jac = jac.NeedAny();
     const bool need_J_uvw = jac.NeedJUvw();
 
-    // Step 1: Source unprojection (fast path skips Newton when src_cam is
-    // unchanged from level init).
-    const span<const double> src_cam_init(patch_.src_cam_params_init.data(),
-                                          patch_.src_cam_params_init.size());
-    const bool src_cam_changed =
-        photometric_internal::HasSourceCamChanged(src_cam, src_cam_init);
-
-    photometric_internal::InlineBuffer<Eigen::Vector3d, kStackMaxM> rays_buf;
-    photometric_internal::
-        InlineBuffer<double, kStackMaxM * 2 * kPhotometricMaxCamParams>
-            d_uv_buf;
+    // Step 1: Source unprojection (skip entirely when src_cam is unchanged and
+    // no source-camera Jacobian is requested).
+    const bool src_cam_changed = photometric_internal::HasSourceCamChanged(
+        src_cam, patch_.src_cam_params_init);
     const bool run_unproject = src_cam_changed || jac.src_cam != nullptr;
-    const span<const Eigen::Vector3d> init_rays(patch_.src_rays_init.data(), M);
-    span<Eigen::Vector3d> rays_out =
-        run_unproject ? rays_buf.Resize(M) : span<Eigen::Vector3d>(nullptr, 0);
-    span<double> d_uv_d_src_cam =
-        jac.src_cam != nullptr ? d_uv_buf.Resize(static_cast<size_t>(M) * 2 *
-                                                 layout_.src_num_cam_params)
-                               : span<double>(nullptr, 0);
 
+    photometric_internal::Matrix3xMaxM src_rays_buf;
+    photometric_internal::MatrixMaxCamJac d_uv_d_src_cam;
     if (run_unproject) {
-      if (!photometric_internal::UnprojectBatchWithJac(
-              layout_.src_model_id,
-              src_cam,
-              span<const double>(patch_.src_xs.data(), M),
-              span<const double>(patch_.src_ys.data(), M),
-              init_rays,
-              !src_cam_changed,
-              rays_out,
-              d_uv_d_src_cam)) {
+      src_rays_buf.resize(3, num_samples);
+      double* d_uv_ptr = nullptr;
+      if (jac.src_cam != nullptr) {
+        d_uv_d_src_cam.resize(2 * num_samples, layout_.src_num_cam_params);
+        d_uv_ptr = d_uv_d_src_cam.data();
+      }
+      if (!photometric_internal::UnprojectBatchWithJac(layout_.src_model_id,
+                                                       src_cam,
+                                                       patch_.src_xs,
+                                                       patch_.src_ys,
+                                                       patch_.src_rays_init,
+                                                       src_rays_buf,
+                                                       d_uv_ptr)) {
         return SetBarrierAndZeroJacobians();
       }
     }
-    const span<const Eigen::Vector3d> src_rays_span =
-        run_unproject ? span<const Eigen::Vector3d>(rays_out.begin(), M)
-                      : init_rays;
+    const Eigen::Ref<const Eigen::Matrix3Xd> src_rays =
+        run_unproject
+            ? Eigen::Ref<const Eigen::Matrix3Xd>(src_rays_buf)
+            : Eigen::Ref<const Eigen::Matrix3Xd>(patch_.src_rays_init);
 
-    // Step 2: Warp all M patch rays through plane homography
-    // H_ji = R_ji + t_ji * n^T.
-    photometric_internal::InlineBuffer<Eigen::Vector3d, kStackMaxM> pts_tgt_buf;
-    photometric_internal::InlineBuffer<double, kStackMaxM> alphas_buf;
-    span<Eigen::Vector3d> pts_tgt = pts_tgt_buf.Resize(M);
-    auto alphas_vec = photometric_internal::MapVector(alphas_buf.Resize(M));
-
-    const Eigen::Map<const Eigen::Matrix3Xd> src_rays_mat(
-        src_rays_span[0].data(), 3, M);
-    alphas_vec.noalias() = src_rays_mat.transpose().lazyProduct(n);
-    if (!(alphas_vec.array() > 1e-8).all()) {
-      return SetBarrierAndZeroJacobians();
+    // Step 2: Warp source rays u_m through the plane homography.
+    // Since X_src_m = u_m / alpha_m with alpha_m = n^T u_m > 0, the target
+    // camera ray (scaled by alpha_m, leaving scale-invariant projection
+    // unchanged) is:
+    //   y_m = alpha_m * X_tgt_m = (R_tgt_src + t_tgt_src * n^T) * u_m.
+    photometric_internal::VectorMaxM plane_dots(num_samples);
+    plane_dots.noalias() = src_rays.transpose().lazyProduct(plane);
+    for (int m = 0; m < num_samples; ++m) {
+      if (!(plane_dots[m] > 1e-8)) {
+        return SetBarrierAndZeroJacobians();
+      }
     }
-    const Eigen::Matrix3d H_ji = pose.R_ji + pose.t_ji * n.transpose();
-    Eigen::Map<Eigen::Matrix3Xd>(pts_tgt[0].data(), 3, M).noalias() =
-        H_ji.lazyProduct(src_rays_mat);
+    const Eigen::Matrix3d H_tgt_from_src =
+        pose.tgt_cam_from_src_cam_rot +
+        pose.tgt_cam_from_src_cam_trans * plane.transpose();
+    photometric_internal::Matrix3xMaxM pts_in_tgt_cam(3, num_samples);
+    pts_in_tgt_cam.noalias() = H_tgt_from_src.lazyProduct(src_rays);
 
     // Step 3: Batch target camera projection (+ analytic camera Jacobians).
-    photometric_internal::InlineBuffer<double, kStackMaxM> tgt_xs_buf;
-    photometric_internal::InlineBuffer<double, kStackMaxM> tgt_ys_buf;
-    photometric_internal::InlineBuffer<double, kStackMaxM> tgt_dxs_buf;
-    photometric_internal::InlineBuffer<double, kStackMaxM> tgt_dys_buf;
-    photometric_internal::InlineBuffer<double, kStackMaxM> p_norm_buf;
-    span<double> tgt_xs = tgt_xs_buf.Resize(M);
-    span<double> tgt_ys = tgt_ys_buf.Resize(M);
+    photometric_internal::VectorMaxM tgt_xs(num_samples);
+    photometric_internal::VectorMaxM tgt_ys(num_samples);
+    photometric_internal::MatrixMaxCamJac J_proj_wrt_tgt_cam;
+    double* J_tgt_cam_ptr = nullptr;
+    if (jac.tgt_cam != nullptr) {
+      J_proj_wrt_tgt_cam.resize(2 * num_samples, layout_.tgt_num_cam_params);
+      J_tgt_cam_ptr = J_proj_wrt_tgt_cam.data();
+    }
+    photometric_internal::MatrixMaxMx6RowMajor J_proj_wrt_tgt_pt;
+    double* J_uvw_ptr = nullptr;
+    if (need_J_uvw) {
+      J_proj_wrt_tgt_pt.resize(num_samples, 6);
+      J_uvw_ptr = J_proj_wrt_tgt_pt.data();
+    }
 
-    photometric_internal::
-        InlineBuffer<double, kStackMaxM * 2 * kPhotometricMaxCamParams>
-            J_tgt_cam_buf;
-    span<double> J_tgt_cam_raw =
-        jac.tgt_cam != nullptr
-            ? J_tgt_cam_buf.Resize(static_cast<size_t>(M) * 2 *
-                                   layout_.tgt_num_cam_params)
-            : span<double>(nullptr, 0);
-
-    photometric_internal::InlineBuffer<double, kStackMaxM * 6> J_uvw_buf;
-    span<double> J_uvw_raw = need_J_uvw
-                                 ? J_uvw_buf.Resize(static_cast<size_t>(M) * 6)
-                                 : span<double>(nullptr, 0);
-
-    if (!photometric_internal::ProjectBatch(
-            layout_.tgt_model_id,
-            tgt_cam,
-            span<const Eigen::Vector3d>(pts_tgt.begin(), M),
-            tgt_xs,
-            tgt_ys,
-            J_tgt_cam_raw,
-            J_uvw_raw)) {
+    if (!photometric_internal::ProjectBatch(layout_.tgt_model_id,
+                                            tgt_cam,
+                                            pts_in_tgt_cam,
+                                            tgt_xs.data(),
+                                            tgt_ys.data(),
+                                            J_tgt_cam_ptr,
+                                            J_uvw_ptr)) {
       return SetBarrierAndZeroJacobians();
     }
 
-    // Step 4 & 5: Bilinear interpolation (+ image gradients) and Least-Squares
-    // NCC normalization r = Psi(I_tgt) - s_k.
-    auto tgt_dxs = photometric_internal::MapVector(tgt_dxs_buf.Resize(M));
-    auto tgt_dys = photometric_internal::MapVector(tgt_dys_buf.Resize(M));
-    auto p_norm = photometric_internal::MapVector(p_norm_buf.Resize(M));
-    const Eigen::Map<const Eigen::VectorXd> src_norm(patch_.src_norm.data(), M);
-    Eigen::Map<Eigen::VectorXd> residuals_vec(residuals, M);
+    // Step 4: Bilinear interpolation (+ image gradients) and LS-NCC
+    // normalization r = Psi(I_tgt) - Psi(I_src).
+    photometric_internal::VectorMaxM tgt_dxs(num_samples);
+    photometric_internal::VectorMaxM tgt_dys(num_samples);
+    photometric_internal::VectorMaxM tgt_norm(num_samples);
+    Eigen::Map<Eigen::VectorXd> residuals_vec(residuals, num_samples);
     double inv_sigma = 0.0;
 
-    if (!photometric_internal::InterpolateAndComputeLSNCC(
-            target_level_,
-            span<const double>(tgt_xs.begin(), M),
-            span<const double>(tgt_ys.begin(), M),
-            src_norm,
-            min_target_norm_,
-            need_any_jac,
-            tgt_dxs,
-            tgt_dys,
-            p_norm,
-            residuals_vec,
-            inv_sigma)) {
+    if (!photometric_internal::InterpolateAndComputeLSNCC(target_level_,
+                                                          tgt_xs,
+                                                          tgt_ys,
+                                                          patch_.src_norm,
+                                                          min_target_norm_,
+                                                          need_any_jac,
+                                                          tgt_dxs,
+                                                          tgt_dys,
+                                                          tgt_norm,
+                                                          residuals_vec,
+                                                          inv_sigma)) {
       return SetBarrierAndZeroJacobians();
     }
 
@@ -845,226 +959,201 @@ class PhotometricNCCCostFunction : public ceres::CostFunction {
       return true;
     }
 
-    // Step 6: Chain rule g_y[m] = [dI/dx, dI/dy] * J_uvw[m] (M x 3 row-major)
-    // and LS-NCC projection J_Psi * G directly into Ceres Jacobians.
-    photometric_internal::InlineBuffer<double, kStackMaxM * 3> gy_buf;
-    auto gy_mat = photometric_internal::MapFixedColMatrix<3>(
-        gy_buf.Resize(static_cast<size_t>(M) * 3), M);
+    // Step 5: Chain rule dI_m / dy_m = [dI/dx, dI/dy] * (d_pi / dy_m)
+    // (M x 3 row-major) and LS-NCC projection J_Psi * G into Ceres Jacobians.
+    photometric_internal::MatrixMaxMx3RowMajor dI_d_tgt_pt(num_samples, 3);
     if (need_J_uvw) {
-      for (int m = 0; m < M; ++m) {
+      for (int m = 0; m < num_samples; ++m) {
         const Eigen::Map<const photometric_internal::Matrix2x3RowMajor> J_uvw_m(
-            J_uvw_raw.begin() + static_cast<size_t>(m) * 6);
-        gy_mat.row(m).noalias() =
+            J_proj_wrt_tgt_pt.row(m).data());
+        dI_d_tgt_pt.row(m).noalias() =
             Eigen::RowVector2d(tgt_dxs[m], tgt_dys[m]) * J_uvw_m;
       }
     }
 
-    photometric_internal::InlineBuffer<double,
-                                       kStackMaxM * kPhotometricMaxCamParams>
-        scratch_buf;
-
-    // 6a. Plane Jacobian: d(y_m)/dn = t_ji * src_ray_m^T  (M x 3, in-place).
+    // 5a. Plane Jacobian: dy_m / dn = t_tgt_src * u_m^T, so
+    //   dI_m / dn = (dI_m / dy_m * t_tgt_src) * u_m^T.
     if (jac.plane != nullptr) {
-      auto J_plane = photometric_internal::MapFixedColMatrix<3>(jac.plane, M);
-      auto s_vec = photometric_internal::MapVector(scratch_buf.Resize(M));
-      s_vec.noalias() = gy_mat.lazyProduct(pose.t_ji);
-      J_plane = src_rays_mat.transpose().array().colwise() * s_vec.array();
+      auto J_plane =
+          photometric_internal::MapFixedColMatrix<3>(jac.plane, num_samples);
+      photometric_internal::VectorMaxM dI_d_alpha(num_samples);
+      dI_d_alpha.noalias() =
+          dI_d_tgt_pt.lazyProduct(pose.tgt_cam_from_src_cam_trans);
+      J_plane = src_rays.transpose().array().colwise() * dI_d_alpha.array();
       photometric_internal::ProjectLSNCCJacobian(
-          J_plane, p_norm, inv_sigma, J_plane, /*accumulate=*/false);
+          J_plane, tgt_norm, inv_sigma, J_plane, /*accumulate=*/false);
     }
 
-    // 6b-6e. Frame & rig pose Jacobians.
+    // 5b. Frame & rig pose Jacobians.
     if (jac.NeedPoses()) {
-      ComputePoseJacobians(pose,
-                           jac,
-                           src_rays_mat,
-                           alphas_vec,
-                           gy_mat,
-                           p_norm,
-                           inv_sigma,
-                           scratch_buf);
+      ComputePoseJacobians(
+          pose, jac, src_rays, plane_dots, dI_d_tgt_pt, tgt_norm, inv_sigma);
     }
 
-    // 6f. Target camera intrinsics Jacobian.
+    // 5c. Target camera intrinsics Jacobian.
     if (jac.tgt_cam != nullptr) {
-      const int P_tgt = layout_.tgt_num_cam_params;
-      auto J_tgt =
-          photometric_internal::MapRowMajorMatrix(jac.tgt_cam, M, P_tgt);
-      photometric_internal::ChainRuleAndProjectLSNCC(
-          tgt_dxs,
-          tgt_dys,
-          span<const double>(J_tgt_cam_raw.begin(), J_tgt_cam_raw.size()),
-          p_norm,
-          inv_sigma,
-          J_tgt,
-          J_tgt,
-          /*accumulate=*/false);
+      auto J_tgt = photometric_internal::MapRowMajorMatrix(
+          jac.tgt_cam, num_samples, layout_.tgt_num_cam_params);
+      photometric_internal::ChainRuleAndProjectLSNCC(tgt_dxs,
+                                                     tgt_dys,
+                                                     J_proj_wrt_tgt_cam.data(),
+                                                     tgt_norm,
+                                                     inv_sigma,
+                                                     J_tgt,
+                                                     /*accumulate=*/false);
     }
 
-    // 6g. Source camera intrinsics Jacobian (via implicit function theorem).
-    // Accumulates into the shared block when same_camera is true.
+    // 5d. Source camera intrinsics Jacobian via implicit function theorem:
+    //   dI_m / d(u_m, v_m) = (dI_m / dy_m) * H_tgt_from_src[:, 0:2]
+    //   dI_m / d(src_cam)  = (dI_m / d(u_m, v_m)) * (d(u_m, v_m) / d(src_cam)).
+    // Accumulates into the shared block when source and target share a camera.
     if (jac.src_cam != nullptr) {
-      const int P_src = layout_.src_num_cam_params;
-      photometric_internal::InlineBuffer<double, kStackMaxM * 2> guv_buf;
-      Eigen::Map<photometric_internal::MatrixMx2ColMajor> G_uv(
-          guv_buf.Resize(static_cast<size_t>(M) * 2).begin(), M, 2);
-      G_uv.noalias() = gy_mat.lazyProduct(H_ji.leftCols<2>());
+      photometric_internal::MatrixMaxMx2 dI_d_src_uv(num_samples, 2);
+      dI_d_src_uv.noalias() =
+          dI_d_tgt_pt.lazyProduct(H_tgt_from_src.leftCols<2>());
 
       const bool accumulate = layout_.same_camera && (jac.tgt_cam != nullptr);
-      auto J_src =
-          photometric_internal::MapRowMajorMatrix(jac.src_cam, M, P_src);
-      auto g_work =
-          accumulate ? photometric_internal::MapRowMajorMatrix(
-                           scratch_buf.Resize(static_cast<size_t>(M) * P_src),
-                           M,
-                           P_src)
-                     : J_src;
-      photometric_internal::ChainRuleAndProjectLSNCC(
-          G_uv.col(0),
-          G_uv.col(1),
-          span<const double>(d_uv_d_src_cam.begin(), d_uv_d_src_cam.size()),
-          p_norm,
-          inv_sigma,
-          g_work,
-          J_src,
-          accumulate);
+      auto J_src = photometric_internal::MapRowMajorMatrix(
+          jac.src_cam, num_samples, layout_.src_num_cam_params);
+      photometric_internal::ChainRuleAndProjectLSNCC(dI_d_src_uv.col(0),
+                                                     dI_d_src_uv.col(1),
+                                                     d_uv_d_src_cam.data(),
+                                                     tgt_norm,
+                                                     inv_sigma,
+                                                     J_src,
+                                                     accumulate);
     }
 
     return true;
   }
 
  private:
-  static constexpr size_t kStackMaxM = 64;
-
+  // Differentiate along the kinematic chain of alpha-scaled 3D points:
+  //   src_cam (u_m) -> src_rig -> world -> tgt_rig -> tgt_cam (y_m).
   void ComputePoseJacobians(
       const photometric_internal::RelativePoseState& pose,
       const photometric_internal::BlockJacobianPtrs& jac,
-      const Eigen::Ref<const Eigen::Matrix3Xd>& src_rays_mat,
-      const Eigen::Ref<const Eigen::VectorXd>& alphas_vec,
-      const Eigen::Ref<const photometric_internal::MatrixMx3RowMajor>& gy_mat,
-      const Eigen::Ref<const Eigen::VectorXd>& p_norm,
-      const double inv_sigma,
-      photometric_internal::InlineBuffer<double,
-                                         kStackMaxM * kPhotometricMaxCamParams>&
-          scratch_buf) const {
-    const int M = static_cast<int>(alphas_vec.size());
-    const bool need_p_fi = jac.tgt_rfw != nullptr || jac.src_rfw != nullptr ||
-                           jac.tgt_sfr != nullptr;
-    const bool need_p_w = !layout_.same_frame &&
-                          (jac.tgt_rfw != nullptr || jac.tgt_sfr != nullptr);
+      const Eigen::Ref<const Eigen::Matrix3Xd>& src_rays,
+      const Eigen::Ref<const Eigen::VectorXd>& plane_dots,
+      const Eigen::Ref<const photometric_internal::MatrixMx3RowMajor>&
+          dI_d_tgt_pt,
+      const Eigen::Ref<const Eigen::VectorXd>& tgt_norm,
+      const double inv_sigma) const {
+    const int num_samples = static_cast<int>(plane_dots.size());
+    const bool need_pts_in_src_rig = jac.tgt_rig_from_world != nullptr ||
+                                     jac.src_rig_from_world != nullptr ||
+                                     jac.tgt_cam_from_rig != nullptr;
+    const bool need_pts_in_world =
+        !layout_.same_frame &&
+        (jac.tgt_rig_from_world != nullptr || jac.tgt_cam_from_rig != nullptr);
 
-    photometric_internal::InlineBuffer<double, kStackMaxM * 3> p_fi_buf;
-    photometric_internal::InlineBuffer<double, kStackMaxM * 3> p_w_buf;
-    photometric_internal::InlineBuffer<double, kStackMaxM * 3> g_pose_buf;
-    auto g_pose_mat = photometric_internal::MapFixedColMatrix<3>(
-        g_pose_buf.Resize(static_cast<size_t>(M) * 3), M);
+    photometric_internal::Matrix3xMaxM pts_in_src_rig_buf;
+    if (need_pts_in_src_rig && !layout_.src_is_ref_sensor) {
+      pts_in_src_rig_buf.resize(3, num_samples);
+      photometric_internal::TransformScaledPointsInverse(
+          pose.src_cam_from_rig, src_rays, plane_dots, pts_in_src_rig_buf);
+    }
+    const Eigen::Ref<const Eigen::Matrix3Xd> pts_in_src_rig =
+        (need_pts_in_src_rig && !layout_.src_is_ref_sensor)
+            ? Eigen::Ref<const Eigen::Matrix3Xd>(pts_in_src_rig_buf)
+            : src_rays;
 
-    const Eigen::Matrix3d R_si_T = pose.R_si.transpose();
-    const Eigen::Matrix3d R_fi_T = pose.R_fi.transpose();
+    photometric_internal::Matrix3xMaxM pts_in_world_buf;
+    if (need_pts_in_world) {
+      pts_in_world_buf.resize(3, num_samples);
+      photometric_internal::TransformScaledPointsInverse(
+          pose.src_rig_from_world,
+          pts_in_src_rig,
+          plane_dots,
+          pts_in_world_buf);
+    }
+    const Eigen::Ref<const Eigen::Matrix3Xd> pts_in_world =
+        need_pts_in_world ? Eigen::Ref<const Eigen::Matrix3Xd>(pts_in_world_buf)
+                          : pts_in_src_rig;
 
-    const Eigen::Ref<const Eigen::Matrix3Xd> p_fi_mat =
-        [&]() -> Eigen::Ref<const Eigen::Matrix3Xd> {
-      if (!need_p_fi || layout_.src_is_ref_sensor) {
-        return src_rays_mat;
+    photometric_internal::MatrixMaxMx3RowMajor dI_d_frame_pt(num_samples, 3);
+
+    // Target frame pose: y_m = R_tgt_sfr * (R_tgt_rfw * p_world + alpha*t) + ..
+    if (jac.tgt_rig_from_world != nullptr) {
+      if (!layout_.tgt_is_ref_sensor) {
+        dI_d_frame_pt.noalias() =
+            dI_d_tgt_pt.lazyProduct(pose.tgt_cam_from_rig.R);
       }
-      Eigen::Map<Eigen::Matrix3Xd> mat(
-          p_fi_buf.Resize(static_cast<size_t>(M) * 3).begin(), 3, M);
-      const Eigen::Vector3d t_si_rot = R_si_T * pose.t_si;
-      mat = R_si_T.lazyProduct(src_rays_mat) -
-            t_si_rot.lazyProduct(alphas_vec.transpose());
-      return mat;
-    }();
-
-    const Eigen::Ref<const Eigen::Matrix3Xd> p_w_mat =
-        [&]() -> Eigen::Ref<const Eigen::Matrix3Xd> {
-      if (!need_p_w) {
-        return p_fi_mat;
-      }
-      Eigen::Map<Eigen::Matrix3Xd> mat(
-          p_w_buf.Resize(static_cast<size_t>(M) * 3).begin(), 3, M);
-      const Eigen::Vector3d t_fi_rot = R_fi_T * pose.t_fi;
-      mat = R_fi_T.lazyProduct(p_fi_mat) -
-            t_fi_rot.lazyProduct(alphas_vec.transpose());
-      return mat;
-    }();
-
-    if (jac.tgt_rfw != nullptr) {
-      auto J_tgt = photometric_internal::MapFixedColMatrix<7>(jac.tgt_rfw, M);
-      const Eigen::Ref<const photometric_internal::MatrixMx3RowMajor> g_tgt =
-          [&]() -> Eigen::Ref<const photometric_internal::MatrixMx3RowMajor> {
-        if (layout_.tgt_is_ref_sensor) {
-          return gy_mat;
-        }
-        g_pose_mat.noalias() = gy_mat.lazyProduct(pose.R_sj);
-        return g_pose_mat;
-      }();
-      for (int m = 0; m < M; ++m) {
-        J_tgt.row(m).head<4>().noalias() =
-            g_tgt.row(m) * photometric_internal::QuaternionRotatePointJac(
-                               pose.q_fj, p_w_mat.col(m));
-        J_tgt.row(m).tail<3>() = alphas_vec[m] * g_tgt.row(m);
-      }
-      photometric_internal::ProjectLSNCCJacobian(
-          J_tgt, p_norm, inv_sigma, J_tgt, /*accumulate=*/false);
+      const Eigen::Ref<const photometric_internal::MatrixMx3RowMajor>
+          dI_d_tgt_rig =
+              layout_.tgt_is_ref_sensor
+                  ? dI_d_tgt_pt
+                  : Eigen::Ref<const photometric_internal::MatrixMx3RowMajor>(
+                        dI_d_frame_pt);
+      photometric_internal::WriteForwardPoseJacobian(pose.tgt_rig_from_world,
+                                                     pts_in_world,
+                                                     plane_dots,
+                                                     dI_d_tgt_rig,
+                                                     tgt_norm,
+                                                     inv_sigma,
+                                                     jac.tgt_rig_from_world);
     }
 
-    if (jac.src_rfw != nullptr) {
-      auto J_src = photometric_internal::MapFixedColMatrix<7>(jac.src_rfw, M);
-      g_pose_mat.noalias() = gy_mat.lazyProduct(pose.R_j);
-      for (int m = 0; m < M; ++m) {
-        const Eigen::Vector3d p_shift =
-            p_fi_mat.col(m) - alphas_vec[m] * pose.t_fi;
-        J_src.row(m).head<4>().noalias() =
-            g_pose_mat.row(m) *
-            photometric_internal::QuaternionInverseRotatePointJac(pose.q_fi,
-                                                                  p_shift);
-        J_src.row(m).tail<3>().noalias() =
-            (-alphas_vec[m]) * (g_pose_mat.row(m) * R_fi_T);
-      }
-      photometric_internal::ProjectLSNCCJacobian(
-          J_src, p_norm, inv_sigma, J_src, /*accumulate=*/false);
+    // Source frame pose: p_world = R_src_rfw^T * (p_src_rig - alpha*t_src_rfw).
+    if (jac.src_rig_from_world != nullptr) {
+      dI_d_frame_pt.noalias() =
+          dI_d_tgt_pt.lazyProduct(pose.tgt_cam_from_world_rot);
+      photometric_internal::WriteInversePoseJacobian(pose.src_rig_from_world,
+                                                     pts_in_src_rig,
+                                                     plane_dots,
+                                                     dI_d_frame_pt,
+                                                     tgt_norm,
+                                                     inv_sigma,
+                                                     jac.src_rig_from_world,
+                                                     /*accumulate=*/false);
     }
 
-    if (jac.tgt_sfr != nullptr) {
-      auto J_tgt = photometric_internal::MapFixedColMatrix<7>(jac.tgt_sfr, M);
-      for (int m = 0; m < M; ++m) {
-        const Eigen::Vector3d p_fj =
-            layout_.same_frame ? Eigen::Vector3d(p_fi_mat.col(m))
-                               : Eigen::Vector3d(pose.R_fj * p_w_mat.col(m) +
-                                                 alphas_vec[m] * pose.t_fj);
-        J_tgt.row(m).head<4>().noalias() =
-            gy_mat.row(m) *
-            photometric_internal::QuaternionRotatePointJac(pose.q_sj, p_fj);
-        J_tgt.row(m).tail<3>() = alphas_vec[m] * gy_mat.row(m);
+    // Target rig sensor pose: y_m = R_tgt_sfr * p_tgt_rig + alpha * t_tgt_sfr.
+    if (jac.tgt_cam_from_rig != nullptr) {
+      photometric_internal::Matrix3xMaxM pts_in_tgt_rig_buf;
+      if (!layout_.same_frame) {
+        pts_in_tgt_rig_buf.resize(3, num_samples);
+        photometric_internal::TransformScaledPointsForward(
+            pose.tgt_rig_from_world,
+            pts_in_world,
+            plane_dots,
+            pts_in_tgt_rig_buf);
       }
-      photometric_internal::ProjectLSNCCJacobian(
-          J_tgt, p_norm, inv_sigma, J_tgt, /*accumulate=*/false);
+      const Eigen::Ref<const Eigen::Matrix3Xd> pts_in_tgt_rig =
+          layout_.same_frame
+              ? pts_in_src_rig
+              : Eigen::Ref<const Eigen::Matrix3Xd>(pts_in_tgt_rig_buf);
+      photometric_internal::WriteForwardPoseJacobian(pose.tgt_cam_from_rig,
+                                                     pts_in_tgt_rig,
+                                                     plane_dots,
+                                                     dI_d_tgt_pt,
+                                                     tgt_norm,
+                                                     inv_sigma,
+                                                     jac.tgt_cam_from_rig);
     }
 
-    if (jac.src_sfr != nullptr) {
-      const bool accumulate = layout_.same_sensor && (jac.tgt_sfr != nullptr);
-      auto J_src = photometric_internal::MapFixedColMatrix<7>(jac.src_sfr, M);
-      auto G_dst = accumulate
-                       ? photometric_internal::MapFixedColMatrix<7>(
-                             scratch_buf.Resize(static_cast<size_t>(M) * 7), M)
-                       : J_src;
+    // Source rig sensor pose: p_src_rig = R_src_sfr^T * (u_m - alpha*t_src_sfr)
+    // Accumulates into the shared block when source and target use the same
+    // rig sensor across two frames.
+    if (jac.src_cam_from_rig != nullptr) {
       if (layout_.same_frame) {
-        g_pose_mat.noalias() = gy_mat.lazyProduct(pose.R_sj);
+        dI_d_frame_pt.noalias() =
+            dI_d_tgt_pt.lazyProduct(pose.tgt_cam_from_rig.R);
       } else {
-        g_pose_mat.noalias() = gy_mat.lazyProduct(pose.R_j * R_fi_T);
+        dI_d_frame_pt.noalias() =
+            dI_d_tgt_pt.lazyProduct(pose.tgt_cam_from_world_rot *
+                                    pose.src_rig_from_world.R.transpose());
       }
-      for (int m = 0; m < M; ++m) {
-        const Eigen::Vector3d p_shift =
-            src_rays_mat.col(m) - alphas_vec[m] * pose.t_si;
-        G_dst.row(m).head<4>().noalias() =
-            g_pose_mat.row(m) *
-            photometric_internal::QuaternionInverseRotatePointJac(pose.q_si,
-                                                                  p_shift);
-        G_dst.row(m).tail<3>().noalias() =
-            (-alphas_vec[m]) * (g_pose_mat.row(m) * R_si_T);
-      }
-      photometric_internal::ProjectLSNCCJacobian(
-          G_dst, p_norm, inv_sigma, J_src, accumulate);
+      const bool accumulate =
+          layout_.same_sensor && (jac.tgt_cam_from_rig != nullptr);
+      photometric_internal::WriteInversePoseJacobian(pose.src_cam_from_rig,
+                                                     src_rays,
+                                                     plane_dots,
+                                                     dI_d_frame_pt,
+                                                     tgt_norm,
+                                                     inv_sigma,
+                                                     jac.src_cam_from_rig,
+                                                     accumulate);
     }
   }
 

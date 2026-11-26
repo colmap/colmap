@@ -34,39 +34,33 @@ PhotometricPatchData MakePatch(const Camera& src_cam,
                                const GrayscaleImageLevel& src_level,
                                const Eigen::Vector2d& anchor_xy,
                                const int patch_size = 4) {
+  const int num_samples = patch_size * patch_size;
   PhotometricPatchData patch;
   patch.anchor_xy = anchor_xy;
   patch.src_cam_params_init = src_cam.params;
+  patch.src_xs.resize(num_samples);
+  patch.src_ys.resize(num_samples);
+  patch.src_rays_init.resize(3, num_samples);
 
   const double half = 0.5 * (patch_size - 1);
-  std::vector<double> vals;
+  Eigen::VectorXd vals(num_samples);
   for (int dy = 0; dy < patch_size; ++dy) {
     for (int dx = 0; dx < patch_size; ++dx) {
+      const int m = dy * patch_size + dx;
       const double px = anchor_xy.x() + (dx - half);
       const double py = anchor_xy.y() + (dy - half);
-      patch.src_xs.push_back(px);
-      patch.src_ys.push_back(py);
+      patch.src_xs[m] = px;
+      patch.src_ys[m] = py;
       const auto ray2 = src_cam.CamFromImg(Eigen::Vector2d(px, py));
       THROW_CHECK(ray2.has_value());
-      patch.src_rays_init.push_back(ray2->homogeneous());
+      patch.src_rays_init.col(m) = ray2->homogeneous();
       const auto v = src_level.InterpolateBilinear(px, py);
       THROW_CHECK(v.has_value());
-      vals.push_back(*v);
+      vals[m] = *v;
     }
   }
-  double mean = 0.0;
-  for (const double v : vals) mean += v;
-  mean /= static_cast<double>(vals.size());
-  double sq = 0.0;
-  for (double& v : vals) {
-    v -= mean;
-    sq += v * v;
-  }
-  const double inv_s = 1.0 / std::sqrt(sq);
-  patch.src_norm.resize(vals.size());
-  for (size_t i = 0; i < vals.size(); ++i) {
-    patch.src_norm[i] = vals[i] * inv_s;
-  }
+  vals.array() -= vals.mean();
+  patch.src_norm = vals / vals.norm();
   return patch;
 }
 

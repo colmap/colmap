@@ -738,18 +738,11 @@ void OptionManager::AddPhotometricBundleAdjustmentOptions() {
                    &photometric_bundle_adjustment->pyramid_levels);
   AddDefaultOption("PhotometricBundleAdjustment.max_image_size",
                    &photometric_bundle_adjustment->max_image_size);
-  AddDefaultOption("PhotometricBundleAdjustment.use_target_mipmap",
-                   &photometric_bundle_adjustment->use_target_mipmap);
-  AddDefaultOption("PhotometricBundleAdjustment.refine_structure_first",
-                   &photometric_bundle_adjustment->refine_structure_first);
   AddDefaultOption(
       "PhotometricBundleAdjustment.structure_warmup_max_num_iterations",
       &photometric_bundle_adjustment->structure_warmup_max_num_iterations);
   AddDefaultOption("PhotometricBundleAdjustment.min_patch_std",
                    &photometric_bundle_adjustment->min_patch_std);
-  AddDefaultOption(
-      "PhotometricBundleAdjustment.max_num_observations_per_point",
-      &photometric_bundle_adjustment->max_num_observations_per_point);
   AddDefaultEnumOption("PhotometricBundleAdjustment.loss_function_type",
                        &photometric_bundle_adjustment->loss_function_type,
                        CeresLossFunctionTypeToString,

@@ -305,7 +305,7 @@ def test_photometric_bundle_adjustment_pipeline(
     ba_options.ceres.solver_options.max_num_iterations = 5
     photo_options = pycolmap.PhotometricBundleAdjustmentOptions()
     photo_options.pyramid_levels = "0"
-    photo_options.refine_structure_first = False
+    photo_options.structure_warmup_max_num_iterations = 0
     pycolmap.photometric_bundle_adjustment(
         reconstruction, tmp_path, ba_options, photo_options
     )
@@ -332,7 +332,7 @@ def test_create_photometric_bundle_adjuster_and_lifetime(
     ba_options.ceres.solver_options.max_num_iterations = 5
     photo_options = pycolmap.PhotometricBundleAdjustmentOptions()
     photo_options.pyramid_levels = "0"
-    photo_options.refine_structure_first = False
+    photo_options.structure_warmup_max_num_iterations = 0
     config = pycolmap.BundleAdjustmentConfig()
     for image_id in reconstruction.reg_image_ids():
         config.add_image(image_id)

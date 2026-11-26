@@ -10,6 +10,7 @@ set(ESTIMATORS_SRCS
     bundle_adjustment.h bundle_adjustment.cc
     bundle_adjustment_caspar.h bundle_adjustment_caspar.cc
     bundle_adjustment_ceres.h bundle_adjustment_ceres.cc
+    bundle_adjustment_ceres_utils.h bundle_adjustment_ceres_utils.cc
     ceres_loss_function.h ceres_loss_function.cc
     coordinate_frame.h coordinate_frame.cc
     covariance.h covariance.cc
