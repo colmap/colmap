@@ -4,20 +4,18 @@ import argparse
 import datetime
 import multiprocessing
 import os
+import tempfile
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ElementTree
+from pathlib import Path
 from typing import Final
 
 PER_PAGE: Final[int] = 500
 SORT: Final[str] = "date-posted-desc"
-URL: Final[str] = (
-    "https://api.flickr.com/services/rest/?method=flickr.photos.search&"
-    "api_key=%s&text=%s&sort=%s&per_page=%d&page=%d&min_upload_date=%s&"
-    "max_upload_date=%s&format=rest&extras=url_o,url_l,url_c,url_z,url_n"
-)
+SEARCH_URL: Final[str] = "https://api.flickr.com/services/rest/"
 MAX_PAGE_REQUESTS: Final[int] = 5
 MAX_PAGE_TIMEOUT: Final[int] = 20
 MAX_IMAGE_REQUESTS: Final[int] = 3
@@ -40,15 +38,21 @@ def parse_args() -> argparse.Namespace:
 def compose_url(
     page: int, api_key: str, text: str, min_date: float, max_date: float
 ) -> str:
-    return URL % (
-        api_key,
-        text,
-        SORT,
-        PER_PAGE,
-        page,
-        str(min_date),
-        str(max_date),
+    query = urllib.parse.urlencode(
+        {
+            "method": "flickr.photos.search",
+            "api_key": api_key,
+            "text": text,
+            "sort": SORT,
+            "per_page": PER_PAGE,
+            "page": page,
+            "min_upload_date": min_date,
+            "max_upload_date": max_date,
+            "format": "rest",
+            "extras": "url_o,url_l,url_c,url_z,url_n",
+        }
     )
+    return f"{SEARCH_URL}?{query}"
 
 
 def parse_page(
@@ -75,7 +79,12 @@ def parse_page(
         }, tuple()
 
     if root.attrib["stat"] != "ok":
-        raise OSError
+        error = root.find("err")
+        if error is not None:
+            raise OSError(
+                f"Flickr error {error.get('code')}: {error.get('msg')}"
+            )
+        raise OSError("Flickr search failed")
 
     metadata = root.find("photos")
     assert metadata is not None
@@ -87,17 +96,18 @@ def parse_page(
 
 class PhotoDownloader:
     def __init__(self, image_path: str) -> None:
-        self.image_path: str = image_path
+        self.image_path = Path(image_path)
+        self.image_path.mkdir(parents=True, exist_ok=True)
 
     def __call__(self, photo: dict[str, str]) -> None:
         # Find the URL corresponding to the highest image resolution. We will
         # need this URL here to determine the image extension (typically .jpg,
         # but could be .png, .gif, etc).
         url: str | None = None
-        for url_suffix in ("o", "l", "k", "h", "b", "c", "z"):
+        for url_suffix in ("o", "l", "k", "h", "b", "c", "z", "n"):
             url_attr = f"url_{url_suffix}"
-            if photo.get(url_attr) is not None:
-                url = photo.get(url_attr)
+            if photo.get(url_attr):
+                url = photo[url_attr]
                 break
 
         if url is not None:
@@ -105,16 +115,20 @@ class PhotoDownloader:
             image_ext = os.path.splitext(url_filename)[1]
 
             image_name = f"{photo['id']}_{photo['secret']}{image_ext}"
-            path = os.path.join(self.image_path, image_name)
-            if not os.path.exists(path):
-                print(url)
+            path = self.image_path / image_name
+            if path.exists():
+                return
+            print(url)
+            with tempfile.TemporaryDirectory(dir=self.image_path) as directory:
+                partial = Path(directory) / path.name
                 for _ in range(MAX_IMAGE_REQUESTS):
                     try:
-                        urllib.request.urlretrieve(url, path)
+                        urllib.request.urlretrieve(url, str(partial))
                     except urllib.error.ContentTooShortError:
                         continue
-                    else:
-                        break
+                    partial.replace(path)
+                    return
+                print(f"Skipping incomplete photo: {image_name}")
 
 
 def main() -> None:
@@ -131,13 +145,11 @@ def main() -> None:
 
     days_in_row = 0
 
-    search_text = args.search_text.replace(" ", "-")
-
     while num_pages > page:
         page += 1
 
         metadata, photos = parse_page(
-            page, args.api_key, search_text, min_date, max_date
+            page, args.api_key, args.search_text, min_date, max_date
         )
 
         num_pages = int(metadata["pages"])
