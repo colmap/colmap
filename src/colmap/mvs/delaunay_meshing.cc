@@ -714,6 +714,9 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
         int behind_neighbor_idx = -1;
         double behind_distance_squared = 0.0;
         for (int neighbor_idx = 0; neighbor_idx < 4; ++neighbor_idx) {
+          if (triangulation.is_infinite(behind_point_cell, neighbor_idx)) {
+            continue;
+          }
           const K::Triangle_3 triangle =
               triangulation.triangle(behind_point_cell, neighbor_idx);
 
