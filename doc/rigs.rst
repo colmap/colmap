@@ -247,3 +247,9 @@ compatible.
 The example is a command-line wrapper around ``pycolmap.panorama.reconstruct``.
 Perspective rendering requires the optional ``panorama`` dependencies, which
 can be installed with ``pip install 'pycolmap[panorama]'``.
+
+The example enables GPU feature extraction and matching by default. It also
+passes ``--use_gpu`` and ``--gpu_index`` to supported mapping solvers: bundle
+adjustment in both mappers and global positioning in the global mapper. Other
+mapping stages and panorama rendering run on the CPU. GPU bundle adjustment
+requires a compatible build and may select a CPU solver for small problems.
