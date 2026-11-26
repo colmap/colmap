@@ -1121,6 +1121,8 @@ def process_scene(
 
 
 def _parse_gpu_index(args: argparse.Namespace) -> list[int]:
+    if not args.use_gpu:
+        return [-1]
     if args.gpu_index == "-1":
         if not pycolmap.has_cuda:
             return [-1]
