@@ -236,6 +236,24 @@ TEST(StereoFusion, Rotation180Invariance) {
   StereoFusion fusion1(options, temp_dir1, "COLMAP", "", "geometric");
   fusion1.Run();
 
+  // The first workspace contains one valid depth and many zero depths.
+  // A zero minimum must ignore empty samples while retaining the valid point.
+  options.min_num_pixels = 0;
+  options.num_threads = 1;
+  StereoFusion zero_min_fusion(options, temp_dir1, "COLMAP", "", "geometric");
+  EXPECT_NO_THROW(zero_min_fusion.Run());
+  ASSERT_EQ(zero_min_fusion.GetFusedPoints().size(), 1);
+  ASSERT_EQ(zero_min_fusion.GetFusedPointsVisibility().size(), 1);
+  ASSERT_EQ(fusion1.GetFusedPoints().size(), 1);
+  EXPECT_FLOAT_EQ(zero_min_fusion.GetFusedPoints()[0].x,
+                  fusion1.GetFusedPoints()[0].x);
+  EXPECT_FLOAT_EQ(zero_min_fusion.GetFusedPoints()[0].y,
+                  fusion1.GetFusedPoints()[0].y);
+  EXPECT_FLOAT_EQ(zero_min_fusion.GetFusedPoints()[0].z,
+                  fusion1.GetFusedPoints()[0].z);
+  options.min_num_pixels = 1;
+  options.num_threads = -1;
+
   StereoFusion fusion2(options, temp_dir2, "COLMAP", "", "geometric");
   fusion2.Run();
 

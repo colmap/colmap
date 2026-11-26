@@ -499,7 +499,8 @@ void StereoFusion::Fuse(const int thread_id,
   }
 
   const size_t num_pixels = fused_point_x.size();
-  if (num_pixels >= static_cast<size_t>(options_.min_num_pixels)) {
+  if (num_pixels > 0 &&
+      num_pixels >= static_cast<size_t>(options_.min_num_pixels)) {
     PlyPoint fused_point;
 
     Eigen::Vector3f fused_normal;
