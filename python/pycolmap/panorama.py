@@ -407,11 +407,9 @@ class PanoProcessor:
             if image.has_pose:
                 images_by_frame[image.frame_id].append(image)
 
-        # Maps an image_id of a virtual camera to a dict from its old point2D
-        # index to the (new point2D index, pano_name) in the equirectangular
-        # image, so we can later rebuild the 3D point tracks.
-        old_to_new_point2D: dict[int, dict[int, tuple[int, str]]] = {}
-        pano_to_image_id: dict[str, int] = {}
+        # All keypoints of a virtual image occupy a contiguous block.
+        # Store its panorama image ID and starting offset once per image.
+        point2D_offsets: dict[int, tuple[int, int, int]] = {}
 
         frame_images = sorted(
             images_by_frame.values(),
@@ -419,7 +417,6 @@ class PanoProcessor:
         )
         for image_id, images in enumerate(frame_images, start=1):
             pano_name = self.split_image_name(images[0].name)[1]
-            pano_to_image_id[pano_name] = image_id
             frame = images[0].frame
             assert frame is not None
             rig_from_world = frame.rig_from_world
@@ -430,9 +427,13 @@ class PanoProcessor:
             keypoints: list[npt.NDArray[np.floating]] = []
             for image in images:
                 cam_idx = self.split_image_name(image.name)[0]
-                num_points2D = len(image.points2D)
-                if num_points2D == 0:
-                    old_to_new_point2D[image.image_id] = {}
+                count = len(image.points2D)
+                point2D_offsets[image.image_id] = (
+                    image_id,
+                    len(keypoints),
+                    count,
+                )
+                if count == 0:
                     continue
                 # The cast is needed because numpy<2.3, the latest version
                 # supporting Python 3.10, does not infer the array shape.
@@ -455,12 +456,7 @@ class PanoProcessor:
                     self._pano_size, rays_in_pano
                 )
 
-                base_idx = len(keypoints)
                 keypoints.extend(xy_in_pano)
-                old_to_new_point2D[image.image_id] = {
-                    point2D_idx: (base_idx + point2D_idx, pano_name)
-                    for point2D_idx in range(num_points2D)
-                }
 
             equirect.add_image_with_trivial_frame(
                 pycolmap.Image(
@@ -475,10 +471,12 @@ class PanoProcessor:
         for point3D_id, point3D in reconstruction.points3D.items():
             track = pycolmap.Track()
             for element in point3D.track.elements:
-                new_point2D_idx, pano_name = old_to_new_point2D[
-                    element.image_id
-                ][element.point2D_idx]
-                track.add_element(pano_to_image_id[pano_name], new_point2D_idx)
+                image_id, offset, count = point2D_offsets[element.image_id]
+                if element.point2D_idx >= count:
+                    raise IndexError(
+                        "Track refers to a missing virtual keypoint"
+                    )
+                track.add_element(image_id, offset + element.point2D_idx)
             equirect.add_point3D_with_id(
                 point3D_id,
                 pycolmap.Point3D(
