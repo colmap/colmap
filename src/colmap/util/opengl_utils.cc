@@ -4,6 +4,8 @@
 
 #include "colmap/util/logging.h"
 
+#include <exception>
+
 namespace colmap {
 
 #if defined(COLMAP_GUI_ENABLED)
@@ -50,16 +52,27 @@ bool OpenGLContextManager::MakeCurrent() {
 }
 
 void RunThreadWithOpenGLContext(Thread* thread) {
-  std::thread opengl_thread([thread]() {
-    thread->Start();
-    thread->Wait();
-    THROW_CHECK_NOTNULL(QCoreApplication::instance())->exit();
+  auto* app = THROW_CHECK_NOTNULL(QCoreApplication::instance());
+  std::exception_ptr worker_error;
+  std::thread opengl_thread([thread, app, &worker_error]() {
+    try {
+      thread->Start();
+      thread->Wait();
+    } catch (...) {
+      worker_error = std::current_exception();
+    }
+    // Queue the exit on the Qt thread, even if the worker finishes before exec.
+    QMetaObject::invokeMethod(
+        app, [] { QCoreApplication::exit(0); }, Qt::QueuedConnection);
   });
-  THROW_CHECK_NOTNULL(QCoreApplication::instance())->exec();
+  app->exec();
   opengl_thread.join();
   // Make sure that all triggered OpenGLContextManager events are processed in
   // case the application exits before the contexts were made current.
   QCoreApplication::processEvents();
+  if (worker_error) {
+    std::rethrow_exception(worker_error);
+  }
 }
 
 #endif
