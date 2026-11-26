@@ -572,6 +572,28 @@ TEST(Division, Nominal) {
   TestModel<DivisionCameraModel>({651.123, 655.123, 386.123, 511.123, -0.1});
 }
 
+TEST(PerspectiveFisheyeCamera, RejectsNonForwardPixels) {
+  const double kPi = EIGEN_PI;
+  // With unit focal lengths, zero principal points, and no distortion, the
+  // horizontal pixel coordinate is the incidence angle in radians.
+  for (const auto model_id : {CameraModelId::kSimpleFisheye,
+                              CameraModelId::kFisheye,
+                              CameraModelId::kSimpleRadialFisheye,
+                              CameraModelId::kRadialFisheye,
+                              CameraModelId::kOpenCVFisheye,
+                              CameraModelId::kThinPrismFisheye,
+                              CameraModelId::kRadTanThinPrismFisheye}) {
+    const auto params = CameraModelInitializeParams(model_id, 1.0, 0, 0);
+    SCOPED_TRACE(static_cast<int>(model_id));
+    for (const double theta :
+         {kPi / 2.0, 95.0 * kPi / 180.0, 5.0 * kPi / 3.0}) {
+      const Eigen::Vector2d xy(theta, 0.0);
+      EXPECT_FALSE(CameraModelCamFromImg(model_id, params, xy).has_value());
+      EXPECT_FALSE(CameraModelCamRayFromImg(model_id, params, xy).has_value());
+    }
+  }
+}
+
 TEST(SimpleFisheyeCamera, Nominal) {
   TestModel<SimpleFisheyeCameraModel>({651.123, 386.123, 511.123});
 }

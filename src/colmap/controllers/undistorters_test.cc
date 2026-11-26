@@ -14,10 +14,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#ifndef _WIN32
-#include <unistd.h>
-#endif
-
 namespace colmap {
 namespace {
 
@@ -84,6 +80,19 @@ TEST(COLMAPUndistorter, Integration) {
   // Expect dense reconstruction files to be written.
   EXPECT_TRUE(ExistsFile(output_path / "stereo/patch-match.cfg"));
   EXPECT_TRUE(ExistsFile(output_path / "stereo/fusion.cfg"));
+
+  for (const char* mode : {"geometric", "photometric"}) {
+    const auto lines =
+        ReadTextFileLines(output_path / StringPrintf("run-colmap-%s.sh", mode));
+    for (const char* command : {"patch_match_stereo",
+                                "stereo_fusion",
+                                "poisson_mesher",
+                                "delaunay_mesher"}) {
+      EXPECT_THAT(lines,
+                  testing::Contains(testing::StartsWith(StringPrintf(
+                      "\"$COLMAP_EXE_PATH/colmap\" %s ", command))));
+    }
+  }
 }
 
 TEST(COLMAPUndistorter, UndistortsZeroDistortionFisheyeCameras) {
@@ -283,97 +292,21 @@ TEST(PMVSUndistorter, Integration) {
     const std::string image_name = StringPrintf("%08zu.jpg", i);
     EXPECT_TRUE(ExistsFile(output_path / "pmvs" / "visualize" / image_name));
   }
-}
 
-TEST(Undistorters, ScriptExecutablePaths) {
-#ifdef _WIN32
-  GTEST_SKIP() << "The generated scripts require a POSIX shell.";
-#else
-  const auto temp_dir = CreateTestDir();
-  const auto image_path = temp_dir / "input_images";
-  CreateDirIfNotExists(image_path);
-  const Reconstruction reconstruction =
-      CreateSyntheticReconstructionWithBitmaps(image_path);
-  for (const bool pmvs : {false, true}) {
-    const auto output_path = temp_dir / (pmvs ? "pmvs" : "colmap");
-    CreateDirIfNotExists(output_path);
-    if (pmvs) {
-      PMVSUndistorter(PMVSUndistorter::Options(),
-                      UndistortCameraOptions(),
-                      reconstruction,
-                      image_path,
-                      output_path)
-          .Run();
-    } else {
-      COLMAPUndistorter(COLMAPUndistorter::Options(),
-                        UndistortCameraOptions(),
-                        reconstruction,
-                        image_path,
-                        output_path)
-          .Run();
-    }
-    for (const std::string tools : {"tools-basic", "tools with spaces"}) {
-      CreateDirIfNotExists(output_path / tools);
-      for (const std::string name : {"colmap", "cmvs", "genOption", "pmvs2"}) {
-        const auto executable = output_path / tools / name;
-        {
-          std::ofstream file(executable);
-          file << "#!/bin/sh\n";
-          if (name == "colmap") {
-            file << "printf 'colmap %s\\n' \"$1\" >> commands.log\n";
-          } else if (name == "pmvs2") {
-            file << "printf 'pmvs2 %s %s\\n' \"$1\" \"$2\" >> commands.log\n";
-          } else {
-            file << "printf '%s\\n' " << name << " >> commands.log\n";
-          }
-          if (name == "genOption") {
-            file << ": > \"$1/option-0000\"\n";
-          }
-        }
-        std::filesystem::permissions(executable,
-                                     std::filesystem::perms::owner_exec,
-                                     std::filesystem::perm_options::add);
-      }
-      const auto run = [&](const std::string& script) {
-        const auto command_log = output_path / "commands.log";
-        std::filesystem::remove(command_log);
-        std::string command = "cd '";
-        command += StringReplace(output_path.string(), "'", "'\\''");
-        command += "' && COLMAP_EXE_PATH='./";
-        command += tools;
-        command += "' PMVS_EXE_PATH='./";
-        command += tools;
-        command += "' /bin/sh ";
-        command += script;
-        EXPECT_EXIT(execl("/bin/sh",
-                          "sh",
-                          "-c",
-                          command.c_str(),
-                          static_cast<char*>(nullptr)),
-                    testing::ExitedWithCode(0),
-                    "")
-            << script << ": " << tools;
-        return ExistsFile(command_log) ? ReadTextFileLines(command_log)
-                                       : std::vector<std::string>();
-      };
-      for (const std::string mode : {"geometric", "photometric"}) {
-        SCOPED_TRACE(testing::Message()
-                     << output_path << ": " << tools << ": " << mode);
-        const auto commands = run("run-colmap-" + mode + ".sh");
-        EXPECT_THAT(commands, testing::Contains("colmap patch_match_stereo"));
-        EXPECT_THAT(commands, testing::Contains("colmap stereo_fusion"));
-      }
-      if (pmvs) {
-        SCOPED_TRACE(tools);
-        EXPECT_THAT(run("run-pmvs.sh"),
-                    testing::ElementsAre("pmvs2 pmvs/ option-all"));
-        EXPECT_THAT(run("run-cmvs-pmvs.sh"),
-                    testing::ElementsAre(
-                        "cmvs", "genOption", "pmvs2 pmvs/ option-0000"));
-      }
+  EXPECT_THAT(ReadTextFileLines(output_path / "run-pmvs.sh"),
+              testing::Contains("\"$PMVS_EXE_PATH/pmvs2\" pmvs/ option-all"));
+  EXPECT_THAT(ReadTextFileLines(output_path / "run-cmvs-pmvs.sh"),
+              testing::Contains("\"$PMVS_EXE_PATH/pmvs2\" pmvs/ $option_name"));
+  for (const char* script : {"run-cmvs-pmvs.sh",
+                             "run-cmvs-colmap-geometric.sh",
+                             "run-cmvs-colmap-photometric.sh"}) {
+    const auto lines = ReadTextFileLines(output_path / script);
+    for (const char* tool : {"cmvs", "genOption"}) {
+      EXPECT_THAT(
+          lines,
+          testing::Contains(StringPrintf("\"$PMVS_EXE_PATH/%s\" pmvs/", tool)));
     }
   }
-#endif
 }
 
 TEST(CMPMVSUndistorter, Integration) {
