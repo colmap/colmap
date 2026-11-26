@@ -36,7 +36,8 @@ class AutomaticReconstructionController : public Thread {
     // The path to the mask folder which are used as input.
     std::filesystem::path mask_path;
 
-    // The path to the vocabulary tree for feature matching.
+    // The path to the vocabulary tree for feature matching. If empty, the
+    // default vocabulary tree for the feature type is used.
     std::filesystem::path vocab_tree_path;
 
     // The type of input data used to choose optimal mapper settings.
