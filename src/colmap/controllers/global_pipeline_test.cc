@@ -317,7 +317,9 @@ TEST(GlobalPipeline, MultiComponents) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 5;
   synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.camera_has_prior_focal_length = false;
+  // All synthetic cameras look at the scene center, which makes the focal
+  // lengths unobservable from the two-view geometries, so use known focals.
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
   synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
