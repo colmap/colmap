@@ -892,7 +892,7 @@ void IncrementalPipeline::TriangulateReconstruction(
 
   reconstruction->UpdatePoint3DErrors();
 
-  if (!CheckIfStopped()) {
+  if (!CheckIfStopped() && options_->extract_colors) {
     LOG(INFO) << "Extracting colors";
     reconstruction->ExtractColorsForAllImages(options_->image_path,
                                               options_->num_threads);

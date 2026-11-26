@@ -5,6 +5,7 @@
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
+#include "colmap/sensor/bitmap.h"
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
@@ -12,6 +13,49 @@
 
 namespace colmap {
 namespace {
+
+TEST(PointTriangulator, RespectsExtractColorsOption) {
+  const auto test_path = CreateTestDir();
+  const auto database_path = test_path / "database.db";
+  auto database = Database::Open(database_path);
+  auto reconstruction = std::make_shared<Reconstruction>();
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 3;
+  synthetic_options.num_points3D = 40;
+  SynthesizeDataset(synthetic_options, reconstruction.get(), database.get());
+  database.reset();
+
+  const Eigen::Vector3ub image_color(43, 121, 207);
+  const auto& camera = reconstruction->Cameras().begin()->second;
+  Bitmap bitmap(camera.width, camera.height, /*as_rgb=*/true);
+  bitmap.Fill({image_color(0), image_color(1), image_color(2)});
+  for (const auto& [image_id, image] : reconstruction->Images()) {
+    ASSERT_TRUE(bitmap.Write(test_path / image.Name()));
+  }
+
+  const auto output_path = test_path / "output";
+  CreateDirIfNotExists(output_path);
+  IncrementalPipelineOptions options;
+  options.num_threads = 1;
+  for (const bool extract_colors : {false, true}) {
+    options.extract_colors = extract_colors;
+    RunPointTriangulatorImpl(reconstruction,
+                             database_path,
+                             test_path,
+                             output_path,
+                             options,
+                             /*clear_points=*/true,
+                             /*refine_intrinsics=*/false);
+    ASSERT_GT(reconstruction->NumPoints3D(), 0);
+    const Eigen::Vector3ub expected =
+        extract_colors ? image_color : Eigen::Vector3ub::Zero();
+    for (const auto& [point3D_id, point3D] : reconstruction->Points3D()) {
+      EXPECT_EQ(point3D.color, expected);
+    }
+  }
+}
 
 TEST(PointTriangulator, IncludesRegisteredImagesOutsideImageList) {
   const auto test_path = CreateTestDir();
