@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
+from itertools import combinations
+
 import numpy as np
 import pytest
 
@@ -118,6 +120,37 @@ def test_gravity_refiner_options_min_num_neighbors_readwrite() -> None:
     assert isinstance(options.min_num_neighbors, int)
     options.min_num_neighbors = 5
     assert options.min_num_neighbors == 5
+
+
+def test_gravity_refinement_updates_original_priors(
+    simple_camera: pycolmap.Camera,
+) -> None:
+    reconstruction = pycolmap.Reconstruction()
+    reconstruction.add_camera_with_trivial_rig(simple_camera)
+    priors = []
+    for image_id in range(1, 5):
+        image = pycolmap.Image(
+            name=f"{image_id}.jpg", image_id=image_id, camera_id=1
+        )
+        reconstruction.add_image_with_trivial_frame(image, pycolmap.Rigid3d())
+        priors.append(
+            pycolmap.PosePrior(
+                corr_data_id=image.data_id, gravity=np.array([0.0, 1.0, 0.0])
+            )
+        )
+    pose_graph = pycolmap.PoseGraph()
+    for image_id1, image_id2 in combinations(range(1, 5), 2):
+        pose_graph.add_edge(
+            image_id1, image_id2, pycolmap.PoseGraphEdge(pycolmap.Rigid3d())
+        )
+    priors[-1].gravity = np.array([1.0, 0.0, 0.0])
+    pycolmap.run_gravity_refinement(
+        pycolmap.GravityRefinerOptions(min_num_neighbors=3),
+        pose_graph,
+        reconstruction,
+        priors,
+    )
+    np.testing.assert_allclose(priors[-1].gravity, [0, 1, 0], atol=1e-10)
 
 
 def test_global_positioner_options_default_init() -> None:

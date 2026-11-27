@@ -766,7 +766,7 @@ void BindDatabase(py::module& m) {
                   "merged_database"_a);
 
   py::classh<PyDatabaseTransaction>(m, "DatabaseTransaction")
-      .def(py::init<Database*>(), "database"_a)
+      .def(py::init<Database*>(), "database"_a, py::keep_alive<1, 2>())
       .def("__enter__", &PyDatabaseTransaction::Enter)
       .def("__exit__", &PyDatabaseTransaction::Exit);
 }

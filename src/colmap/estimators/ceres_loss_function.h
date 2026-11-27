@@ -16,10 +16,11 @@ enum class CeresLossFunctionType {
   SOFT_L1 = 1,
   CAUCHY = 2,
   HUBER = 3,
+  GEMAN_MCCLURE = 4,
 };
 #else
 MAKE_ENUM_CLASS_OVERLOAD_STREAM(
-    CeresLossFunctionType, 0, TRIVIAL, SOFT_L1, CAUCHY, HUBER);
+    CeresLossFunctionType, 0, TRIVIAL, SOFT_L1, CAUCHY, HUBER, GEMAN_MCCLURE);
 #endif
 
 // Standard construction accepts a non-negative `robust_scale` and finite

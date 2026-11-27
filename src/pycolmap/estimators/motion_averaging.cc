@@ -187,9 +187,22 @@ void BindGravityRefiner(py::module& m) {
       [](const GravityRefinerOptions& options,
          const PoseGraph& pose_graph,
          const Reconstruction& reconstruction,
-         std::vector<PosePrior>& pose_priors) {
-        py::gil_scoped_release release;
-        RunGravityRefinement(options, pose_graph, reconstruction, pose_priors);
+         const std::vector<std::shared_ptr<PosePrior>>& pose_priors) {
+        // Keep the Python-owned priors alive while the solver runs, then
+        // update the original objects instead of discarding the STL copies.
+        std::vector<PosePrior> refined_priors;
+        refined_priors.reserve(pose_priors.size());
+        for (const auto& prior : pose_priors) {
+          refined_priors.push_back(*THROW_CHECK_NOTNULL(prior.get()));
+        }
+        {
+          py::gil_scoped_release release;
+          RunGravityRefinement(
+              options, pose_graph, reconstruction, refined_priors);
+        }
+        for (size_t i = 0; i < pose_priors.size(); ++i) {
+          pose_priors[i]->gravity = refined_priors[i].gravity;
+        }
       },
       "options"_a,
       "pose_graph"_a,

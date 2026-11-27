@@ -341,6 +341,38 @@ template <typename T>
 struct is_hashable<T, std::void_t<decltype(std::hash<T>{}(std::declval<T>()))>>
     : std::true_type {};
 
+inline bool DictsEqual(const py::dict& left, const py::dict& right) {
+  if (left.size() != right.size()) {
+    return false;
+  }
+  for (const auto& item : left) {
+    if (!right.contains(item.first)) {
+      return false;
+    }
+    const py::object value = right[item.first];
+    if (item.second.is(value)) {
+      continue;
+    }
+    if (py::isinstance<py::dict>(item.second) &&
+        py::isinstance<py::dict>(value)) {
+      if (!DictsEqual(item.second.cast<py::dict>(), value.cast<py::dict>())) {
+        return false;
+      }
+    } else if (py::isinstance<py::array>(item.second) ||
+               py::isinstance<py::array>(value)) {
+      // NumPy's elementwise comparison cannot be converted directly to bool.
+      if (!py::module_::import("numpy")
+               .attr("array_equal")(item.second, value)
+               .cast<bool>()) {
+        return false;
+      }
+    } else if (!item.second.equal(value)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 template <typename T, typename... options>
 void MakeDataclass(py::classh<T, options...> cls,
                    const std::vector<std::string>& attributes = {}) {
@@ -406,7 +438,7 @@ void MakeDataclass(py::classh<T, options...> cls,
         }
         py::dict self_dict = ConvertToDict(self, attributes, true);
         py::dict other_dict = ConvertToDict(other.cast<T>(), attributes, true);
-        return self_dict.equal(other_dict);
+        return DictsEqual(self_dict, other_dict);
       });
     }
     cls.attr("__hash__") = py::none();

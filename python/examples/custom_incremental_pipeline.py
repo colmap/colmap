@@ -27,7 +27,7 @@ from pycolmap import (
 
 def write_snapshot(reconstruction: Reconstruction, snapshot_path: Path) -> None:
     logging.info("Creating snapshot")
-    timestamp = time.time() * 1000
+    timestamp = int(time.time() * 1000)
     path = snapshot_path / f"{timestamp:010d}"
     path.mkdir(exist_ok=True, parents=True)
     logging.verbose(1, f"=> Writing to {path}")

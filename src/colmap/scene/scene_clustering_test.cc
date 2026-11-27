@@ -203,6 +203,25 @@ TEST(SceneClustering, Empty) {
   EXPECT_EQ(scene_clustering.GetLeafClusters().size(), 1);
 }
 
+TEST(SceneClustering, EmptyFlatClustersRemoved) {
+  SceneClustering::Options options;
+  options.branching = 4;
+  options.image_overlap = 0;
+  options.is_hierarchical = false;
+  SceneClustering scene_clustering(options);
+  scene_clustering.Partition({{0, 1}}, {10});
+
+  const auto& child_clusters =
+      scene_clustering.GetRootCluster()->child_clusters;
+  EXPECT_LE(child_clusters.size(), 2);
+  std::set<image_t> covered_ids;
+  for (const auto& child : child_clusters) {
+    EXPECT_FALSE(child.image_ids.empty());
+    covered_ids.insert(child.image_ids.begin(), child.image_ids.end());
+  }
+  EXPECT_THAT(covered_ids, ::testing::ElementsAre(0, 1));
+}
+
 TEST(SceneClustering, OneLevel) {
   SceneClustering::Options options;
   options.branching = 2;
@@ -234,6 +253,31 @@ TEST(SceneClustering, ThreeFlatClusters) {
   EXPECT_EQ(scene_clustering.GetLeafClusters().size(), 3);
   EXPECT_THAT(GetLeafImageSets(scene_clustering.GetLeafClusters()),
               UnorderedClustersEq({0, 1}, {2, 3}, {4, 5}));
+}
+
+TEST(SceneClustering, FlatClustersOrderedBySizeThenImageId) {
+  const SceneGraph graph = {
+      {{0, 1}, {2, 3}, {10, 11}, {11, 12}, {10, 12}, {1, 2}, {3, 10}, {12, 0}},
+      {1000, 1000, 1000, 1000, 1000, 1, 1, 1}};
+
+  SceneClustering::Options options;
+  options.branching = 3;
+  options.image_overlap = 0;
+  options.is_hierarchical = false;
+  SceneClustering scene_clustering(options);
+  scene_clustering.Partition(graph.image_pairs, graph.num_inliers);
+
+  const auto& child_clusters =
+      scene_clustering.GetRootCluster()->child_clusters;
+  ASSERT_EQ(child_clusters.size(), 3);
+  for (size_t i = 1; i < child_clusters.size(); ++i) {
+    const auto& prev_ids = child_clusters[i - 1].image_ids;
+    const auto& curr_ids = child_clusters[i].image_ids;
+    EXPECT_TRUE(prev_ids.size() > curr_ids.size() ||
+                (prev_ids.size() == curr_ids.size() &&
+                 prev_ids.front() < curr_ids.front()))
+        << "Cluster " << i - 1 << " ordered before cluster " << i;
+  }
 }
 
 TEST(SceneClustering, ThreeFlatClustersTwoOverlap) {
