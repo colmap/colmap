@@ -591,31 +591,12 @@ EstimateMinimallyFixedGaugeCov(Reconstruction& reconstruction,
                                image_t fixed_ref_image_id,
                                bool pin_first_pose) {
   const int scale_pose_idx = pin_first_pose ? 1 : 0;
-  if (pin_first_pose) {
-    Rigid3d& cam1_from_world =
-        reconstruction.Frame(reconstruction.Image(free_image_ids[0]).FrameId())
-            .RigFromWorld();
-    ceres_problem.SetParameterBlockConstant(cam1_from_world.params.data());
-  }
-  const Rigid3d ref_from_world =
-      reconstruction.Image(fixed_ref_image_id).CamFromWorld();
-  Rigid3d& scale_from_world =
-      reconstruction
-          .Frame(reconstruction.Image(free_image_ids[scale_pose_idx]).FrameId())
-          .RigFromWorld();
-  // Pick the largest component of the scale tangent direction
-  // t_scale - R_scale * R_ref^T * t_ref to ensure a transverse gauge cut.
-  const Eigen::Vector3d scale_dir =
-      scale_from_world.translation() -
-      (scale_from_world.rotation() * ref_from_world.rotation().inverse()) *
-          ref_from_world.translation();
-  int fixed_translation_idx = 0;
-  scale_dir.cwiseAbs().maxCoeff(&fixed_translation_idx);
-  SetManifold(
-      &ceres_problem,
-      scale_from_world.params.data(),
-      CreateProductManifold(CreateEigenQuaternionManifold(),
-                            CreateSubsetManifold(3, {fixed_translation_idx})));
+  const int fixed_translation_idx =
+      FixGaugeMinimally(reconstruction,
+                        ceres_problem,
+                        fixed_ref_image_id,
+                        free_image_ids[scale_pose_idx],
+                        pin_first_pose);
 
   std::optional<BACovariance> fixed_cov = EstimateBACovarianceFromProblem(
       BACovarianceOptions(), reconstruction, ceres_problem);
