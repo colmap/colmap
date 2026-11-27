@@ -645,6 +645,17 @@ void OptionManager::AddBundleAdjustmentOptions() {
                    &bundle_adjustment->constant_rig_from_world_rotation);
   AddDefaultOption("BundleAdjustment.min_track_length",
                    &bundle_adjustment->min_track_length);
+  AddDefaultOption("BundleAdjustment.use_prior_position",
+                   &bundle_adjustment->pose_prior.use_position);
+  AddDefaultOption("BundleAdjustment.prior_position_stddev_x",
+                   &bundle_adjustment->pose_prior.position_stddev.x());
+  AddDefaultOption("BundleAdjustment.prior_position_stddev_y",
+                   &bundle_adjustment->pose_prior.position_stddev.y());
+  AddDefaultOption("BundleAdjustment.prior_position_stddev_z",
+                   &bundle_adjustment->pose_prior.position_stddev.z());
+  AddDefaultOption(
+      "BundleAdjustment.overwrite_prior_position_covariance",
+      &bundle_adjustment->pose_prior.overwrite_position_covariance);
   AddDefaultEnumOption("BundleAdjustment.backend",
                        &bundle_adjustment->backend,
                        BundleAdjustmentBackendToString,
@@ -652,6 +663,14 @@ void OptionManager::AddBundleAdjustmentOptions() {
                        EnumHelpText(BundleAdjustmentBackendStrings()));
 
   // Ceres-specific options
+  AddDefaultEnumOption(
+      "BundleAdjustmentCeres.prior_position_loss_function_type",
+      &bundle_adjustment->ceres->prior_position_loss_function_type,
+      CeresLossFunctionTypeToString,
+      CeresLossFunctionTypeFromString,
+      EnumHelpText(CeresLossFunctionTypeStrings()));
+  AddDefaultOption("BundleAdjustmentCeres.prior_position_loss_scale",
+                   &bundle_adjustment->ceres->prior_position_loss_scale);
   AddDefaultOption(
       "BundleAdjustmentCeres.max_num_iterations",
       &bundle_adjustment->ceres->solver_options.max_num_iterations);

@@ -184,6 +184,24 @@ using ``--overwrite_priors_covariance``.  The new covariance will be built based
 on the values of ``--prior_position_std_x``, ``--prior_position_std_y``, and
 ``--prior_position_std_z`` (default: 1.0 meter each).
 
+You can also run standalone bundle adjustment with position priors on an
+existing reconstruction by passing ``--database_path`` and
+``--BundleAdjustment.use_prior_position 1``::
+
+    colmap bundle_adjuster \
+        --input_path $PROJECT_PATH/sparse/0 \
+        --output_path $PROJECT_PATH/sparse/0 \
+        --database_path $PROJECT_PATH/database.db \
+        --BundleAdjustment.use_prior_position 1
+
+Note that priors are matched to images by ``image_id`` (so ``--database_path``
+must be the database the reconstruction was built from); when at least 3 valid
+priors are present (with at least one variable camera pose),
+``bundle_adjuster`` aligns the output model into the prior coordinate frame
+(Cartesian, or local ENU anchored at the first WGS84 prior). If you need a
+specific target coordinate frame (e.g., ECEF or a custom ENU origin), run
+``model_aligner`` afterwards; see the `Geo-registration`_ section.
+
 For geo-registration of an already reconstructed model (without using priors
 during mapping), see the `Geo-registration`_ section.
 

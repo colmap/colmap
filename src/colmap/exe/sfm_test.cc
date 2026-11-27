@@ -2,6 +2,7 @@
 
 #include "colmap/exe/sfm.h"
 
+#include "colmap/controllers/option_manager.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
@@ -206,6 +207,94 @@ TEST(IncrementalMapper, DiscardsInterruptBeforeInitialPair) {
   EXPECT_GE(num_stop_checks, 2);
   EXPECT_EQ(reconstruction_manager->Size(), 0);
   EXPECT_FALSE(ExistsDir(output_path / "0"));
+}
+
+TEST(BundleAdjusterExe, WithDatabasePositionPriors) {
+  const auto test_path = CreateTestDir();
+  const auto database_path = test_path / "database.db";
+  auto database = Database::Open(database_path);
+
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 6;
+  synthetic_options.num_points3D = 80;
+  synthetic_options.prior_position = true;
+  SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
+
+  // Store tiny covariances in the database so alignment would fail without
+  // overwrite_prior_position_covariance, and verify that overriding them in
+  // memory does not mutate the database on disk.
+  const Eigen::Matrix3d orig_db_cov = 1e-8 * Eigen::Matrix3d::Identity();
+  for (PosePrior prior : database->ReadAllPosePriors()) {
+    prior.position_covariance = orig_db_cov;
+    database->UpdatePosePrior(prior);
+  }
+  database.reset();
+
+  Reconstruction unaligned = gt_reconstruction;
+  SyntheticNoiseOptions noise_options;
+  noise_options.point2D_stddev = 0.2;
+  noise_options.point3D_stddev = 0.05;
+  noise_options.rig_from_world_rotation_stddev = 0.5;
+  noise_options.rig_from_world_translation_stddev = 0.02;
+  SynthesizeNoise(noise_options, &unaligned);
+  unaligned.Transform(Sim3d(
+      0.3,
+      Eigen::Quaterniond(Eigen::AngleAxisd(0.4, Eigen::Vector3d::UnitZ())),
+      Eigen::Vector3d(5.0, -3.0, 2.0)));
+  const auto input_path = test_path / "input";
+  const auto output_path = test_path / "output";
+  CreateDirIfNotExists(input_path);
+  CreateDirIfNotExists(output_path);
+  unaligned.Write(input_path);
+
+  std::vector<std::string> missing_db_args = {
+      "bundle_adjuster",
+      "--input_path=" + input_path.string(),
+      "--output_path=" + output_path.string(),
+      "--BundleAdjustment.use_prior_position=1",
+  };
+  std::vector<char*> missing_db_argv;
+  for (std::string& arg : missing_db_args) {
+    missing_db_argv.push_back(arg.data());
+  }
+  EXPECT_EQ(RunBundleAdjuster(missing_db_argv.size(), missing_db_argv.data()),
+            EXIT_FAILURE);
+
+  std::vector<std::string> args = {
+      "bundle_adjuster",
+      "--input_path=" + input_path.string(),
+      "--output_path=" + output_path.string(),
+      "--database_path=" + database_path.string(),
+      "--BundleAdjustment.use_prior_position=1",
+      "--BundleAdjustment.overwrite_prior_position_covariance=1",
+      "--BundleAdjustment.prior_position_stddev_x=0.1",
+      "--BundleAdjustment.prior_position_stddev_y=0.1",
+      "--BundleAdjustment.prior_position_stddev_z=0.1",
+  };
+  std::vector<char*> argv;
+  argv.reserve(args.size());
+  for (std::string& arg : args) {
+    argv.push_back(arg.data());
+  }
+  ASSERT_EQ(RunBundleAdjuster(argv.size(), argv.data()), EXIT_SUCCESS);
+
+  Reconstruction refined;
+  refined.Read(output_path);
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(refined,
+                                 /*max_rotation_error_deg=*/0.2,
+                                 /*max_proj_center_error=*/0.05,
+                                 /*max_scale_error=*/1e-2,
+                                 /*num_obs_tolerance=*/0.02,
+                                 /*align=*/false));
+
+  const auto reopened_db = Database::Open(database_path);
+  for (const PosePrior& prior : reopened_db->ReadAllPosePriors()) {
+    EXPECT_EQ(prior.position_covariance, orig_db_cov);
+  }
 }
 
 }  // namespace
