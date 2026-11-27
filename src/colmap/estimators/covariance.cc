@@ -5,8 +5,6 @@
 #include "colmap/estimators/cost_functions/manifold.h"
 #include "colmap/util/hash_containers.h"
 
-#include <algorithm>
-
 #include <ceres/crs_matrix.h>
 
 namespace colmap {
@@ -18,8 +16,7 @@ namespace {
 constexpr double kMinPointSingularValueRatio = 1e-7;
 
 bool ComputeSchurComplement(bool estimate_point_covs,
-                            bool estimate_pose_covs,
-                            bool estimate_other_covs,
+                            bool compute_schur,
                             double damping,
                             int point_num_params,
                             const std::vector<internal::PointParam>& points,
@@ -31,9 +28,9 @@ bool ComputeSchurComplement(bool estimate_point_covs,
   VLOG(2) << "Evaluating the Jacobian for Schur elimination";
 
   ceres::Problem::EvaluateOptions eval_options;
-  eval_options.parameter_blocks.reserve(2 * poses.size() + points.size() +
-                                        others.size());
-  if (estimate_pose_covs || estimate_other_covs) {
+  eval_options.parameter_blocks.reserve(
+      (compute_schur ? poses.size() + others.size() : 0) + points.size());
+  if (compute_schur) {
     for (const auto& pose : poses) {
       eval_options.parameter_blocks.push_back(
           const_cast<double*>(pose.cam_from_world));
@@ -74,7 +71,6 @@ bool ComputeSchurComplement(bool estimate_point_covs,
 
   // Notice that here "a" refers to pose/other and "p" to point parameters.
   const int a_num_params = J_full.cols() - point_num_params;
-  const bool compute_schur = a_num_params > 0;
   const Eigen::SparseMatrix<double> J_p =
       J_full.block(0, a_num_params, J_full.rows(), point_num_params);
   // Orthogonal left singular vectors U_p of each point's Jacobian block,
@@ -90,16 +86,11 @@ bool ComputeSchurComplement(bool estimate_point_covs,
   for (const internal::PointParam& point : points) {
     const int tangent_size = ParameterBlockTangentSize(problem, point.xyz);
     rows.clear();
-    for (int c = 0; c < tangent_size; ++c) {
-      for (Eigen::SparseMatrix<double>::InnerIterator it(J_p,
-                                                         point_param_idx + c);
-           it;
-           ++it) {
-        rows.push_back(it.row());
-      }
+    for (Eigen::SparseMatrix<double>::InnerIterator it(J_p, point_param_idx);
+         it;
+         ++it) {
+      rows.push_back(it.row());
     }
-    std::sort(rows.begin(), rows.end());
-    rows.erase(std::unique(rows.begin(), rows.end()), rows.end());
 
     if (rows.empty()) {
       if (estimate_point_covs) {
@@ -111,18 +102,18 @@ bool ComputeSchurComplement(bool estimate_point_covs,
       continue;
     }
 
-    Eigen::MatrixXd J_pi = Eigen::MatrixXd::Zero(rows.size(), tangent_size);
+    Eigen::MatrixXd J_pi(rows.size(), tangent_size);
     for (int c = 0; c < tangent_size; ++c) {
       size_t row_pos = 0;
       for (Eigen::SparseMatrix<double>::InnerIterator it(J_p,
                                                          point_param_idx + c);
            it;
-           ++it) {
-        while (rows[row_pos] < it.row()) {
-          ++row_pos;
-        }
+           ++it, ++row_pos) {
+        THROW_CHECK_LT(row_pos, rows.size());
+        THROW_CHECK_EQ(it.row(), rows[row_pos]);
         J_pi(row_pos, c) = it.value();
       }
+      THROW_CHECK_EQ(row_pos, rows.size());
     }
 
     const unsigned int svd_options =
@@ -394,11 +385,20 @@ std::optional<BACovariance> EstimateBACovarianceFromProblem(
     }
   }
 
+  const bool compute_pose_or_other_covs =
+      (estimate_pose_covs && pose_num_params > 0) ||
+      (estimate_other_covs && other_num_params > 0);
+  if (!compute_pose_or_other_covs && (!estimate_point_covs || points.empty())) {
+    return BACovariance(/*point_covs=*/{},
+                        /*pose_L_start_size=*/{},
+                        /*other_L_start_size=*/{},
+                        /*L_inv=*/Eigen::MatrixXd());
+  }
+
   FlatHashMap<point3D_t, Eigen::MatrixXd> point_covs;
   Eigen::SparseMatrix<double> S;
   if (!ComputeSchurComplement(estimate_point_covs,
-                              estimate_pose_covs,
-                              estimate_other_covs,
+                              compute_pose_or_other_covs,
                               options.damping,
                               point_num_params,
                               points,
@@ -410,9 +410,6 @@ std::optional<BACovariance> EstimateBACovarianceFromProblem(
     return std::nullopt;
   }
 
-  const bool compute_pose_or_other_covs =
-      (estimate_pose_covs && pose_num_params > 0) ||
-      (estimate_other_covs && other_num_params > 0);
   if (!compute_pose_or_other_covs) {
     return BACovariance(std::move(point_covs),
                         /*pose_L_start_size=*/{},

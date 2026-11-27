@@ -305,7 +305,7 @@ INSTANTIATE_TEST_SUITE_P(
           BACovarianceOptions options;
           options.params = BACovarianceOptions::Params::POSES;
           BACovarianceTestOptions test_options;
-          test_options.fixed_cam_poses = true;
+          test_options.fixed_cam_intrinsics = true;
           return std::make_pair(options, test_options);
         }(),
         []() {
