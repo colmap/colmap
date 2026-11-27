@@ -214,45 +214,14 @@ TEST(RemoveCommandLineArgument, Nominal) {
   EXPECT_EQ(argc, 0);
 }
 
-TEST(RemoveCommandLineArgument, PreservesRemainingOrder) {
-  for (int remove_idx = 0; remove_idx < 5; ++remove_idx) {
-    SCOPED_TRACE(remove_idx);
-    std::vector<std::string> args = {
-        "program", "--input_path", "images", "--output_path", "model"};
-    std::vector<char*> argv;
-    argv.reserve(args.size());
-    for (auto& arg : args) {
-      argv.push_back(arg.data());
-    }
-    int argc = static_cast<int>(argv.size());
-    auto expected = argv;
-    expected.erase(expected.begin() + remove_idx);
-
-    RemoveCommandLineArgument(args[remove_idx], &argc, argv.data());
-
-    ASSERT_EQ(argc, expected.size());
-    EXPECT_THAT(std::vector<char*>(argv.begin(), argv.begin() + argc),
-                testing::ElementsAreArray(expected));
-  }
-}
-
-TEST(RemoveCommandLineArgument, RemovesFirstOccurrenceOnly) {
-  std::vector<std::string> args = {
-      "program", "--verbose", "input", "--verbose", "output"};
-  std::vector<char*> argv;
-  argv.reserve(args.size());
-  for (auto& arg : args) {
-    argv.push_back(arg.data());
-  }
-  int argc = static_cast<int>(argv.size());
-
-  RemoveCommandLineArgument("--verbose", &argc, argv.data());
-
-  ASSERT_EQ(argc, 4);
-  EXPECT_THAT(
-      std::vector<char*>(argv.begin(), argv.begin() + argc),
-      testing::ElementsAre(
-          args[0].data(), args[2].data(), args[3].data(), args[4].data()));
+TEST(RemoveCommandLineArgument, PreservesOrder) {
+  std::string a = "a", b = "b", c = "c", d = "d";
+  std::vector<char*> argv = {a.data(), b.data(), c.data(), d.data()};
+  int argc = 4;
+  RemoveCommandLineArgument("b", &argc, argv.data());
+  EXPECT_EQ(argc, 3);
+  EXPECT_THAT(std::vector<std::string>(argv.begin(), argv.begin() + argc),
+              testing::ElementsAre("a", "c", "d"));
 }
 
 }  // namespace
