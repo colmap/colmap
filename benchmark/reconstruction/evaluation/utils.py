@@ -7,6 +7,7 @@ import ctypes
 import dataclasses
 import datetime
 import functools
+import glob
 import hashlib
 import itertools
 import multiprocessing
@@ -1889,14 +1890,19 @@ def _collect_reports(prefix: Path) -> dict[int, Path] | Path:
     or the single <prefix>.pkl path of an unseeded one.
     """
     reports: dict[int, Path] = {}
-    for path in prefix.parent.glob(f"{prefix.name}_s*.pkl"):
+    for path in prefix.parent.glob(f"{glob.escape(prefix.name)}_s*.pkl"):
         seed = path.stem[len(prefix.name) + 2 :]
-        if seed.isdigit():
-            reports[int(seed)] = path
+        if path.is_file() and seed.isascii() and seed.isdigit():
+            number = int(seed)
+            if number in reports:
+                raise SystemExit(
+                    f"ambiguous seed {number}: {reports[number]} and {path}"
+                )
+            reports[number] = path
     if reports:
         return reports
     path = prefix.with_name(f"{prefix.name}.pkl")
-    if not path.exists():
+    if not path.is_file():
         raise SystemExit(
             f"found neither {prefix.name}_s<seed>.pkl reports nor {path}"
         )
@@ -1912,7 +1918,7 @@ def collect_reports(
     <prefix>_s<seed>.pkl reports of a seeded run.
     """
     if path is not None:
-        if not path.exists():
+        if not path.is_file():
             raise SystemExit(f"no such report: {path}")
         return path
     assert prefix is not None
@@ -1957,6 +1963,8 @@ def pair_reports(
     elif isinstance(reports_b, dict):
         shared = sorted(reports_b)
     else:
+        if seeds is not None:
+            raise SystemExit("cannot select seeds from two unseeded reports")
         # Neither seeded: a plain one-to-one comparison.
         return [reports_a], [reports_b], None
 
