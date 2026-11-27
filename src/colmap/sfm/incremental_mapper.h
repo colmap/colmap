@@ -350,7 +350,7 @@ class IncrementalMapper {
   // an existing reconstruction.
   FlatHashSet<frame_t> existing_frame_ids_;
 
-  // Scene priors cached from database_cache_ for the active reconstruction.
+  // Scene priors cached from database_cache_.
   BundleAdjustmentPriors ba_priors_;
 };
 

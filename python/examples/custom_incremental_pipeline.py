@@ -55,7 +55,7 @@ def iterative_global_refinement(
     options: IncrementalPipelineOptions,
     mapper_options: IncrementalMapperOptions,
     mapper: IncrementalMapper,
-    priors: pycolmap.BundleAdjustmentPriors | None = None,
+    priors: pycolmap.BundleAdjustmentPriors,
 ) -> None:
     logging.info("Retriangulation and Global bundle adjustment")
     # The following is equivalent to mapper.iterative_global_refinement(...)
@@ -76,7 +76,7 @@ def initialize_reconstruction(
     mapper: IncrementalMapper,
     mapper_options: IncrementalMapperOptions,
     reconstruction: Reconstruction,
-    priors: pycolmap.BundleAdjustmentPriors | None = None,
+    priors: pycolmap.BundleAdjustmentPriors,
 ) -> IncrementalPipelineStatus:
     """Equivalent to IncrementalPipeline.initialize_reconstruction(...)"""
     options = controller.options

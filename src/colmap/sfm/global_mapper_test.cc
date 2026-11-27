@@ -212,31 +212,5 @@ TEST(GlobalMapperOptions, RefineSensorFromRigPropagatesToSubOptions) {
   EXPECT_FALSE(options.BundleAdjustment().refine_sensor_from_rig);
 }
 
-TEST(GlobalMapper, IgnoresPosePriorUsePosition) {
-  auto database = Database::Open(kInMemorySqliteDatabasePath);
-  Reconstruction gt_reconstruction;
-  SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_rigs = 1;
-  synthetic_dataset_options.num_cameras_per_rig = 1;
-  synthetic_dataset_options.num_frames_per_rig = 5;
-  synthetic_dataset_options.num_points3D = 50;
-  synthetic_dataset_options.prior_position = true;
-  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
-  SynthesizeDataset(
-      synthetic_dataset_options, &gt_reconstruction, database.get());
-
-  auto reconstruction = std::make_shared<Reconstruction>();
-  GlobalMapper global_mapper(CreateDatabaseCache(*database));
-  global_mapper.BeginReconstruction(reconstruction);
-
-  GlobalMapperOptions options;
-  options.bundle_adjustment.pose_prior.use_position = true;
-  ASSERT_TRUE(global_mapper.Solve(options));
-  EXPECT_THAT(gt_reconstruction,
-              ReconstructionNear(*reconstruction,
-                                 /*max_rotation_error_deg=*/1e-2,
-                                 /*max_proj_center_error=*/1e-4));
-}
-
 }  // namespace
 }  // namespace colmap

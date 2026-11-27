@@ -62,7 +62,8 @@ IncrementalMapper::IncrementalMapper(
     : database_cache_(std::move(database_cache)),
       reconstruction_(nullptr),
       obs_manager_(nullptr),
-      triangulator_(nullptr) {}
+      triangulator_(nullptr),
+      ba_priors_{database_cache_->PosePriors()} {}
 
 void IncrementalMapper::BeginReconstruction(
     const std::shared_ptr<class Reconstruction>& reconstruction) {
@@ -88,7 +89,6 @@ void IncrementalMapper::BeginReconstruction(
   filtered_frames_.clear();
   reg_stats_.num_reg_trials.clear();
   reg_stats_.num_structure_less_reg_trials.clear();
-  ba_priors_.pose_priors = database_cache_->PosePriors();
 }
 
 void IncrementalMapper::EndReconstruction(const bool discard) {
@@ -106,7 +106,6 @@ void IncrementalMapper::EndReconstruction(const bool discard) {
 
   triangulator_.reset();
   obs_manager_.reset();
-  ba_priors_ = {};
   reconstruction_->TearDown();
   reconstruction_ = nullptr;
 }

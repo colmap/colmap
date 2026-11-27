@@ -19,15 +19,7 @@
 namespace colmap {
 namespace {
 
-void DisableUnsupportedPosePriors(BundleAdjustmentOptions& options) {
-  if (options.pose_prior.use_position) {
-    LOG_FIRST_N(WARNING, 1)
-        << "Position priors are not supported by the global mapper; ignoring.";
-    options.pose_prior.use_position = false;
-  }
-}
-
-bool RunBundleAdjustment(BundleAdjustmentOptions options,
+bool RunBundleAdjustment(const BundleAdjustmentOptions& options,
                          Reconstruction& reconstruction) {
   if (reconstruction.NumImages() == 0) {
     LOG(ERROR) << "Cannot run bundle adjustment: no registered images";
@@ -37,8 +29,6 @@ bool RunBundleAdjustment(BundleAdjustmentOptions options,
     LOG(ERROR) << "Cannot run bundle adjustment: no 3D points to optimize";
     return false;
   }
-
-  DisableUnsupportedPosePriors(options);
 
   BundleAdjustmentConfig ba_config;
   for (const auto& [image_id, image] : reconstruction.Images()) {
@@ -55,7 +45,6 @@ bool RunBundleAdjustment(BundleAdjustmentOptions options,
 BundleAdjustmentOptions RefinementBundleAdjustmentOptions(
     const BundleAdjustmentOptions& ba_options) {
   BundleAdjustmentOptions custom_ba_options = ba_options;
-  DisableUnsupportedPosePriors(custom_ba_options);
   custom_ba_options.refine_focal_length = false;
   custom_ba_options.refine_principal_point = false;
   custom_ba_options.refine_extra_params = false;
@@ -386,7 +375,7 @@ bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
 
   // Normalize the structure for numerical stability.
   // TODO: Skip normalization when position priors are used (similar to
-  // incremental mapper's !use_prior_position condition).
+  // incremental mapper's !HasMetricScale() condition).
   reconstruction_->Normalize();
 
   return true;
@@ -430,7 +419,7 @@ bool GlobalMapper::IterativeBundleAdjustment(
 
     // Normalize the structure for numerical stability.
     // TODO: Skip normalization when position priors are used (similar to
-    // incremental mapper's !use_prior_position condition).
+    // incremental mapper's !HasMetricScale() condition).
     reconstruction_->Normalize();
 
     // Report progress for this refinement iteration and stop early if
@@ -539,7 +528,7 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
 
   // Normalize the structure for numerical stability.
   // TODO: Skip normalization when position priors are used (similar to
-  // incremental mapper's !use_prior_position condition).
+  // incremental mapper's !HasMetricScale() condition).
   reconstruction_->Normalize();
 
   obs_manager.FilterPoints3DWithLargeReprojectionError(

@@ -397,10 +397,26 @@ TEST(IncrementalMapper, FixExistingFramesWithPositionPriorsKeepsMetricFrame) {
   synthetic_options.num_points3D = 80;
   synthetic_options.prior_position = true;
   SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
-  database.reset();
 
   const std::vector<frame_t> frame_ids = gt_reconstruction.RegFrameIds();
   ASSERT_EQ(frame_ids.size(), 6);
+  // Shift one unregistered frame's prior with tight covariance to ensure active
+  // prior BA runs during continuation rather than only a post-hoc alignment.
+  const image_t shifted_image_id =
+      gt_reconstruction.Frame(frame_ids[5]).ImageIds().begin()->id;
+  Eigen::Vector3d shifted_prior_position = Eigen::Vector3d::Zero();
+  for (PosePrior prior : database->ReadAllPosePriors()) {
+    if (prior.corr_data_id.id == shifted_image_id) {
+      prior.position += Eigen::Vector3d(0.01, 0.0, 0.0);
+      prior.position_covariance = 1e-12 * Eigen::Matrix3d::Identity();
+      shifted_prior_position = prior.position;
+    } else {
+      prior.position_covariance = 1e-6 * Eigen::Matrix3d::Identity();
+    }
+    database->UpdatePosePrior(prior);
+  }
+  database.reset();
+
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   Reconstruction& initial =
       *reconstruction_manager->Get(reconstruction_manager->Add());
@@ -426,6 +442,10 @@ TEST(IncrementalMapper, FixExistingFramesWithPositionPriorsKeepsMetricFrame) {
   Reconstruction continued;
   continued.Read(output_path);
   EXPECT_EQ(continued.NumRegFrames(), 6);
+  EXPECT_LT((continued.Image(shifted_image_id).ProjectionCenter() -
+             shifted_prior_position)
+                .norm(),
+            1e-3);
   EXPECT_THAT(gt_reconstruction,
               ReconstructionNear(continued,
                                  /*max_rotation_error_deg=*/0.5,
