@@ -15,6 +15,8 @@
 #include <string>
 #include <vector>
 
+#include <Eigen/Core>
+
 namespace colmap {
 
 class Timer;

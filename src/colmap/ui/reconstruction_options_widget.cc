@@ -228,11 +228,7 @@ class IncrementalMapperPriorsOptionsWidget : public OptionsWidget {
     AddOptionBool(&options->mapper->use_robust_loss_on_prior_position,
                   "use_robust_loss_on_prior_position");
     AddOptionDouble(&options->mapper->prior_position_loss_scale,
-                    "prior_position_loss_scale",
-                    1e-3,
-                    1e7,
-                    0.01,
-                    3);
+                    "prior_position_loss_scale");
   }
 };
 

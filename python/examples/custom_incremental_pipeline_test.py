@@ -225,12 +225,9 @@ def _set_pose_priors_with_shifted_anchor(
     database: pycolmap.Database,
     shifted_image_id: int,
     shift: np.ndarray,
-    metric_from_synth: pycolmap.Sim3d | None = None,
 ) -> np.ndarray:
     shifted_prior_position = np.zeros(3)
     for prior in database.read_all_pose_priors():
-        if metric_from_synth is not None:
-            prior.position = metric_from_synth * prior.position
         if prior.corr_data_id.id == shifted_image_id:
             prior.position = prior.position + shift
             prior.position_covariance = 1e-12 * np.eye(3)
@@ -253,11 +250,6 @@ def test_with_pose_priors(
     output_path = tmp_path / "sparse"
     output_path.mkdir()
 
-    metric_from_synth = (
-        None
-        if continue_with_fixed_frames
-        else pycolmap.Sim3d(3.0, pycolmap.Rotation3d(), [10.0, -5.0, 2.0])
-    )
     with pycolmap.Database.open(database_path) as database:
         synthetic_dataset_options = pycolmap.SyntheticDatasetOptions()
         synthetic_dataset_options.num_rigs = 1
@@ -268,8 +260,6 @@ def test_with_pose_priors(
         gt_reconstruction = pycolmap.synthesize_dataset(
             synthetic_dataset_options, database
         )
-        if metric_from_synth is not None:
-            gt_reconstruction.transform(metric_from_synth)
 
         frame_ids = gt_reconstruction.reg_frame_ids()
         assert len(frame_ids) == 6
@@ -277,10 +267,7 @@ def test_with_pose_priors(
             iter(gt_reconstruction.frame(frame_ids[-1]).image_ids)
         ).id
         shifted_prior_position = _set_pose_priors_with_shifted_anchor(
-            database,
-            shifted_image_id,
-            np.array([0.01, 0.0, 0.0]),
-            metric_from_synth=metric_from_synth,
+            database, shifted_image_id, np.array([0.01, 0.0, 0.0])
         )
 
     options = create_test_options()

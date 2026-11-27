@@ -26,14 +26,15 @@ def solve_bundle_adjustment(
         priors or pycolmap.BundleAdjustmentPriors(),
     )
     summary = bundle_adjuster.solve()
-    # Alternatively, when no metric priors are active
-    # (`bundle_adjuster.normalized_from_metric is None`), you can customize and
-    # solve the exposed Ceres problem directly via pyceres (when metric priors
-    # are active, `bundle_adjuster.solve()` must be used because residuals are
-    # constructed in the normalized frame `normalized_from_metric`):
+    # Alternatively, without active position priors (i.e.
+    # `bundle_adjuster.normalized_from_metric is None`), you can customize and
+    # solve the exposed Ceres problem via pyceres:
     # import pyceres  # The minimal bindings in pycolmap aren't sufficient.
     # bundle_adjuster = pycolmap.create_default_ceres_bundle_adjuster(
-    #     ba_options, ba_config, reconstruction
+    #     ba_options,
+    #     ba_config,
+    #     reconstruction,
+    #     priors or pycolmap.BundleAdjustmentPriors(),
     # )
     # assert bundle_adjuster.normalized_from_metric is None
     # solver_options = ba_options.ceres.create_solver_options(

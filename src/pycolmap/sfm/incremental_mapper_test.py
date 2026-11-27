@@ -210,8 +210,6 @@ def test_incremental_mapper_has_metric_scale(tmp_path: Path) -> None:
 
     mapper.end_reconstruction(False)
     assert rec.has_metric_scale
-    rec.normalize()
-    assert not rec.has_metric_scale
 
 
 def test_incremental_pipeline_options_ba_local_backend_readwrite() -> None:

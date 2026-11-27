@@ -179,8 +179,8 @@ reconstruction by enabling ``--Mapper.use_prior_position 1`` in ``mapper``::
         --output_path $PROJECT_PATH/sparse \
         --Mapper.use_prior_position 1
 
-You can override the prior covariances (uncertainties) stored in the database
-in memory without modifying the database using
+You can override the prior covariances (uncertainties) in memory, without
+modifying the database, using
 ``--Mapper.overwrite_prior_position_covariance 1`` together with
 ``--Mapper.prior_position_stddev_x``, ``--Mapper.prior_position_stddev_y``, and
 ``--Mapper.prior_position_stddev_z`` (also used as the fallback standard
