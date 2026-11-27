@@ -8,6 +8,7 @@
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
+#include <filesystem>
 #include <fstream>
 
 #include <gtest/gtest.h>
@@ -154,6 +155,19 @@ TEST(ReadPointsVisibility, SizeMismatch) {
   WritePointsVisibility(vis_path, data);
 
   EXPECT_THROW(ReadPointsVisibility(vis_path, 5), std::invalid_argument);
+}
+
+TEST(ReadPointsVisibility, TruncatedFile) {
+  const auto vis_path = CreateTestDir() / "truncated.vis";
+  const std::vector<std::vector<int>> data = {{1, 2}};
+  // Missing and partial file count, visibility count, and index payload.
+  for (const size_t num_bytes : {0, 7, 8, 11, 12, 19}) {
+    SCOPED_TRACE(num_bytes);
+    WritePointsVisibility(vis_path, data);
+    std::filesystem::resize_file(vis_path, num_bytes);
+    EXPECT_THROW(ReadPointsVisibility(vis_path, data.size()),
+                 std::ios_base::failure);
+  }
 }
 
 TEST(StereoFusion, Rotation180Invariance) {
