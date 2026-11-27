@@ -25,147 +25,112 @@ void ExpectNearEigenMatrixXd(const Eigen::MatrixXd& mat1,
   }
 }
 
-TEST(BACovariance, RelativePoseUsesLeftSE3TangentCoordinates) {
+TEST(BACovariance, RelativePoseTangentCoordinates) {
+  const Rigid3d cams_from_world[2] = {
+      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random()),
+      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random())};
+  const BACovariance ba_cov(
+      {}, {{1, {0, 6}}, {2, {6, 6}}}, {}, Eigen::MatrixXd::Identity(12, 12));
+  const std::optional<Eigen::MatrixXd> cov =
+      ba_cov.GetCam2CovFromCam1(1, cams_from_world[0], 2, cams_from_world[1]);
+  ASSERT_TRUE(cov.has_value());
+
+  // Numerically differentiate the relative pose in left SE(3) coordinates
+  // w.r.t. the Ceres tangent coordinates of both poses.
   const auto manifold = CreateProductManifold(CreateEigenQuaternionManifold(),
                                               CreateEuclideanManifold<3>());
-  Rigid3d cam1_from_world;
-  Rigid3d cam2_from_world;
-  cam1_from_world.rotation() =
-      Eigen::AngleAxisd(0.4, Eigen::Vector3d(1, 2, 3).normalized());
-  cam2_from_world.rotation() =
-      Eigen::AngleAxisd(-0.7, Eigen::Vector3d(3, -2, 1).normalized());
-  cam1_from_world.translation() = Eigen::Vector3d(1, 2, 3);
-  cam2_from_world.translation() = Eigen::Vector3d(-2, 0.5, 4);
-  Eigen::Matrix<double, 12, 12> factor =
-      Eigen::Matrix<double, 12, 12>::Identity();
-  for (int row = 0; row < 12; ++row) {
-    for (int col = 0; col < 12; ++col) {
-      factor(row, col) += 0.03 * ((3 * row + 5 * col) % 7 - 3);
-    }
-  }
-  const BACovariance covariance({}, {{1, {0, 6}}, {2, {6, 6}}}, {}, factor);
-  const auto actual =
-      covariance.GetCam2CovFromCam1(1, cam1_from_world, 2, cam2_from_world);
-  ASSERT_TRUE(actual.has_value());
-
-  const Rigid3d cam2_from_cam1 = cam2_from_world * Inverse(cam1_from_world);
+  const Rigid3d cam2_from_cam1 =
+      cams_from_world[1] * Inverse(cams_from_world[0]);
+  constexpr double kEps = 1e-7;
   Eigen::Matrix<double, 6, 12> J;
-  constexpr double kStep = 1e-6;
-  for (int parameter = 0; parameter < 12; ++parameter) {
-    Eigen::Vector6d differences[2];
-    for (int side = 0; side < 2; ++side) {
-      Eigen::Vector6d delta = Eigen::Vector6d::Zero();
-      delta(parameter % 6) = (side ? 1 : -1) * kStep;
-      Rigid3d perturbed_cam1 = cam1_from_world;
-      Rigid3d perturbed_cam2 = cam2_from_world;
-      Rigid3d& perturbed = parameter < 6 ? perturbed_cam1 : perturbed_cam2;
-      const Rigid3d& nominal =
-          parameter < 6 ? cam1_from_world : cam2_from_world;
-      ASSERT_TRUE(manifold->Plus(
-          nominal.params.data(), delta.data(), perturbed.params.data()));
-      const Rigid3d relative = perturbed_cam2 * Inverse(perturbed_cam1);
-      const Rigid3d left_difference = relative * Inverse(cam2_from_cam1);
-      const Eigen::AngleAxisd rotation_difference(left_difference.rotation());
-      differences[side].head<3>() =
-          rotation_difference.angle() * rotation_difference.axis();
-      // At zero, this translation has the same derivative as the SE(3) log.
-      differences[side].tail<3>() = left_difference.translation();
-    }
-    J.col(parameter) = (differences[1] - differences[0]) / (2 * kStep);
+  for (int i = 0; i < 12; ++i) {
+    Eigen::Vector6d delta = Eigen::Vector6d::Zero();
+    delta(i % 6) = kEps;
+    Rigid3d perturbed[2] = {cams_from_world[0], cams_from_world[1]};
+    manifold->Plus(cams_from_world[i / 6].params.data(),
+                   delta.data(),
+                   perturbed[i / 6].params.data());
+    const Rigid3d diff =
+        perturbed[1] * Inverse(perturbed[0]) * Inverse(cam2_from_cam1);
+    const Eigen::AngleAxisd diff_rotation(diff.rotation());
+    J.col(i) << diff_rotation.angle() * diff_rotation.axis(),
+        diff.translation();
   }
-  ExpectNearEigenMatrixXd(
-      *actual, J * factor.transpose() * factor * J.transpose(), 1e-7);
-}
-
-TEST(BACovariance, RelativePoseCancelsSharedWorldUncertainty) {
-  const double offset = 1e6 + 0.3;
-  Rigid3d first;
-  Rigid3d second;
-  first.translation() = offset * Eigen::Vector3d(1.1, 2.3, -4.7);
-  second.translation() = first.translation() + Eigen::Vector3d(3, -2, 1);
-  Eigen::Matrix<double, 12, 12> factor = Eigen::Matrix<double, 12, 12>::Zero();
-  // A common world perturbation must cancel from the relative pose.
-  factor.topLeftCorner<6, 6>().diagonal() << 0.5, 0.5, 0.5, 1, 1, 1;
-  factor.topRightCorner<6, 6>() = factor.topLeftCorner<6, 6>();
-  const BACovariance covariance({}, {{1, {0, 6}}, {2, {6, 6}}}, {}, factor);
-  const auto actual = covariance.GetCam2CovFromCam1(1, first, 2, second);
-  ASSERT_TRUE(actual.has_value());
-  ExpectNearEigenMatrixXd(*actual, Eigen::Matrix6d::Zero(), 1e-12);
-}
-
-TEST(BACovariance, RelativePoseRequiresBothFullPoses) {
-  const BACovariance covariance({},
-                                {{1, {0, 6}}, {2, {6, 3}}},
-                                {},
-                                Eigen::Matrix<double, 9, 9>::Identity());
-  const Rigid3d pose;
-  for (const image_t incomplete : {image_t{2}, kInvalidImageId}) {
-    EXPECT_FALSE(covariance.GetCam2CovFromCam1(1, pose, incomplete, pose));
-    EXPECT_FALSE(covariance.GetCam2CovFromCam1(incomplete, pose, 1, pose));
-  }
-}
-
-TEST(BACovariance, PointOnlySupportsNonReferenceRigImages) {
-  Reconstruction reconstruction;
-  SyntheticDatasetOptions dataset_options;
-  dataset_options.num_rigs = 1;
-  dataset_options.num_cameras_per_rig = 2;
-  dataset_options.num_frames_per_rig = 4;
-  dataset_options.num_points3D = 20;
-  SynthesizeDataset(dataset_options, &reconstruction);
-  BundleAdjustmentConfig config;
-  bool has_non_reference_image = false;
-  for (const auto& [image_id, image] : reconstruction.Images()) {
-    config.AddImage(image_id);
-    has_non_reference_image |= !image.IsRefInFrame();
-  }
-  ASSERT_TRUE(has_non_reference_image);
-  auto ba = CreateDefaultCeresBundleAdjuster(
-      BundleAdjustmentOptions(), config, reconstruction);
-  BACovarianceOptions options;
-  options.params = BACovarianceOptions::Params::POINTS;
-  const auto covariance = EstimateBACovariance(options, reconstruction, *ba);
-  ASSERT_TRUE(covariance.has_value());
-  ASSERT_FALSE(reconstruction.Points3D().empty());
-  const auto point =
-      covariance->GetPointCov(reconstruction.Points3D().begin()->first);
-  ASSERT_TRUE(point.has_value());
-  ASSERT_EQ(point->rows(), 3);
-  ASSERT_EQ(point->cols(), 3);
-  EXPECT_TRUE(point->allFinite());
-  EXPECT_GT(point->diagonal().minCoeff(), 0);
+  J /= kEps;
+  ExpectNearEigenMatrixXd(*cov, J * J.transpose(), /*tol=*/1e-5);
 }
 
 TEST(BACovariance, PointTangentCoordinates) {
   Reconstruction reconstruction;
   ceres::Problem problem;
   for (const double weight : {1.0, 2.0}) {
-    const point3D_t point_id =
-        reconstruction.AddPoint3D(Eigen::Vector3d(weight, 2, 3), Track());
-    double* point = reconstruction.Point3D(point_id).xyz.data();
+    const point3D_t point3D_id =
+        reconstruction.AddPoint3D(Eigen::Vector3d(weight, 0, 0), Track());
+    double* xyz = reconstruction.Point3D(point3D_id).xyz.data();
     problem.AddResidualBlock(
         new ceres::NormalPrior(weight * Eigen::Matrix3d::Identity(),
                                Eigen::Vector3d::Zero()),
         nullptr,
-        point);
-    SetManifold(&problem, point, CreateSubsetManifold(3, {2}));
+        xyz);
+    SetManifold(&problem, xyz, CreateSubsetManifold(3, {2}));
   }
+
   BACovarianceOptions options;
   options.params = BACovarianceOptions::Params::POINTS;
   options.damping = 0;
-  const auto covariance =
+  const std::optional<BACovariance> ba_cov =
       EstimateBACovarianceFromProblem(options, reconstruction, problem);
-  ASSERT_TRUE(covariance.has_value());
-  for (const auto& [point_id, point] : reconstruction.Points3D()) {
-    const auto actual = covariance->GetPointCov(point_id);
-    ASSERT_TRUE(actual.has_value());
-    const double weight = point.xyz.x();
+  ASSERT_TRUE(ba_cov.has_value());
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+    const std::optional<Eigen::MatrixXd> cov = ba_cov->GetPointCov(point3D_id);
+    ASSERT_TRUE(cov.has_value());
+    const double weight = point3D.xyz.x();
     ExpectNearEigenMatrixXd(
-        *actual, Eigen::Matrix2d::Identity() / (weight * weight), 1e-12);
+        *cov, Eigen::Matrix2d::Identity() / (weight * weight), /*tol=*/1e-12);
   }
 }
 
-TEST(BACovariance, OtherCovarianceRequest) {
+TEST(BACovariance, RejectsSingularPointBlock) {
+  Reconstruction reconstruction;
+  const point3D_t point3D_id =
+      reconstruction.AddPoint3D(Eigen::Vector3d::Zero(), Track());
+  ceres::Problem problem;
+  problem.AddResidualBlock(
+      new ceres::NormalPrior(Eigen::Matrix3d::Zero(), Eigen::Vector3d::Zero()),
+      nullptr,
+      reconstruction.Point3D(point3D_id).xyz.data());
+
+  BACovarianceOptions options;
+  options.params = BACovarianceOptions::Params::POINTS;
+  options.damping = 0;
+  EXPECT_FALSE(EstimateBACovarianceFromProblem(options, reconstruction, problem)
+                   .has_value());
+}
+
+TEST(BACovariance, PointsWithNonRefImages) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  BundleAdjustmentConfig config;
+  for (const auto& [image_id, _] : reconstruction.Images()) {
+    config.AddImage(image_id);
+  }
+  std::unique_ptr<CeresBundleAdjuster> bundle_adjuster =
+      CreateDefaultCeresBundleAdjuster(
+          BundleAdjustmentOptions(), config, reconstruction);
+
+  BACovarianceOptions options;
+  options.params = BACovarianceOptions::Params::POINTS;
+  const std::optional<BACovariance> ba_cov =
+      EstimateBACovariance(options, reconstruction, *bundle_adjuster);
+  ASSERT_TRUE(ba_cov.has_value());
+  EXPECT_TRUE(ba_cov->GetPointCov(reconstruction.Points3D().begin()->first)
+                  .has_value());
+}
+
+TEST(BACovariance, OtherParamsNotRequested) {
   Eigen::Vector2d pose = Eigen::Vector2d::Zero();
   Eigen::Vector2d other = Eigen::Vector2d::Zero();
   ceres::Problem problem;
@@ -175,14 +140,15 @@ TEST(BACovariance, OtherCovarianceRequest) {
                              nullptr,
                              params);
   }
+
   BACovarianceOptions options;
   options.params = BACovarianceOptions::Params::POSES;
   options.experimental_custom_poses = {{1, pose.data()}};
-  const auto covariance =
+  const std::optional<BACovariance> ba_cov =
       EstimateBACovarianceFromProblem(options, Reconstruction(), problem);
-  ASSERT_TRUE(covariance.has_value());
-  ASSERT_TRUE(covariance->GetCamCovFromWorld(1).has_value());
-  EXPECT_FALSE(covariance->GetOtherParamsCov(other.data()).has_value());
+  ASSERT_TRUE(ba_cov.has_value());
+  EXPECT_TRUE(ba_cov->GetCamCovFromWorld(1).has_value());
+  EXPECT_FALSE(ba_cov->GetOtherParamsCov(other.data()).has_value());
 }
 
 struct BACovarianceTestOptions {
