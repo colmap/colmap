@@ -80,6 +80,19 @@ TEST(COLMAPUndistorter, Integration) {
   // Expect dense reconstruction files to be written.
   EXPECT_TRUE(ExistsFile(output_path / "stereo/patch-match.cfg"));
   EXPECT_TRUE(ExistsFile(output_path / "stereo/fusion.cfg"));
+
+  for (const char* mode : {"geometric", "photometric"}) {
+    const auto lines =
+        ReadTextFileLines(output_path / StringPrintf("run-colmap-%s.sh", mode));
+    for (const char* command : {"patch_match_stereo",
+                                "stereo_fusion",
+                                "poisson_mesher",
+                                "delaunay_mesher"}) {
+      EXPECT_THAT(lines,
+                  testing::Contains(testing::StartsWith(StringPrintf(
+                      "\"$COLMAP_EXE_PATH/colmap\" %s ", command))));
+    }
+  }
 }
 
 TEST(COLMAPUndistorter, UndistortsZeroDistortionFisheyeCameras) {
@@ -278,6 +291,21 @@ TEST(PMVSUndistorter, Integration) {
   for (size_t i = 0; i < num_images; ++i) {
     const std::string image_name = StringPrintf("%08zu.jpg", i);
     EXPECT_TRUE(ExistsFile(output_path / "pmvs" / "visualize" / image_name));
+  }
+
+  EXPECT_THAT(ReadTextFileLines(output_path / "run-pmvs.sh"),
+              testing::Contains("\"$PMVS_EXE_PATH/pmvs2\" pmvs/ option-all"));
+  EXPECT_THAT(ReadTextFileLines(output_path / "run-cmvs-pmvs.sh"),
+              testing::Contains("\"$PMVS_EXE_PATH/pmvs2\" pmvs/ $option_name"));
+  for (const char* script : {"run-cmvs-pmvs.sh",
+                             "run-cmvs-colmap-geometric.sh",
+                             "run-cmvs-colmap-photometric.sh"}) {
+    const auto lines = ReadTextFileLines(output_path / script);
+    for (const char* tool : {"cmvs", "genOption"}) {
+      EXPECT_THAT(
+          lines,
+          testing::Contains(StringPrintf("\"$PMVS_EXE_PATH/%s\" pmvs/", tool)));
+    }
   }
 }
 
