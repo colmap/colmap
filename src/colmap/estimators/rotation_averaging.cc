@@ -4,14 +4,18 @@
 
 #include "colmap/estimators/rotation_averaging_ceres.h"
 #include "colmap/estimators/rotation_averaging_l1_irls.h"
+#include "colmap/estimators/two_view_rotation_covariance.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/math/math.h"
 #include "colmap/math/spanning_tree.h"
+#include "colmap/scene/database_cache.h"
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/threading.h"
 
 #include <algorithm>
+#include <cmath>
 #include <queue>
+#include <stdexcept>
 
 namespace colmap {
 namespace {
@@ -47,12 +51,15 @@ bool AllSensorsFromRigKnown(const NodeHashMap<rig_t, Rig>& rigs) {
   return all_known;
 }
 
-// Compute maximum spanning tree of the pose graph weighted by inlier count.
-// Returns the root image_id and populates the parents map.
+// Compute maximum spanning tree of the pose graph weighted by rotation
+// certainty (if use_rotation_covariance) or inlier count, with rig calibration
+// edges taking precedence. Returns the root image_id and populates the parents
+// map.
 image_t ComputeMaximumPoseGraphSpanningTree(
     const PoseGraph& pose_graph,
     const FlatHashSet<image_t>& image_ids,
-    NodeHashMap<image_t, image_t>& parents) {
+    NodeHashMap<image_t, image_t>& parents,
+    bool use_rotation_covariance) {
   // Build mapping between image_id and contiguous indices.
   NodeHashMap<image_t, int> image_id_to_idx;
   std::vector<image_t> idx_to_image_id;
@@ -82,12 +89,28 @@ image_t ComputeMaximumPoseGraphSpanningTree(
       continue;
     }
     edges.emplace_back(it1->second, it2->second);
-    weights.push_back(static_cast<float>(edge.num_matches));
     if (edge.prior) {
+      // Re-weighted below, so it needs no covariance.
+      weights.push_back(0);
       prior_indices.push_back(weights.size() - 1);
-    } else {
-      max_weight = std::max(max_weight, weights.back());
+      continue;
     }
+    if (use_rotation_covariance) {
+      THROW_CHECK(edge.cam2_from_cam1_rotation_cov.has_value())
+          << "Missing rotation covariance of edge (" << image_id1 << ", "
+          << image_id2 << ")";
+      THROW_CHECK(edge.cam2_from_cam1_rotation_cov->allFinite())
+          << "Non-finite rotation covariance of edge (" << image_id1 << ", "
+          << image_id2 << ")";
+      // The trace is the expected squared angular error in radians. Only the
+      // order of the weights matters, which its negative logarithm keeps
+      // within single precision.
+      weights.push_back(static_cast<float>(-std::log(std::max<double>(
+          edge.cam2_from_cam1_rotation_cov->cast<double>().trace(), 1e-12))));
+    } else {
+      weights.push_back(static_cast<float>(edge.num_matches));
+    }
+    max_weight = std::max(max_weight, weights.back());
   }
 
   // Fixed rig calibration takes precedence over measured relative rotations.
@@ -259,21 +282,6 @@ Reconstruction CreateExpandedReconstruction(
   }
 
   return recon_expanded;
-}
-
-std::optional<PoseGraph> MaybeFilterPoseGraphToActiveImages(
-    const PoseGraph& pose_graph, const FlatHashSet<image_t>& active_image_ids) {
-  for (const auto& [pair_id, _] : pose_graph.ValidEdges()) {
-    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-    if (!active_image_ids.count(image_id1) ||
-        !active_image_ids.count(image_id2)) {
-      PoseGraph filtered_pose_graph = pose_graph;
-      filtered_pose_graph.InvalidatePairsOutsideActiveImageIds(
-          active_image_ids);
-      return filtered_pose_graph;
-    }
-  }
-  return std::nullopt;
 }
 
 }  // namespace
@@ -554,8 +562,16 @@ bool RotationEstimator::SolveRotationAveraging(
       return SolveRotationAveragingWithCeres(
           pose_graph, active_image_ids, reconstruction);
     }
+    // L1_IRLS ignores COVARIANCE reweighting (equivalent to UNIFORM).
     LOG(WARNING) << "Gravity priors are not supported by the CERES rotation "
-                    "averaging backend, falling back to L1_IRLS";
+                    "averaging backend, falling back to L1_IRLS"
+                 << (options_.reweighting ==
+                             RotationAveragingReweighting::COVARIANCE
+                         ? " (COVARIANCE reweighting is ignored)"
+                         : "");
+  } else if (options_.reweighting == RotationAveragingReweighting::COVARIANCE) {
+    LOG(FATAL_THROW) << "COVARIANCE reweighting is not implemented for the "
+                        "L1_IRLS rotation averaging backend";
   }
 
   // Initialize rotations from maximum spanning tree. Note that without
@@ -582,50 +598,12 @@ bool RotationEstimator::SolveRotationAveraging(
   return true;
 }
 
-bool RotationEstimator::SolveRotationAveragingWithCeres(
-    const PoseGraph& pose_graph,
-    const FlatHashSet<image_t>& active_image_ids,
-    Reconstruction& reconstruction) {
-  THROW_CHECK_NOTNULL(options_.ceres);
-
-  const std::optional<PoseGraph> filtered_pose_graph =
-      MaybeFilterPoseGraphToActiveImages(pose_graph, active_image_ids);
-  const PoseGraph& active_pose_graph =
-      filtered_pose_graph.has_value() ? *filtered_pose_graph : pose_graph;
-
-  const auto solve = [&](const RotationEstimatorOptions& options) {
-    auto averager = CreateDefaultCeresRotationAverager(
-        options, active_pose_graph, reconstruction);
-    const ceres::Solver::Summary summary = averager->Solve();
-    if (VLOG_IS_ON(2)) {
-      LOG(INFO) << summary.FullReport();
-    } else {
-      VLOG(1) << summary.BriefReport();
-    }
-    return summary.IsSolutionUsable();
-  };
-
-  RotationEstimatorOptions options = options_;
-  if (options.ceres->max_num_warm_start_iterations > 0) {
-    RotationEstimatorOptions warm_start_options = options;
-    warm_start_options.ceres->loss_function_type = CeresLossFunctionType::HUBER;
-    warm_start_options.ceres->solver_options.max_num_iterations =
-        options.ceres->max_num_warm_start_iterations;
-    if (!solve(warm_start_options)) {
-      return false;
-    }
-    // Continue from the warm-started rotations.
-    options.skip_initialization = true;
-  }
-
-  return solve(options);
-}
-
 void InitializeFromMaximumSpanningTree(
     const PoseGraph& pose_graph,
     const FlatHashSet<image_t>& active_image_ids,
     Reconstruction& reconstruction,
-    bool refine_sensor_from_rig) {
+    bool refine_sensor_from_rig,
+    bool use_rotation_covariance) {
   const auto cam_from_rig = [&](image_t image_id) {
     const auto& image = reconstruction.Image(image_id);
     return image.IsRefInFrame() ? Rigid3d()
@@ -636,7 +614,7 @@ void InitializeFromMaximumSpanningTree(
   // Compute maximum spanning tree over active images.
   NodeHashMap<image_t, image_t> parents;
   const image_t root = ComputeMaximumPoseGraphSpanningTree(
-      pose_graph, active_image_ids, parents);
+      pose_graph, active_image_ids, parents, use_rotation_covariance);
   THROW_CHECK(active_image_ids.count(root));
 
   // Iterate through the tree to initialize the rotation.
@@ -846,6 +824,43 @@ bool RunRotationAveraging(const RotationEstimatorOptions& options,
   }
 
   return true;
+}
+
+void MaybeEstimatePoseGraphRotationCovariances(
+    const RotationEstimatorOptions& options,
+    const DatabaseCache& database_cache,
+    PoseGraph& pose_graph) {
+  if (options.reweighting != RotationAveragingReweighting::COVARIANCE) {
+    return;
+  }
+  if (options.backend != RotationAveragingBackend::CERES) {
+    LOG(FATAL_THROW) << "COVARIANCE reweighting is not implemented for the "
+                     << options.backend << " rotation averaging backend";
+  }
+  if (UseGravity(options, database_cache.PosePriors())) {
+    LOG(WARNING) << "COVARIANCE reweighting is ignored when falling back to "
+                    "L1_IRLS for gravity priors";
+    return;
+  }
+  // Estimate the covariances with as many threads as the solver uses.
+  EstimatePoseGraphRotationCovariances(
+      database_cache,
+      pose_graph,
+      TwoViewRotationCovarianceOptions(),
+      THROW_CHECK_NOTNULL(options.ceres)->solver_options.num_threads);
+
+  // Edges whose covariance cannot be estimated lack enough valid
+  // correspondences to be trusted.
+  size_t num_invalidated = 0;
+  for (auto& [pair_id, edge] : pose_graph.Edges()) {
+    if (edge.valid && !edge.cam2_from_cam1_rotation_cov.has_value()) {
+      edge.valid = false;
+      ++num_invalidated;
+    }
+  }
+  LOG_IF(WARNING, num_invalidated > 0)
+      << "Invalidated " << num_invalidated
+      << " pose graph edges without rotation covariance";
 }
 
 }  // namespace colmap

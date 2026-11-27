@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
+import weakref
 from pathlib import Path
 
 import numpy as np
@@ -232,6 +233,16 @@ def test_database_transaction(
     with pycolmap.DatabaseTransaction(database):
         database.write_camera(simple_camera)
     assert database.num_cameras() == 1
+
+
+def test_database_transaction_keeps_database_alive(tmp_path: Path) -> None:
+    database = pycolmap.Database.open(str(tmp_path / "test.db"))
+    transaction = pycolmap.DatabaseTransaction(database)
+    database_ref = weakref.ref(database)
+    del database
+    assert database_ref() is not None
+    with transaction:
+        pass
 
 
 def test_database_camera_sources(

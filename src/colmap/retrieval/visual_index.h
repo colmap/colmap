@@ -127,6 +127,7 @@ class VisualIndex {
 
   // Build a visual index from a set of training descriptors by quantizing the
   // descriptor space into visual words and compute their Hamming embedding.
+  // Rebuilding the index removes any previously indexed images.
   virtual void Build(const BuildOptions& options,
                      const FeatureDescriptorsFloat& descriptors) = 0;
 

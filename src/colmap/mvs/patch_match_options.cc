@@ -8,10 +8,8 @@
 namespace colmap {
 namespace mvs {
 
-// Maximum possible window radius for the photometric consistency cost. This
-// value is equal to THREADS_PER_BLOCK in patch_match_cuda.cu and the limit
-// arises from the shared memory implementation.
-const static size_t kMaxPatchMatchWindowRadius = 32;
+// Largest window radius instantiated by PatchMatchCuda::Run.
+const static size_t kMaxPatchMatchWindowRadius = 20;
 
 #define PrintOption(option) LOG(INFO) << #option ": " << option
 

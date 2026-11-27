@@ -3,6 +3,7 @@
 #include "colmap/controllers/feature_matching_utils.h"
 
 #include "colmap/estimators/two_view_geometry.h"
+#include "colmap/feature/flexglue.h"
 #include "colmap/feature/sift.h"
 #include "colmap/feature/utils.h"
 #include "colmap/util/cuda.h"
@@ -11,17 +12,62 @@
 
 namespace colmap {
 
+std::shared_ptr<FeatureMatcher> SharedFeatureMatcher::Create(
+    const FeatureMatchingOptions& options) {
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    THROW_CHECK(!done_);
+  }
+  std::shared_ptr<FeatureMatcher> matcher;
+  std::exception_ptr error;
+  try {
+    matcher = FeatureMatcher::Create(options);
+  } catch (...) {
+    error = std::current_exception();
+  }
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    THROW_CHECK(!done_);
+    matcher_ = matcher;
+    done_ = true;
+  }
+  cv_.notify_all();
+  if (error) {
+    std::rethrow_exception(error);
+  }
+  return matcher;
+}
+
+void SharedFeatureMatcher::Fail() {
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    matcher_ = nullptr;
+    done_ = true;
+  }
+  cv_.notify_all();
+}
+
+std::shared_ptr<FeatureMatcher> SharedFeatureMatcher::Wait() {
+  std::unique_lock<std::mutex> lock(mutex_);
+  cv_.wait(lock, [this]() { return done_; });
+  return matcher_;
+}
+
 FeatureMatcherWorker::FeatureMatcherWorker(
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::shared_ptr<FeatureMatcherCache>& cache,
     JobQueue<Input>* input_queue,
-    JobQueue<Output>* output_queue)
+    JobQueue<Output>* output_queue,
+    std::shared_ptr<SharedFeatureMatcher> shared_matcher,
+    const bool is_shared_creator)
     : matching_options_(matching_options),
       geometry_options_(geometry_options),
       cache_(cache),
       input_queue_(input_queue),
-      output_queue_(output_queue) {
+      output_queue_(output_queue),
+      shared_matcher_(std::move(shared_matcher)),
+      is_shared_creator_(is_shared_creator) {
   THROW_CHECK(matching_options_.Check());
 
   if (matching_options_.RequiresOpenGL()) {
@@ -30,43 +76,58 @@ FeatureMatcherWorker::FeatureMatcherWorker(
 }
 
 void FeatureMatcherWorker::Run() {
-  if (opengl_context_ != nullptr) {
-    THROW_CHECK(opengl_context_->MakeCurrent());
-  }
+  std::shared_ptr<FeatureMatcher> matcher;
+  try {
+    if (opengl_context_ != nullptr) {
+      THROW_CHECK(opengl_context_->MakeCurrent());
+    }
 
 #if defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED)
-  if (matching_options_.use_gpu) {
-    // Initialize the GPU device for this worker thread
-    const std::vector<int> gpu_indices =
-        CSVToVector<int>(matching_options_.gpu_index);
-    THROW_CHECK_EQ(gpu_indices.size(), 1)
-        << "Each matching worker can only use one GPU";
-    const int gpu_index = gpu_indices[0];
+    if (matching_options_.use_gpu) {
+      // Initialize the GPU device for this worker thread
+      const std::vector<int> gpu_indices =
+          CSVToVector<int>(matching_options_.gpu_index);
+      THROW_CHECK_EQ(gpu_indices.size(), 1)
+          << "Each matching worker can only use one GPU";
+      const int gpu_index = gpu_indices[0];
 
-    if (gpu_index >= 0) {
-      SetBestCudaDevice(gpu_index);
-      LOG(INFO) << "Bind FeatureMatcherWorker to GPU device " << gpu_index;
+      if (gpu_index >= 0) {
+        SetBestCudaDevice(gpu_index);
+        LOG(INFO) << "Bind FeatureMatcherWorker to GPU device " << gpu_index;
+      }
     }
-  }
 #endif
 
-  if (matching_options_.type == FeatureMatcherType::SIFT_BRUTEFORCE) {
-    // TODO(jsch): This is a bit ugly, but currently cannot think of a better
-    // way to inject the shared descriptor index cache.
-    THROW_CHECK_NOTNULL(matching_options_.sift)->cpu_descriptor_index_cache =
-        &cache_->GetFeatureDescriptorIndexCache();
-    THROW_CHECK_NOTNULL(matching_options_.sift->cpu_descriptor_index_cache);
+    if (matching_options_.type == FeatureMatcherType::SIFT_BRUTEFORCE) {
+      // TODO(jsch): This is a bit ugly, but currently cannot think of a better
+      // way to inject the shared descriptor index cache.
+      THROW_CHECK_NOTNULL(matching_options_.sift)->cpu_descriptor_index_cache =
+          &cache_->GetFeatureDescriptorIndexCache();
+      THROW_CHECK_NOTNULL(matching_options_.sift->cpu_descriptor_index_cache);
+    }
+
+    // Minimize the amount of allocated GPU memory by computing the maximum
+    // number of descriptors for any image over the whole database.
+    matching_options_.max_num_matches = std::min<int>(
+        matching_options_.max_num_matches, cache_->MaxNumKeypoints());
+
+    if (shared_matcher_ == nullptr) {
+      matcher = FeatureMatcher::Create(matching_options_);
+    } else if (is_shared_creator_) {
+      matcher = shared_matcher_->Create(matching_options_);
+    } else {
+      matcher = shared_matcher_->Wait();
+    }
+  } catch (...) {
+    if (shared_matcher_ != nullptr && is_shared_creator_) {
+      shared_matcher_->Fail();
+    }
+    throw;
   }
-
-  // Minimize the amount of allocated GPU memory by computing the maximum number
-  // of descriptors for any image over the whole database.
-  matching_options_.max_num_matches = std::min<int>(
-      matching_options_.max_num_matches, cache_->MaxNumKeypoints());
-
-  std::unique_ptr<FeatureMatcher> matcher =
-      FeatureMatcher::Create(matching_options_);
   if (matcher == nullptr) {
-    LOG(ERROR) << "Failed to create feature matcher.";
+    if (shared_matcher_ == nullptr || is_shared_creator_) {
+      LOG(ERROR) << "Failed to create feature matcher.";
+    }
     SignalInvalidSetup();
     return;
   }
@@ -321,15 +382,34 @@ FeatureMatcherController::FeatureMatcherController(
     auto worker_matching_options = matching_options_;
     // The first matching is always without guided matching.
     worker_matching_options.guided_matching = false;
-    matchers_.reserve(gpu_indices.size());
+    int num_workers_per_gpu = 1;
+#ifdef COLMAP_CUDA_ENABLED
+    if (matching_options_.type == FeatureMatcherType::FLEXGLUE) {
+      num_workers_per_gpu =
+          THROW_CHECK_NOTNULL(matching_options_.flexglue)->num_workers_per_gpu;
+      worker_matching_options.num_threads = std::max(
+          1,
+          num_threads /
+              (static_cast<int>(gpu_indices.size()) * num_workers_per_gpu));
+    }
+#endif
+    matchers_.reserve(gpu_indices.size() * num_workers_per_gpu);
     for (const auto& gpu_index : gpu_indices) {
       worker_matching_options.gpu_index = std::to_string(gpu_index);
-      matchers_.emplace_back(
-          std::make_unique<FeatureMatcherWorker>(worker_matching_options,
-                                                 geometry_options_,
-                                                 cache_,
-                                                 &matcher_queue_,
-                                                 matcher_output_queue));
+      std::shared_ptr<SharedFeatureMatcher> shared_matcher;
+      if (num_workers_per_gpu > 1) {
+        shared_matcher = std::make_shared<SharedFeatureMatcher>();
+      }
+      for (int w = 0; w < num_workers_per_gpu; ++w) {
+        matchers_.emplace_back(std::make_unique<FeatureMatcherWorker>(
+            worker_matching_options,
+            geometry_options_,
+            cache_,
+            &matcher_queue_,
+            matcher_output_queue,
+            shared_matcher,
+            /*is_shared_creator=*/w == 0));
+      }
     }
   } else {
     auto worker_matching_options = matching_options_;

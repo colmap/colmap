@@ -42,6 +42,11 @@ DatabaseCache::DatabaseCache()
     : correspondence_graph_(std::make_shared<class CorrespondenceGraph>()) {}
 
 void DatabaseCache::Load(const Database& database, const Options& options) {
+  rigs_.clear();
+  cameras_.clear();
+  frames_.clear();
+  images_.clear();
+
   const bool has_rigs = database.NumRigs() > 0;
   const bool has_frames = database.NumFrames() > 0;
 
@@ -313,12 +318,19 @@ std::shared_ptr<DatabaseCache> DatabaseCache::CreateFromCache(
     const DatabaseCache& database_cache, const Options& options) {
   auto cache = std::make_shared<DatabaseCache>();
 
-  // Collect candidate image ids matching the name filter.
+  // Select whole frames before checking matches, as in Load(). An image
+  // selected by name may only have matches through another sensor in its frame.
   // Empty image_names means use all images.
-  FlatHashSet<image_t> candidate_image_ids;
+  FlatHashSet<frame_t> candidate_frame_ids;
   for (const auto& [image_id, image] : database_cache.Images()) {
     if (options.image_names.empty() ||
         options.image_names.count(image.Name()) > 0) {
+      candidate_frame_ids.insert(image.FrameId());
+    }
+  }
+  FlatHashSet<image_t> candidate_image_ids;
+  for (const auto& [image_id, image] : database_cache.Images()) {
+    if (candidate_frame_ids.count(image.FrameId()) > 0) {
       candidate_image_ids.insert(image_id);
     }
   }

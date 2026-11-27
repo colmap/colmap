@@ -64,6 +64,29 @@ def test_normal_map_to_bitmap() -> None:
     assert bitmap is not None
 
 
+def _native_normal_map_bytes(normals: np.ndarray) -> bytes:
+    # COLMAP stores normal maps as "width&height&depth&" + channel planes.
+    height, width, depth = normals.shape
+    planes = normals.transpose(2, 0, 1).astype("<f4")
+    return f"{width}&{height}&{depth}&".encode() + planes.tobytes()
+
+
+def test_normal_map_read_native_layout(tmp_path: Path) -> None:
+    normals = np.random.rand(2, 3, 3).astype(np.float32)
+    filepath = tmp_path / "normal.bin"
+    filepath.write_bytes(_native_normal_map_bytes(normals))
+    normal_map = pycolmap.NormalMap()
+    normal_map.read(str(filepath))
+    np.testing.assert_array_equal(normal_map.to_array(), normals)
+
+
+def test_normal_map_write_native_layout(tmp_path: Path) -> None:
+    normals = np.random.rand(2, 3, 3).astype(np.float32)
+    filepath = tmp_path / "normal.bin"
+    pycolmap.NormalMap.from_array(normals).write(str(filepath))
+    assert filepath.read_bytes() == _native_normal_map_bytes(normals)
+
+
 def test_normal_map_write_read_roundtrip(tmp_path: Path) -> None:
     array = np.random.rand(48, 64, 3).astype(np.float32)
     normal_map = pycolmap.NormalMap.from_array(array)

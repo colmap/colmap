@@ -3,6 +3,7 @@
 #include "colmap/sfm/global_mapper.h"
 
 #include "colmap/scene/database_cache.h"
+#include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
@@ -134,19 +135,68 @@ TEST(GlobalMapper, WithNoiseAndOutliers) {
   synthetic_noise_options.point2D_stddev = 0.5;
   SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
 
+  const auto database_cache = CreateDatabaseCache(*database);
+  for (const bool use_covariance : {false, true}) {
+    SCOPED_TRACE(use_covariance);
+    auto reconstruction = std::make_shared<Reconstruction>();
+    GlobalMapper global_mapper(database_cache);
+    global_mapper.BeginReconstruction(reconstruction);
+
+    GlobalMapperOptions options;
+    if (use_covariance) {
+      options.rotation_averaging.backend = RotationAveragingBackend::CERES;
+      options.rotation_averaging.reweighting =
+          RotationAveragingReweighting::COVARIANCE;
+    }
+    global_mapper.Solve(options);
+
+    EXPECT_THAT(gt_reconstruction,
+                ReconstructionNear(*reconstruction,
+                                   /*max_rotation_error_deg=*/1e-1,
+                                   /*max_proj_center_error=*/1e-1,
+                                   /*max_scale_error=*/std::nullopt,
+                                   /*num_obs_tolerance=*/0.02));
+  }
+}
+
+TEST(GlobalMapper, WithGivenPoseGraph) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 5;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+  const auto database_cache = CreateDatabaseCache(*database);
+
+  // The mapper uses the given pose graph instead of loading it from the
+  // database: an image without valid edges is not reconstructed.
+  PoseGraph pose_graph;
+  pose_graph.Load(*database_cache->CorrespondenceGraph());
+  constexpr image_t kIsolatedImageId = 1;
+  for (const auto& [pair_id, edge] : pose_graph.Edges()) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    if (image_id1 == kIsolatedImageId || image_id2 == kIsolatedImageId) {
+      pose_graph.SetInvalidEdge(pair_id);
+    }
+  }
+  // Edges to images outside the database cache are dropped.
+  constexpr image_t kUnknownImageId = 100;
+  pose_graph.AddEdge(2, kUnknownImageId, PoseGraph::Edge(Rigid3d()));
+
   auto reconstruction = std::make_shared<Reconstruction>();
+  GlobalMapper global_mapper(database_cache);
+  global_mapper.BeginReconstruction(reconstruction, &pose_graph);
+  ASSERT_TRUE(global_mapper.Solve(GlobalMapperOptions()));
 
-  GlobalMapper global_mapper(CreateDatabaseCache(*database));
-  global_mapper.BeginReconstruction(reconstruction);
-
-  global_mapper.Solve(GlobalMapperOptions());
-
-  EXPECT_THAT(gt_reconstruction,
-              ReconstructionNear(*reconstruction,
-                                 /*max_rotation_error_deg=*/1e-1,
-                                 /*max_proj_center_error=*/1e-1,
-                                 /*max_scale_error=*/std::nullopt,
-                                 /*num_obs_tolerance=*/0.02));
+  // The isolated image is not registered, and thus removed by the final
+  // retriangulation, which tears down the reconstruction.
+  EXPECT_FALSE(reconstruction->ExistsImage(kIsolatedImageId));
+  EXPECT_EQ(reconstruction->NumRegImages(),
+            gt_reconstruction.NumRegImages() - 1);
 }
 
 TEST(GlobalMapperOptions, RefineSensorFromRigPropagatesToSubOptions) {

@@ -401,30 +401,31 @@ bool Model::ReadFromRawPMVS(const std::filesystem::path& path) {
   SetFullPrecTextStream(vis_dat_file);
 
   std::string visdata;
-  vis_dat_file >> visdata;
+  THROW_CHECK(vis_dat_file >> visdata);
   THROW_CHECK_EQ(visdata, "VISDATA");
 
   int num_images;
-  vis_dat_file >> num_images;
+  THROW_CHECK(vis_dat_file >> num_images);
   THROW_CHECK_GE(num_images, 0);
   THROW_CHECK_EQ(num_images, images.size());
 
   pmvs_vis_dat_.resize(num_images);
   for (int i = 0; i < num_images; ++i) {
     int image_idx;
-    vis_dat_file >> image_idx;
+    THROW_CHECK(vis_dat_file >> image_idx);
     THROW_CHECK_GE(image_idx, 0);
     THROW_CHECK_LT(image_idx, num_images);
 
     int num_visible_images;
-    vis_dat_file >> num_visible_images;
+    THROW_CHECK(vis_dat_file >> num_visible_images);
+    THROW_CHECK_GE(num_visible_images, 0);
 
     auto& visible_image_idxs = pmvs_vis_dat_[image_idx];
     visible_image_idxs.reserve(num_visible_images);
 
     for (int j = 0; j < num_visible_images; ++j) {
       int visible_image_idx;
-      vis_dat_file >> visible_image_idx;
+      THROW_CHECK(vis_dat_file >> visible_image_idx);
       THROW_CHECK_GE(visible_image_idx, 0);
       THROW_CHECK_LT(visible_image_idx, num_images);
       if (visible_image_idx != image_idx) {

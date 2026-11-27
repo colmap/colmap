@@ -2,6 +2,8 @@
 
 #include "colmap/retrieval/geometry.h"
 
+#include <cmath>
+
 namespace colmap {
 namespace retrieval {
 
@@ -10,7 +12,8 @@ FeatureGeometryTransform FeatureGeometry::TransformFromMatch(
   FeatureGeometryTransform tform;
 
   tform.scale = feature2.scale / feature1.scale;
-  tform.angle = feature2.orientation - feature1.orientation;
+  tform.angle = std::remainder(feature2.orientation - feature1.orientation,
+                               2.0f * static_cast<float>(EIGEN_PI));
 
   const float sin_angle = std::sin(tform.angle);
   const float cos_angle = std::cos(tform.angle);
