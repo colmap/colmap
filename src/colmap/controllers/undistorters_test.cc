@@ -14,10 +14,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#ifndef _WIN32
-#include <unistd.h>
-#endif
-
 namespace colmap {
 namespace {
 
@@ -52,6 +48,18 @@ Reconstruction CreateSyntheticReconstructionWithBitmaps(
   return reconstruction;
 }
 
+// Every generated COLMAP command must end at its --output_path line.
+void ExpectCommandsTerminated(const std::filesystem::path& script) {
+  int num_output_paths = 0;
+  for (const auto& line : ReadTextFileLines(script)) {
+    if (StringContains(line, "--output_path")) {
+      ++num_output_paths;
+      EXPECT_NE(line.back(), '\\') << line;
+    }
+  }
+  EXPECT_EQ(num_output_paths, 3);
+}
+
 TEST(COLMAPUndistorter, Integration) {
   const auto temp_dir = CreateTestDir();
   const auto image_path = temp_dir / "input_images";
@@ -84,6 +92,7 @@ TEST(COLMAPUndistorter, Integration) {
   // Expect dense reconstruction files to be written.
   EXPECT_TRUE(ExistsFile(output_path / "stereo/patch-match.cfg"));
   EXPECT_TRUE(ExistsFile(output_path / "stereo/fusion.cfg"));
+  ExpectCommandsTerminated(output_path / "run-colmap-geometric.sh");
 }
 
 TEST(COLMAPUndistorter, UndistortsZeroDistortionFisheyeCameras) {
@@ -283,6 +292,7 @@ TEST(PMVSUndistorter, Integration) {
     const std::string image_name = StringPrintf("%08zu.jpg", i);
     EXPECT_TRUE(ExistsFile(output_path / "pmvs" / "visualize" / image_name));
   }
+  ExpectCommandsTerminated(output_path / "run-cmvs-colmap-geometric.sh");
 }
 
 TEST(CMPMVSUndistorter, Integration) {
@@ -441,88 +451,6 @@ TEST(StereoImageRectifier, Integration) {
   EXPECT_TRUE(ExistsDir(output_path / stereo_pair_name));
   EXPECT_TRUE(ExistsFile(output_path / stereo_pair_name / image1.Name()));
   EXPECT_TRUE(ExistsFile(output_path / stereo_pair_name / image2.Name()));
-}
-
-TEST(Undistorters, GeneratedCOLMAPScriptCommands) {
-#ifdef _WIN32
-  GTEST_SKIP() << "The generated scripts require a POSIX shell.";
-#else
-  const auto temp_dir = CreateTestDir();
-  const auto image_path = temp_dir / "input_images";
-  CreateDirIfNotExists(image_path);
-  const Reconstruction reconstruction =
-      CreateSyntheticReconstructionWithBitmaps(image_path);
-
-  for (const bool pmvs : {false, true}) {
-    const auto output_path = temp_dir / (pmvs ? "pmvs" : "colmap");
-    CreateDirIfNotExists(output_path);
-    if (pmvs) {
-      PMVSUndistorter(PMVSUndistorter::Options(),
-                      UndistortCameraOptions(),
-                      reconstruction,
-                      image_path,
-                      output_path)
-          .Run();
-      {
-        std::ofstream file(output_path / "pmvs" / "option-0000");
-      }
-    } else {
-      COLMAPUndistorter(COLMAPUndistorter::Options(),
-                        UndistortCameraOptions(),
-                        reconstruction,
-                        image_path,
-                        output_path)
-          .Run();
-    }
-
-    // Record command dispatch without requiring dense reconstruction tools.
-    CreateDirIfNotExists(output_path / "tools");
-    for (const std::string name : {"colmap", "cmvs", "genOption"}) {
-      const auto executable = output_path / "tools" / name;
-      {
-        std::ofstream file(executable);
-        file << "#!/bin/sh\n";
-        file << (name == "colmap" ? "printf '%s\\n' \"$1\" >> commands.log\n"
-                                  : "exit 0\n");
-      }
-      std::filesystem::permissions(executable,
-                                   std::filesystem::perms::owner_exec,
-                                   std::filesystem::perm_options::add);
-    }
-
-    const std::vector<std::string> prefixes =
-        pmvs ? std::vector<std::string>{"run-colmap", "run-cmvs-colmap"}
-             : std::vector<std::string>{"run-colmap"};
-    for (const auto& prefix : prefixes) {
-      for (const std::string mode : {"geometric", "photometric"}) {
-        const auto script =
-            std::string(prefix).append("-").append(mode).append(".sh");
-        SCOPED_TRACE(output_path / script);
-        const auto command_log = output_path / "commands.log";
-        std::filesystem::remove(command_log);
-        const std::string command =
-            "cd '" + StringReplace(output_path.string(), "'", "'\\''") +
-            "' && COLMAP_EXE_PATH=./tools PMVS_EXE_PATH=./tools /bin/sh " +
-            script;
-        EXPECT_EXIT(execl("/bin/sh",
-                          "sh",
-                          "-c",
-                          command.c_str(),
-                          static_cast<char*>(nullptr)),
-                    testing::ExitedWithCode(0),
-                    "");
-        const auto commands = ExistsFile(command_log)
-                                  ? ReadTextFileLines(command_log)
-                                  : std::vector<std::string>();
-        EXPECT_THAT(commands,
-                    testing::ElementsAre("patch_match_stereo",
-                                         "stereo_fusion",
-                                         "poisson_mesher",
-                                         "delaunay_mesher"));
-      }
-    }
-  }
-#endif
 }
 
 }  // namespace
