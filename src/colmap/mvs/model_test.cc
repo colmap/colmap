@@ -3,15 +3,53 @@
 #include "colmap/mvs/model.h"
 
 #include "colmap/scene/synthetic.h"
+#include "colmap/sensor/bitmap.h"
+#include "colmap/util/file.h"
+#include "colmap/util/misc.h"
 #include "colmap/util/testing.h"
 
 #include <cmath>
+#include <fstream>
 
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace mvs {
 namespace {
+
+std::filesystem::path CreateRawPMVSWorkspace() {
+  const auto path = CreateTestDir();
+  CreateDirIfNotExists(path / "visualize");
+  CreateDirIfNotExists(path / "txt");
+  for (int i = 0; i < 2; ++i) {
+    Bitmap bitmap(32, 24, true);
+    bitmap.Fill(BitmapColor<uint8_t>(10, 20, 30));
+    THROW_CHECK(bitmap.Write(path / "visualize" / StringPrintf("%08d.jpg", i)));
+    std::ofstream projection(path / "txt" / StringPrintf("%08d.txt", i));
+    projection << "CONTOUR\n32 0 16 " << -32 * i << "\n0 32 12 0\n0 0 1 0\n";
+  }
+  return path;
+}
+
+TEST(Model, ReadRawPMVSVisibility) {
+  const auto path = CreateRawPMVSWorkspace();
+  std::ofstream(path / "vis.dat") << "VISDATA\n2\n1 2 1 0\n0 0";
+  Model model;
+  model.Read(path, "PMVS");
+  EXPECT_EQ(model.GetMaxOverlappingImagesFromPMVS(),
+            (std::vector<std::vector<int>>{{}, {0}}));
+
+  // Malformed or truncated records must be rejected.
+  for (const std::string contents : {"VISDATA\n2\n0 1 1\n1 invalid\n",
+                                     "VISDATA\n2\n0 1 1\n1 1 invalid\n",
+                                     "VISDATA\n2\n0 1 1\n1 1\n",
+                                     "VISDATA\n2\n0 1 1\n1\n",
+                                     "VISDATA\n2\n0 1 1\n"}) {
+    SCOPED_TRACE(contents);
+    std::ofstream(path / "vis.dat") << contents;
+    EXPECT_THROW(Model().Read(path, "PMVS"), std::exception);
+  }
+}
 
 TEST(Model, ReadCOLMAP) {
   Reconstruction reconstruction;
