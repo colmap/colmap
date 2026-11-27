@@ -842,6 +842,10 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
 
   void AddPosePositionPriorsToProblem(
       const std::vector<PosePrior>& active_pose_priors) {
+    if (active_pose_priors.empty()) {
+      return;
+    }
+
     prior_position_loss_function_ = CreateCeresLossFunction(
         options_.ceres->prior_position_loss_function_type,
         options_.ceres->prior_position_loss_scale);

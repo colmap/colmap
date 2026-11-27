@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
-from pathlib import Path
-
 import numpy as np
 import pytest
 
@@ -306,7 +304,7 @@ def test_bundle_adjustment_pipeline(
     pycolmap.bundle_adjustment(reconstruction, options)
 
 
-def test_bundle_adjustment_with_pose_priors(tmp_path: Path) -> None:
+def test_bundle_adjustment_with_pose_priors() -> None:
     pycolmap.set_random_seed(0)
     with pycolmap.Database.open(":memory:") as database:
         synth_options = pycolmap.SyntheticDatasetOptions()

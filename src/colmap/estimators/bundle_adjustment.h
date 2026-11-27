@@ -230,9 +230,9 @@ class BundleAdjuster {
 
 // Factory function to create bundle adjusters. When
 // `options.pose_prior.use_position` is enabled with at least 3 valid camera
-// position priors and at least one variable prior-bearing camera pose,
-// `reconstruction` is Sim3d-aligned into the prior coordinate frame (Cartesian,
-// or local ENU anchored at the first WGS84 prior).
+// position priors and at least one variable rig_from_world pose (with variable
+// rotation), `reconstruction` is Sim3d-aligned into the prior coordinate frame
+// (Cartesian, or local ENU anchored at the first finite WGS84 prior).
 std::unique_ptr<BundleAdjuster> CreateDefaultBundleAdjuster(
     const BundleAdjustmentOptions& options,
     const BundleAdjustmentConfig& config,
