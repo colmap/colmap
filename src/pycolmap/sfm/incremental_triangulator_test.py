@@ -38,20 +38,13 @@ def test_incremental_triangulator_class_exists() -> None:
 
 @pytest.mark.parametrize("copy_fn", [copy.copy, copy.deepcopy])
 def test_incremental_triangulator_copy_keeps_reconstruction_alive(
+    simple_camera: pycolmap.Camera,
     copy_fn: Callable[
         [pycolmap.IncrementalTriangulator], pycolmap.IncrementalTriangulator
     ],
 ) -> None:
     reconstruction = pycolmap.Reconstruction()
-    reconstruction.add_camera_with_trivial_rig(
-        pycolmap.Camera(
-            camera_id=1,
-            model="SIMPLE_PINHOLE",
-            width=10,
-            height=10,
-            params=[10.0, 5.0, 5.0],
-        )
-    )
+    reconstruction.add_camera_with_trivial_rig(simple_camera)
     reconstruction.add_image_with_trivial_frame(
         pycolmap.Image(name="image.jpg", image_id=1, camera_id=1)
     )
