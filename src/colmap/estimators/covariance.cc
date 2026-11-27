@@ -61,9 +61,7 @@ bool ComputeSchurComplement(bool estimate_point_covs,
       J_full_crs.values.data());
 
   if (points.empty()) {
-    if (estimate_pose_covs || estimate_other_covs) {
-      S = J_full.transpose() * J_full;
-    }
+    S = J_full.transpose() * J_full;
     return true;
   }
 
@@ -76,18 +74,12 @@ bool ComputeSchurComplement(bool estimate_point_covs,
 
   // Notice that here "a" refers to pose/other and "p" to point parameters.
   const int a_num_params = J_full.cols() - point_num_params;
-  const bool compute_schur =
-      (estimate_pose_covs || estimate_other_covs) && a_num_params > 0;
-  if (!compute_schur && !estimate_point_covs) {
-    S.resize(0, 0);
-    return true;
-  }
+  const bool compute_schur = a_num_params > 0;
   const Eigen::SparseMatrix<double> J_p =
       J_full.block(0, a_num_params, J_full.rows(), point_num_params);
   // Orthogonal left singular vectors U_p of each point's Jacobian block,
   // preserving the sparsity pattern of J_p. Forming S = J_a^T J_a - W^T W with
-  // W = U_p^T J_a avoids squaring cond(J_p) via normal equations and keeps
-  // ill-conditioned or rank-deficient points gauge invariant without damping.
+  // W = U_p^T J_a avoids squaring cond(J_p) via normal equations.
   std::vector<Eigen::Triplet<double>> U_p_triplets;
   if (compute_schur) {
     U_p_triplets.reserve(J_p.nonZeros());
@@ -168,7 +160,6 @@ bool ComputeSchurComplement(bool estimate_point_covs,
   }
 
   if (!compute_schur) {
-    S.resize(0, 0);
     return true;
   }
 
@@ -186,9 +177,6 @@ bool SchurEliminateOtherParams(double damping,
                                int pose_num_params,
                                int other_num_params,
                                Eigen::SparseMatrix<double>& S) {
-  if (other_num_params == 0) {
-    return true;
-  }
   VLOG(2) << "Schur elimination of other parameters (n = " << other_num_params
           << ")";
 
@@ -221,10 +209,6 @@ bool SchurEliminateOtherParams(double damping,
 }
 
 bool ComputeLInverse(Eigen::SparseMatrix<double>& S, Eigen::MatrixXd& L_inv) {
-  if (S.rows() == 0) {
-    L_inv.resize(0, 0);
-    return true;
-  }
   VLOG(2) << "Start sparse Cholesky decomposition (n = " << S.rows() << ")";
   Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ldlt_S(S);
   if (ldlt_S.info() != Eigen::Success) {
@@ -426,15 +410,17 @@ std::optional<BACovariance> EstimateBACovarianceFromProblem(
     return std::nullopt;
   }
 
-  if ((!estimate_pose_covs && !estimate_other_covs) ||
-      (pose_num_params == 0 && other_num_params == 0)) {
+  const bool compute_pose_or_other_covs =
+      (estimate_pose_covs && pose_num_params > 0) ||
+      (estimate_other_covs && other_num_params > 0);
+  if (!compute_pose_or_other_covs) {
     return BACovariance(std::move(point_covs),
                         /*pose_L_start_size=*/{},
                         /*other_L_start_size=*/{},
                         /*L_inv=*/Eigen::MatrixXd());
   }
 
-  if (!estimate_other_covs) {
+  if (!estimate_other_covs && other_num_params > 0) {
     if (!SchurEliminateOtherParams(
             options.damping, pose_num_params, other_num_params, S)) {
       return std::nullopt;
