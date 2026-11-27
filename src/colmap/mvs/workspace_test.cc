@@ -135,7 +135,8 @@ TEST_P(ParameterizedWorkspaceTests, FailedLoadIsNotCached) {
                                     map.GetWidth() == 10 &&
                                     map.GetHeight() == 5;
                            }}};
-  for (const auto& [path, read] : inputs) {
+  for (const auto& input : inputs) {
+    const auto& path = input.first;
     SCOPED_TRACE(path.string());
     auto backup_path = path;
     backup_path += ".test-backup";
@@ -148,14 +149,14 @@ TEST_P(ParameterizedWorkspaceTests, FailedLoadIsNotCached) {
     EXPECT_THAT(
         [&] {
           workspace->Load({image_name_});
-          read();
+          input.second();
         },
         testing::ThrowsMessage<std::exception>(
             testing::HasSubstr(path.filename().string())));
     std::filesystem::remove(path);
     std::filesystem::rename(backup_path, path);
     workspace->Load({image_name_});
-    EXPECT_TRUE(read());
+    EXPECT_TRUE(input.second());
   }
 }
 
