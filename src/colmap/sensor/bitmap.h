@@ -102,13 +102,17 @@ class Bitmap {
 
   // Read bitmap at given path and convert to grey- or colorscale. Defaults to
   // keeping the original colorspace (potentially non-linear) for image
-  // processing.
+  // processing. Decoder or input-close failures return false and may leave
+  // partially decoded pixels and metadata from the new image.
+  // Linearization assumes sRGB when the source colorspace is unspecified.
+  // An unsupported conversion throws.
   bool Read(const std::filesystem::path& path,
             bool as_rgb = true,
             bool linearize_colorspace = false);
 
-  // Write bitmap to file at given path. Defaults to converting to sRGB
-  // colorspace for file storage.
+  // Write bitmap to file at given path. By default, linearized pixels are
+  // converted back to the source colorspace. Disabling it writes linearized
+  // pixels with linear colorspace metadata.
   bool Write(const std::filesystem::path& path,
              bool delinearize_colorspace = true) const;
 

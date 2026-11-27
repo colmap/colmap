@@ -22,8 +22,10 @@ void WriteImageOIIO(const int width,
                     const int height,
                     const int channels,
                     const std::filesystem::path& path,
-                    const uint8_t* data) {
+                    const uint8_t* data,
+                    const char* colorspace = nullptr) {
   OIIO::ImageSpec spec(width, height, channels, OIIO::TypeDesc::UINT8);
+  if (colorspace != nullptr) spec.attribute("oiio:ColorSpace", colorspace);
   if (channels == 2 || channels == 4) {
     spec["oiio:UnassociatedAlpha"] = 1;
   }
@@ -1123,6 +1125,51 @@ TEST(Bitmap, ReadWriteLinearColorspace) {
   EXPECT_EQ(read_bitmap.RowMajorData(), bitmap.RowMajorData());
 }
 
+std::vector<uint8_t> ConvertPixelsWithOIIO(const Bitmap& bitmap,
+                                           const std::string& from,
+                                           const std::string& to) {
+  const OIIO::ImageSpec spec(bitmap.Width(),
+                             bitmap.Height(),
+                             bitmap.Channels(),
+                             OIIO::TypeDesc::UINT8);
+  OIIO::ImageBuf input(spec,
+                       const_cast<uint8_t*>(bitmap.RowMajorData().data()));
+  std::vector<uint8_t> data(bitmap.NumBytes());
+  OIIO::ImageBuf output(spec, data.data());
+  EXPECT_TRUE(OIIO::ImageBufAlgo::colorconvert(
+      output, input, from.c_str(), to.c_str()));
+  return data;
+}
+
+TEST(Bitmap, ReadLinearizationAndInverseWriteMatchOIIO) {
+  const auto dir = CreateTestDir();
+  const auto source = dir / "source.png";
+  const auto output = dir / "output.png";
+  const std::vector<uint8_t> pixels = {48, 96, 144, 80, 128, 192};
+  WriteImageOIIO(2, 1, 3, source, pixels.data(), "sRGB");
+
+  Bitmap decoded;
+  ASSERT_TRUE(decoded.Read(source));
+  ASSERT_EQ(decoded.RowMajorData(), pixels);
+  const auto linear = ConvertPixelsWithOIIO(decoded, "sRGB", "linear");
+  ASSERT_NE(linear, pixels);
+
+  Bitmap bitmap;
+  ASSERT_TRUE(
+      bitmap.Read(source, /*as_rgb=*/true, /*linearize_colorspace=*/true));
+  EXPECT_EQ(bitmap.RowMajorData(), linear);
+  const auto encoded = ConvertPixelsWithOIIO(bitmap, "linear", "sRGB");
+  ASSERT_TRUE(bitmap.Write(output, /*delinearize_colorspace=*/true));
+  ASSERT_TRUE(decoded.Read(output));
+  EXPECT_EQ(decoded.RowMajorData(), encoded);
+
+  ASSERT_TRUE(
+      bitmap.Read(source, /*as_rgb=*/true, /*linearize_colorspace=*/false));
+  ASSERT_TRUE(bitmap.Write(output));
+  ASSERT_TRUE(decoded.Read(output));
+  EXPECT_EQ(decoded.RowMajorData(), pixels);
+}
+
 TEST(Bitmap, WriteJpegWithQuality) {
   Bitmap bitmap(20, 30, /*as_rgb=*/true);
   for (int y = 0; y < bitmap.Height(); ++y) {
@@ -1379,6 +1426,19 @@ TEST(Bitmap, ReadNonExistentFile) {
       << "OIIO error was not cleared: " << pending_error;
 }
 
+TEST(Bitmap, ReadTruncatedImage) {
+  const auto filename = CreateTestDir() / "truncated.ppm";
+  {
+    std::ofstream file(filename, std::ios::binary);
+    file << "P6\n2 2\n255\n";
+    file.put(10);
+    ASSERT_TRUE(file.good());
+  }
+
+  Bitmap bitmap;
+  EXPECT_FALSE(bitmap.Read(filename));
+}
+
 TEST(Bitmap, ReadUnsupportedChannels) {
   const auto filename = CreateTestDir() / "5channel.tif";
 
@@ -1388,8 +1448,11 @@ TEST(Bitmap, ReadUnsupportedChannels) {
   const std::vector<uint8_t> data(kWidth * kHeight * kChannels, 128);
   WriteImageOIIO(kWidth, kHeight, kChannels, filename, data.data());
 
-  Bitmap bitmap;
+  Bitmap bitmap(3, 4, /*as_rgb=*/true);
   EXPECT_FALSE(bitmap.Read(filename));
+  EXPECT_EQ(bitmap.Width(), 3);
+  EXPECT_EQ(bitmap.Height(), 4);
+  EXPECT_EQ(bitmap.Channels(), 3);
 }
 
 INSTANTIATE_TEST_SUITE_P(

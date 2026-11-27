@@ -97,7 +97,8 @@ std::vector<uint8_t> ConvertColorSpace(const uint8_t* src_data,
   std::vector<uint8_t> tgt_data(height * pitch);
   OIIO::ImageBuf tgt(image_spec, tgt_data.data());
   THROW_CHECK(OIIO::ImageBufAlgo::colorconvert(
-      tgt, src, OIIOFromStdStringView(from), OIIOFromStdStringView(to)));
+      tgt, src, OIIOFromStdStringView(from), OIIOFromStdStringView(to)))
+      << tgt.geterror();
   return tgt_data;
 }
 
@@ -426,8 +427,6 @@ bool Bitmap::Read(const std::filesystem::path& path,
   }
 
   const OIIO::ImageSpec& image_spec = input->spec();
-  width_ = image_spec.width;
-  height_ = image_spec.height;
   const int file_channels = image_spec.nchannels;
   // Handle images with alpha channel by dropping alpha:
   // - 4 channels (RGBA) -> 3 channels (RGB)
@@ -443,23 +442,42 @@ bool Bitmap::Read(const std::filesystem::path& path,
     return false;
   }
 
+  width_ = image_spec.width;
+  height_ = image_spec.height;
+  linear_colorspace_ = false;
   data_.resize(width_ * height_ * channels_);
   // Note that OIIO supports reading a subset of channels.
-  input->read_image(0, 0, 0, channels_, OIIO::TypeDesc::UINT8, data_.data());
-  input->close();
+  const bool read_success = input->read_image(
+      0, 0, 0, channels_, OIIO::TypeDesc::UINT8, data_.data());
+  if (!read_success) {
+    const std::string error = input->geterror();
+    VLOG(3) << "Could not read pixels from " << path << ", error = " << error;
+  }
 
+  // Capture metadata added during decoding before close invalidates the spec.
   auto meta_data = std::make_unique<OIIOMetaData>();
   meta_data->image_spec = image_spec;
   meta_data->image_spec.nchannels = channels_;
   meta_data_ = std::move(meta_data);
 
+  const bool close_success = input->close();
+  if (!close_success) {
+    const std::string error = input->geterror();
+    VLOG(3) << "Error closing " << path << ", error = " << error;
+  }
+  if (!read_success || !close_success) {
+    return false;
+  }
+
   if (linearize_colorspace) {
-    const std::string colorspace = image_spec["oiio:ColorSpace"];
-    if (IsEquivalentColorSpace(colorspace, "linear")) {
+    const std::string colorspace =
+        GetMetaData("oiio:ColorSpace").value_or("sRGB");
+    if (!IsEquivalentColorSpace(colorspace, "linear")) {
       data_ = ConvertColorSpace(
           data_.data(), width_, height_, channels_, colorspace, "linear");
     }
   }
+  linear_colorspace_ = linearize_colorspace;
 
   if (as_rgb && channels_ != 3) {
     *this = CloneAsRGB();
@@ -497,6 +515,9 @@ bool Bitmap::Write(const std::filesystem::path& path,
     maybe_linearized_output_data = ConvertColorSpace(
         data_.data(), width_, height_, channels_, "linear", *colorspace);
     output_data_ptr = maybe_linearized_output_data.data();
+  } else if (linear_colorspace_) {
+    // The source metadata remains the destination for later inverse writes.
+    SetImageSpecColorSpace(meta_data.image_spec, "linear");
   }
 
   // OIIO writers that encode IPTC metadata (e.g. JPEG, or TIFF with
