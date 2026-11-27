@@ -263,6 +263,52 @@ TEST(StereoFusion, Rotation180Invariance) {
   EXPECT_NEAR(points1[0].z, points2[0].z, 1e-5f);
 }
 
+TEST(StereoFusion, MixedResolutionColorsFollowPixelCenters) {
+  const auto dir = CreateTestDir();
+  CreateDirIfNotExists(dir / "sparse");
+  CreateDirIfNotExists(dir / "images");
+  CreateDirIfNotExists(dir / "stereo/depth_maps", /*recursive=*/true);
+  CreateDirIfNotExists(dir / "stereo/normal_maps");
+
+  SyntheticDatasetOptions dataset;
+  dataset.num_rigs = 1;
+  dataset.num_frames_per_rig = 1;
+  dataset.num_points3D = 0;
+  dataset.camera_width = 8;
+  dataset.camera_height = 8;
+  Reconstruction reconstruction;
+  SynthesizeDataset(dataset, &reconstruction);
+  reconstruction.Write(dir / "sparse");
+  const auto& name = reconstruction.Images().begin()->second.Name();
+  const auto map_name = name + ".geometric.bin";
+  std::ofstream(dir / "stereo/fusion.cfg") << name << "\n";
+
+  Mat<float> depth_map(2, 2, 1);
+  depth_map.Set(1, 1, 0, 5.0f);
+  depth_map.Write(dir / "stereo/depth_maps" / map_name);
+  Mat<float> normal_map(2, 2, 3);
+  normal_map.Set(1, 1, 2, 1.0f);
+  normal_map.Write(dir / "stereo/normal_maps" / map_name);
+  Bitmap bitmap(8, 8, true);
+  for (int row = 0; row < 8; ++row) {
+    for (int col = 0; col < 8; ++col) {
+      bitmap.SetPixel(col, row, BitmapColor<uint8_t>(10 * col, 10 * row, 0));
+    }
+  }
+  ASSERT_TRUE(bitmap.Write(dir / "images" / name));
+
+  StereoFusionOptions options;
+  options.num_threads = 1;
+  options.min_num_pixels = 1;
+  StereoFusion fusion(options, dir, "COLMAP", "", "geometric");
+  fusion.Run();
+  const auto& points = fusion.GetFusedPoints();
+  ASSERT_EQ(points.size(), 1);
+  // The quarter-resolution pixel (1, 1) samples RGB pixel (6, 6).
+  EXPECT_EQ(points[0].r, 60);
+  EXPECT_EQ(points[0].g, 60);
+}
+
 }  // namespace
 }  // namespace mvs
 }  // namespace colmap
