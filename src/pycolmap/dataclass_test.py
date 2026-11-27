@@ -3,6 +3,8 @@
 import copy
 import pickle
 
+import numpy as np
+
 import pycolmap
 
 # --- Tests on RANSACOptions (flat dataclass) ---
@@ -150,6 +152,25 @@ def test_rigid3d_pickle_roundtrip() -> None:
     restored = pickle.loads(data)
     assert isinstance(restored, pycolmap.Rigid3d)
     assert restored == rigid
+
+
+def test_dataclass_eq_with_numpy_attributes() -> None:
+    assert pycolmap.Rotation3d() == pycolmap.Rotation3d()
+    assert pycolmap.Rotation3d() != pycolmap.Rotation3d(
+        xyzw=np.array([0.0, 0.0, 1.0, 0.0])
+    )
+    left = pycolmap.TwoViewGeometry(
+        E=np.eye(3), cam2_from_cam1=pycolmap.Rigid3d()
+    )
+    assert left == copy.deepcopy(left)
+    right = copy.deepcopy(left)
+    right.cam2_from_cam1 = pycolmap.Rigid3d(
+        translation=np.array([1.0, 0.0, 0.0])
+    )
+    assert left != right  # nested dict
+    right = copy.deepcopy(left)
+    right.E = None
+    assert left != right and right != left  # array vs None
 
 
 # --- Tests on dataclasses with enum and string attributes ---
