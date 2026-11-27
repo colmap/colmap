@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
+import pickle
+
 import numpy as np
 
 import pycolmap
@@ -40,6 +42,15 @@ def test_sim3d_scale_readwrite() -> None:
     assert isinstance(scale, float)
     similarity.scale = 3.0
     assert float(np.array(similarity.scale)) == 3.0
+
+
+def test_sim3d_scale_array_roundtrip() -> None:
+    sim3d = pycolmap.Sim3d(scale=2.5)
+    sim3d.scale = sim3d.scale  # getter returns a 0-d view
+    sim3d.scale *= 2.0
+    assert float(sim3d.scale) == 5.0
+    restored = pickle.loads(pickle.dumps(sim3d))
+    np.testing.assert_array_equal(restored.params, sim3d.params)
 
 
 def test_sim3d_rotation_readwrite() -> None:
