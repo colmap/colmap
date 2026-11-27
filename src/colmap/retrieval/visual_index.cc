@@ -441,6 +441,8 @@ class FaissVisualIndex : public VisualIndex {
 
     // Initialize a new inverted index.
     inverted_index_ = InvertedIndexType();
+    image_ids_.clear();
+    prepared_ = false;
     inverted_index_.Initialize(index_->ntotal);
     VLOG(2) << "Initialized inverted index";
 
