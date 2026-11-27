@@ -306,10 +306,8 @@ Eigen::MatrixXd JointPoseCov(const BACovariance& ba_cov,
   Eigen::MatrixXd cov(6 * num_images, 6 * num_images);
   for (int i = 0; i < num_images; ++i) {
     for (int j = 0; j < num_images; ++j) {
-      const std::optional<Eigen::MatrixXd> cov_ij =
-          ba_cov.GetCamCrossCovFromWorld(image_ids[i], image_ids[j]);
-      THROW_CHECK(cov_ij.has_value());
-      cov.block<6, 6>(6 * i, 6 * j) = *cov_ij;
+      cov.block<6, 6>(6 * i, 6 * j) =
+          ba_cov.GetCamCrossCovFromWorld(image_ids[i], image_ids[j]).value();
     }
   }
   return cov;
@@ -337,6 +335,7 @@ Eigen::VectorXd PoseDeviation(const Reconstruction& gt_reconstruction,
 struct MonteCarloProblem {
   Reconstruction gt_reconstruction;
   std::vector<image_t> image_ids;
+  std::vector<point3D_t> point3D_ids;
   std::vector<point3D_t> constant_point3D_ids;
 };
 
@@ -354,17 +353,16 @@ MonteCarloProblem CreateMonteCarloProblem(int num_constant_points,
   problem.gt_reconstruction.Transform(Sim3d(
       scene_scale, Eigen::Quaterniond::Identity(), Eigen::Vector3d::Zero()));
   problem.image_ids = problem.gt_reconstruction.RegImageIds();
-  std::sort(problem.image_ids.begin(), problem.image_ids.end());
-  std::vector<point3D_t> point3D_ids;
-  point3D_ids.reserve(problem.gt_reconstruction.NumPoints3D());
+  problem.point3D_ids.reserve(problem.gt_reconstruction.NumPoints3D());
   for (const auto& [point3D_id, _] : problem.gt_reconstruction.Points3D()) {
-    point3D_ids.push_back(point3D_id);
+    problem.point3D_ids.push_back(point3D_id);
   }
-  std::sort(point3D_ids.begin(), point3D_ids.end());
+  std::sort(problem.point3D_ids.begin(), problem.point3D_ids.end());
+  THROW_CHECK_LE(num_constant_points,
+                 static_cast<int>(problem.point3D_ids.size()));
   problem.constant_point3D_ids.assign(
-      point3D_ids.begin(),
-      point3D_ids.begin() +
-          std::min<size_t>(num_constant_points, point3D_ids.size()));
+      problem.point3D_ids.begin(),
+      problem.point3D_ids.begin() + num_constant_points);
   return problem;
 }
 
@@ -423,15 +421,13 @@ TEST_P(ParameterizedBACovarianceMonteCarloTests, PosesAndIntrinsics) {
   const double variance = kMonteCarloPoint2DStddev * kMonteCarloPoint2DStddev;
   const Eigen::MatrixXd pose_cov =
       variance * JointPoseCov(*ba_cov, problem.image_ids);
-  Camera& gt_camera = gt_reconstruction.Camera(
+  const Camera& gt_camera = gt_reconstruction.Camera(
       gt_reconstruction.Image(problem.image_ids[0]).CameraId());
   const std::optional<Eigen::MatrixXd> intrinsics_cov =
       ba_cov->GetOtherParamsCov(gt_camera.params.data());
   ASSERT_TRUE(intrinsics_cov.has_value());
   // Tangent space of SIMPLE_RADIAL with constant principal point.
-  const std::vector<int> refined_param_idxs = {0, 3};
-  ASSERT_EQ(intrinsics_cov->rows(),
-            static_cast<int>(refined_param_idxs.size()));
+  ASSERT_EQ(intrinsics_cov->rows(), 2);
 
   std::vector<Eigen::VectorXd> pose_samples;
   std::vector<Eigen::VectorXd> intrinsics_samples;
@@ -448,12 +444,9 @@ TEST_P(ParameterizedBACovarianceMonteCarloTests, PosesAndIntrinsics) {
         PoseDeviation(gt_reconstruction, reconstruction, problem.image_ids));
 
     const Camera& camera = reconstruction.Camera(gt_camera.camera_id);
-    Eigen::VectorXd intrinsics_deviation(refined_param_idxs.size());
-    for (size_t j = 0; j < refined_param_idxs.size(); ++j) {
-      intrinsics_deviation(j) = camera.params[refined_param_idxs[j]] -
-                                gt_camera.params[refined_param_idxs[j]];
-    }
-    intrinsics_samples.push_back(intrinsics_deviation);
+    intrinsics_samples.push_back(
+        Eigen::Vector2d(camera.params[0] - gt_camera.params[0],
+                        camera.params[3] - gt_camera.params[3]));
   }
 
   EXPECT_THAT(pose_samples, SamplesFollowCov(pose_cov));
@@ -477,10 +470,7 @@ TEST(BACovarianceMonteCarlo, ConditionalPoints) {
   // Point covariances are conditioned on the poses and intrinsics, so the
   // samples keep them constant. Stack all points into one sample.
   const double variance = kMonteCarloPoint2DStddev * kMonteCarloPoint2DStddev;
-  std::vector<point3D_t> point3D_ids;
-  for (const auto& [point3D_id, _] : gt_reconstruction.Points3D()) {
-    point3D_ids.push_back(point3D_id);
-  }
+  const std::vector<point3D_t>& point3D_ids = problem.point3D_ids;
   Eigen::MatrixXd points_cov =
       Eigen::MatrixXd::Zero(3 * point3D_ids.size(), 3 * point3D_ids.size());
   for (size_t i = 0; i < point3D_ids.size(); ++i) {
