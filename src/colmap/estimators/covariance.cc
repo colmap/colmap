@@ -51,21 +51,6 @@ bool ComputeSchurComplement(bool estimate_point_covs,
     eval_options.parameter_blocks.push_back(const_cast<double*>(point.xyz));
   }
 
-  if (eval_options.parameter_blocks.empty()) {
-    if (total_cost != nullptr) {
-      if (!problem.Evaluate(ceres::Problem::EvaluateOptions(),
-                            total_cost,
-                            nullptr,
-                            nullptr,
-                            nullptr)) {
-        LOG(WARNING) << "Failed to evaluate cost";
-        return false;
-      }
-    }
-    S.resize(0, 0);
-    return true;
-  }
-
   ceres::CRSMatrix J_full_crs;
   if (!problem.Evaluate(
           eval_options, total_cost, nullptr, nullptr, &J_full_crs)) {
@@ -285,38 +270,27 @@ std::vector<ImageTileSpec> CollectSpatialDeffImageSpecs(
     added_images.reserve(config->NumImages());
     image_specs.reserve(config->NumImages());
     for (const image_t image_id : config->Images()) {
-      if (!reconstruction.ExistsImage(image_id)) {
-        continue;
-      }
       const auto it = variable_pose_dofs.find(image_id);
       const int pose_dof = it != variable_pose_dofs.end() ? it->second : 0;
       image_specs.push_back({image_id, pose_dof, true});
       added_images.insert(image_id);
     }
 
-    if (config->NumPoints() > 0) {
-      auto add_point_track_images =
-          [&](const FlatHashSet<point3D_t>& point_ids) {
-            for (const point3D_t point3D_id : point_ids) {
-              if (config->IsIgnoredPoint(point3D_id) ||
-                  !reconstruction.ExistsPoint3D(point3D_id)) {
-                continue;
-              }
-              const Point3D& point3D = reconstruction.Point3D(point3D_id);
-              if (!problem.HasParameterBlock(point3D.xyz.data())) {
-                continue;
-              }
-              for (const TrackElement& track_el : point3D.track.Elements()) {
-                if (added_images.insert(track_el.image_id).second &&
-                    reconstruction.ExistsImage(track_el.image_id)) {
-                  image_specs.push_back({track_el.image_id, 0, false});
-                }
-              }
-            }
-          };
-      add_point_track_images(config->VariablePoints());
-      add_point_track_images(config->ConstantPoints());
-    }
+    auto add_point_track_images = [&](const FlatHashSet<point3D_t>& point_ids) {
+      for (const point3D_t point3D_id : point_ids) {
+        const Point3D& point3D = reconstruction.Point3D(point3D_id);
+        if (!problem.HasParameterBlock(point3D.xyz.data())) {
+          continue;
+        }
+        for (const TrackElement& track_el : point3D.track.Elements()) {
+          if (added_images.insert(track_el.image_id).second) {
+            image_specs.push_back({track_el.image_id, 0, false});
+          }
+        }
+      }
+    };
+    add_point_track_images(config->VariablePoints());
+    add_point_track_images(config->ConstantPoints());
     return image_specs;
   }
 
@@ -931,23 +905,15 @@ std::optional<BACovariance> EstimateBACovarianceImpl(
       return std::nullopt;
     }
 
-    if (posterior_variance_factor != 1.0) {
-      for (auto& [point3D_id, cov] : point_covs) {
-        cov *= posterior_variance_factor;
-      }
+    for (auto& [point3D_id, cov] : point_covs) {
+      cov *= posterior_variance_factor;
     }
-    if (pose_variance_factor != 1.0 && L_inv.size() > 0) {
-      L_inv *= std::sqrt(pose_variance_factor);
-    }
+    L_inv *= std::sqrt(pose_variance_factor);
   }
 
   return BACovariance(std::move(point_covs),
-                      compute_pose_or_other_covs
-                          ? std::move(pose_L_start_size)
-                          : NodeHashMap<image_t, std::pair<int, int>>{},
-                      compute_pose_or_other_covs
-                          ? std::move(other_L_start_size)
-                          : NodeHashMap<const double*, std::pair<int, int>>{},
+                      std::move(pose_L_start_size),
+                      std::move(other_L_start_size),
                       std::move(L_inv),
                       posterior_variance_factor,
                       spatial_design_effect);
