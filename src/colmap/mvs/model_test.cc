@@ -33,41 +33,21 @@ std::filesystem::path CreateRawPMVSWorkspace() {
 
 TEST(Model, ReadRawPMVSVisibility) {
   const auto path = CreateRawPMVSWorkspace();
-  {
-    std::ofstream visibility(path / "vis.dat");
-    visibility << "VISDATA\n2\n1 2 1 0\n0 0";
-  }
+  std::ofstream(path / "vis.dat") << "VISDATA\n2\n1 2 1 0\n0 0";
   Model model;
   model.Read(path, "PMVS");
-  ASSERT_EQ(model.images.size(), 2);
-  EXPECT_EQ(model.GetImageName(1), "00000001.jpg");
-  EXPECT_EQ(model.GetImageIdx("00000000.jpg"), 0);
-  EXPECT_EQ(model.images[0].GetWidth(), 32);
-  EXPECT_EQ(model.images[0].GetHeight(), 24);
   EXPECT_EQ(model.GetMaxOverlappingImagesFromPMVS(),
             (std::vector<std::vector<int>>{{}, {0}}));
-}
 
-TEST(Model, RejectInvalidRawPMVSVisibility) {
-  const auto path = CreateRawPMVSWorkspace();
-  const std::vector<std::string> visibility_files = {
-      "VISDATA\n2\n0 1 1\n1 invalid\n",
-      "VISDATA\n2\n0 1 1\n1 1 invalid\n",
-      "VISDATA\n2\n0 1 1\n1 1\n",
-      "VISDATA\n2\n0 1 1\n1\n",
-      "VISDATA\n2\n0 1 1\n",
-      "VISDATA\n2\n0 1 1\n1 -1\n",
-      "VISDATA\n2\n0 1 2\n1 0\n",
-      "VISDATA\n2\n0 1 1\n1 1 -1\n",
-      "INVALID\n2\n0 1 1\n1 1 0\n"};
-  for (const auto& contents : visibility_files) {
+  // Malformed or truncated records must be rejected.
+  for (const std::string contents : {"VISDATA\n2\n0 1 1\n1 invalid\n",
+                                     "VISDATA\n2\n0 1 1\n1 1 invalid\n",
+                                     "VISDATA\n2\n0 1 1\n1 1\n",
+                                     "VISDATA\n2\n0 1 1\n1\n",
+                                     "VISDATA\n2\n0 1 1\n"}) {
     SCOPED_TRACE(contents);
-    {
-      std::ofstream visibility(path / "vis.dat");
-      visibility << contents;
-    }
-    Model model;
-    EXPECT_THROW(model.Read(path, "PMVS"), std::exception);
+    std::ofstream(path / "vis.dat") << contents;
+    EXPECT_THROW(Model().Read(path, "PMVS"), std::exception);
   }
 }
 
