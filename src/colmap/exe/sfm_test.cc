@@ -2,7 +2,6 @@
 
 #include "colmap/exe/sfm.h"
 
-#include "colmap/controllers/option_manager.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"

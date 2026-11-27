@@ -3,7 +3,8 @@
 #include "colmap/controllers/bundle_adjustment.h"
 
 #include "colmap/controllers/option_manager.h"
-#include "colmap/scene/database_sqlite.h"
+#include "colmap/estimators/bundle_adjustment.h"
+#include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
@@ -78,43 +79,6 @@ TEST(BundleAdjustmentController, Reconstruction) {
                                  /*num_obs_tolerance=*/0.0));
 }
 
-TEST(BundleAdjustmentController, WithExplicitPositionPriors) {
-  auto database = Database::Open(kInMemorySqliteDatabasePath);
-
-  Reconstruction gt_reconstruction;
-  SyntheticDatasetOptions synthetic_options;
-  synthetic_options.num_rigs = 1;
-  synthetic_options.num_cameras_per_rig = 1;
-  synthetic_options.num_frames_per_rig = 5;
-  synthetic_options.num_points3D = 60;
-  synthetic_options.prior_position = true;
-  SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
-
-  BundleAdjustmentPriors priors;
-  priors.pose_priors = database->ReadAllPosePriors();
-
-  auto reconstruction = std::make_shared<Reconstruction>(gt_reconstruction);
-  reconstruction->Transform(
-      Sim3d(3.0, Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 2, 3)));
-
-  OptionManager options;
-  options.bundle_adjustment->pose_prior.use_position = true;
-  options.bundle_adjustment->pose_prior.position_alignment_ransac.random_seed =
-      0;
-
-  BundleAdjustmentController controller(
-      options, reconstruction, std::move(priors));
-  controller.Run();
-
-  EXPECT_THAT(gt_reconstruction,
-              ReconstructionNear(*reconstruction,
-                                 /*max_rotation_error_deg=*/0.1,
-                                 /*max_proj_center_error=*/0.05,
-                                 /*max_scale_error=*/1e-2,
-                                 /*num_obs_tolerance=*/0.0,
-                                 /*align=*/false));
-}
-
 TEST(BundleAdjustmentController, MissingDatabasePathThrowsWhenPriorsEnabled) {
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_options;
@@ -144,13 +108,17 @@ TEST(BundleAdjustmentController, MissingDatabasePathThrowsWhenPriorsEnabled) {
 
 TEST(BundleAdjustmentController,
      EmptyPriorsFallBackToStandardBundleAdjustment) {
+  const auto database_path = CreateTestDir() / "database.db";
+
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_options;
   synthetic_options.num_rigs = 1;
   synthetic_options.num_cameras_per_rig = 1;
   synthetic_options.num_frames_per_rig = 3;
   synthetic_options.num_points3D = 50;
-  SynthesizeDataset(synthetic_options, &gt_reconstruction);
+  SynthesizeDataset(synthetic_options,
+                    &gt_reconstruction,
+                    Database::Open(database_path).get());
 
   auto reconstruction = std::make_shared<Reconstruction>(gt_reconstruction);
   SyntheticNoiseOptions noise_options;
@@ -161,10 +129,10 @@ TEST(BundleAdjustmentController,
   SynthesizeNoise(noise_options, reconstruction.get());
 
   OptionManager options;
+  *options.database_path = database_path;
   options.bundle_adjustment->pose_prior.use_position = true;
 
-  BundleAdjustmentController controller(
-      options, reconstruction, BundleAdjustmentPriors{});
+  BundleAdjustmentController controller(options, reconstruction);
   EXPECT_NO_THROW(controller.Run());
   EXPECT_THAT(gt_reconstruction,
               ReconstructionNear(*reconstruction,

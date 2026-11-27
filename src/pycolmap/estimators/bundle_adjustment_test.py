@@ -339,41 +339,28 @@ def test_bundle_adjustment_with_pose_priors() -> None:
     summary = adjuster.solve()
     assert summary.is_solution_usable()
 
-    # Pipeline entry point with explicit priors and with database_path.
-    unaligned_from_gt = pycolmap.Sim3d(
-        2.5,
-        pycolmap.Rotation3d(np.array([0.0, 0.0, np.sin(0.2), np.cos(0.2)])),
-        [10.0, -20.0, 5.0],
-    )
-    rec_from_priors = pycolmap.Reconstruction(gt_reconstruction)
-    rec_from_priors.transform(unaligned_from_gt)
-    pycolmap.bundle_adjustment(rec_from_priors, options, priors=priors)
-
+    # Pipeline entry point reading the priors from the database.
     rec_from_db = pycolmap.Reconstruction(gt_reconstruction)
-    rec_from_db.transform(unaligned_from_gt)
+    rec_from_db.transform(
+        pycolmap.Sim3d(
+            2.5,
+            pycolmap.Rotation3d(np.array([0.0, 0.0, np.sin(0.2), np.cos(0.2)])),
+            [10.0, -20.0, 5.0],
+        )
+    )
     pycolmap.bundle_adjustment(
         rec_from_db, options, database_path=database_path
     )
-    for rec in (rec_from_priors, rec_from_db):
-        for image_id, gt_image in gt_reconstruction.images.items():
-            assert np.allclose(
-                rec.image(image_id).projection_center(),
-                gt_image.projection_center(),
-                atol=1e-2,
-            )
+    for image_id, gt_image in gt_reconstruction.images.items():
+        assert np.allclose(
+            rec_from_db.image(image_id).projection_center(),
+            gt_image.projection_center(),
+            atol=1e-2,
+        )
 
     with pytest.raises(ValueError, match="database_path must be specified"):
         pycolmap.bundle_adjustment(
             pycolmap.Reconstruction(gt_reconstruction), options
-        )
-    with pytest.raises(
-        ValueError, match="Cannot specify both priors and database_path"
-    ):
-        pycolmap.bundle_adjustment(
-            pycolmap.Reconstruction(gt_reconstruction),
-            options,
-            priors=priors,
-            database_path=database_path,
         )
 
     ceres_adjuster = pycolmap.create_default_ceres_bundle_adjuster(

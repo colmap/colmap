@@ -198,12 +198,10 @@ Note that priors are matched to images by ``image_id`` (so ``--database_path``
 must be the database the reconstruction was built from); when at least 3 valid
 priors are present (with at least one variable camera pose),
 ``bundle_adjuster`` aligns the output model into the prior coordinate frame
-(Cartesian, or local ENU anchored at the first WGS84 prior). If you need a
+(Cartesian, or local ENU anchored at the first WGS84 prior); otherwise, it logs
+a warning and runs standard bundle adjustment without priors. If you need a
 specific target coordinate frame (e.g., ECEF or a custom ENU origin), run
 ``model_aligner`` afterwards; see the `Geo-registration`_ section.
-
-For geo-registration of an already reconstructed model (without using priors
-during mapping), see the `Geo-registration`_ section.
 
 
 .. _faq-share-intrinsics:

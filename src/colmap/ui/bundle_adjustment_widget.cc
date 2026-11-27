@@ -72,7 +72,7 @@ BundleAdjustmentWidget::BundleAdjustmentWidget(MainWindow* main_window,
   for (int i = 0; i < 3; ++i) {
     AddOptionDouble(&options->bundle_adjustment->pose_prior.position_stddev[i],
                     std::string("prior_position_stddev_") + "xyz"[i] + " [m]",
-                    1e-6,
+                    1e-3,
                     1e7,
                     0.01,
                     3);
@@ -94,27 +94,26 @@ BundleAdjustmentWidget::BundleAdjustmentWidget(MainWindow* main_window,
   AddWidgetRow("prior_position_loss_function", prior_position_loss_combo_);
   AddOptionDouble(&options->bundle_adjustment->ceres->prior_position_loss_scale,
                   "prior_position_loss_scale",
-                  1e-6,
+                  1e-3,
                   1e7,
                   0.01,
                   3);
 
 #ifdef CASPAR_ENABLED
   AddSection("Bundle Adjustment Backend");
-  backend_combo_ = new QComboBox(this);
-  backend_combo_->addItem(
-      "CERES");  // index 0 == BundleAdjustmentBackend::CERES
-  backend_combo_->addItem(
+  auto* backend_combo = new QComboBox(this);
+  backend_combo->addItem("CERES");  // index 0 == BundleAdjustmentBackend::CERES
+  backend_combo->addItem(
       "CASPAR");  // index 1 == BundleAdjustmentBackend::CASPAR
-  backend_combo_->setCurrentIndex(
+  backend_combo->setCurrentIndex(
       static_cast<int>(options->bundle_adjustment->backend));
-  connect(backend_combo_,
+  connect(backend_combo,
           QOverload<int>::of(&QComboBox::currentIndexChanged),
           [options](int idx) {
             options->bundle_adjustment->backend =
                 static_cast<BundleAdjustmentBackend>(idx);
           });
-  AddWidgetRow("backend", backend_combo_);
+  AddWidgetRow("backend", backend_combo);
 
   AddSection("Caspar Options");
   AddOptionText(&options->bundle_adjustment->caspar->gpu_index,
@@ -126,7 +125,7 @@ BundleAdjustmentWidget::BundleAdjustmentWidget(MainWindow* main_window,
     HideOption(&options->bundle_adjustment->caspar->gpu_index);
   }
 
-  connect(backend_combo_,
+  connect(backend_combo,
           QOverload<int>::of(&QComboBox::currentIndexChanged),
           [this, options](int idx) {
             const bool is_caspar = static_cast<BundleAdjustmentBackend>(idx) ==
@@ -157,10 +156,6 @@ void BundleAdjustmentWidget::Show(
   reconstruction_ = std::move(reconstruction);
   prior_position_loss_combo_->setCurrentIndex(static_cast<int>(
       options_->bundle_adjustment->ceres->prior_position_loss_function_type));
-#ifdef CASPAR_ENABLED
-  backend_combo_->setCurrentIndex(
-      static_cast<int>(options_->bundle_adjustment->backend));
-#endif
   show();
   raise();
 }
