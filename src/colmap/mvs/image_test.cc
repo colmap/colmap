@@ -106,6 +106,18 @@ TEST(Image, DownsizeNoChange) {
   EXPECT_EQ(image.GetHeight(), 100);
 }
 
+TEST(Image, DownsizeThinImage) {
+  const float K[9] = {100, 0, 50, 0, 100, 0.5f, 0, 0, 1};
+  const float R[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+  const float T[3] = {0, 0, 0};
+  Image image("thin.png", 100, 1, K, R, T);
+  image.Downsize(10, 10);
+  EXPECT_EQ(image.GetWidth(), 10);
+  EXPECT_EQ(image.GetHeight(), 1);
+  EXPECT_FLOAT_EQ(image.GetK()[0], 10.0f);
+  EXPECT_FLOAT_EQ(image.GetK()[4], 100.0f);
+}
+
 TEST(Image, GetViewingDirection) {
   const float K[9] = {100, 0, 50, 0, 100, 50, 0, 0, 1};
   const float R[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
