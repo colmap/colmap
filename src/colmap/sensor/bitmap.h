@@ -103,8 +103,9 @@ class Bitmap {
   // Read bitmap at given path and convert to grey- or colorscale. Defaults to
   // keeping the original colorspace (potentially non-linear) for image
   // processing. Decoder or input-close failures return false and may leave
-  // partially decoded pixels and metadata from the new image. Requested
-  // linearization throws for unspecified or unsupported source colorspaces.
+  // partially decoded pixels and metadata from the new image.
+  // Linearization assumes sRGB when the source colorspace is unspecified.
+  // An unsupported conversion throws.
   bool Read(const std::filesystem::path& path,
             bool as_rgb = true,
             bool linearize_colorspace = false);

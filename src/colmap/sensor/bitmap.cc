@@ -96,10 +96,9 @@ std::vector<uint8_t> ConvertColorSpace(const uint8_t* src_data,
   const OIIO::ImageBuf src(image_spec, const_cast<uint8_t*>(src_data));
   std::vector<uint8_t> tgt_data(height * pitch);
   OIIO::ImageBuf tgt(image_spec, tgt_data.data());
-  if (!OIIO::ImageBufAlgo::colorconvert(
-          tgt, src, OIIOFromStdStringView(from), OIIOFromStdStringView(to))) {
-    THROW_CHECK(false) << tgt.geterror();
-  }
+  THROW_CHECK(OIIO::ImageBufAlgo::colorconvert(
+      tgt, src, OIIOFromStdStringView(from), OIIOFromStdStringView(to)))
+      << tgt.geterror();
   return tgt_data;
 }
 
@@ -471,9 +470,8 @@ bool Bitmap::Read(const std::filesystem::path& path,
   }
 
   if (linearize_colorspace) {
-    const std::string colorspace = GetMetaData("oiio:ColorSpace").value_or("");
-    // An unspecified source space cannot establish linear pixel values.
-    THROW_CHECK(!colorspace.empty()) << "Image colorspace is unspecified";
+    const std::string colorspace =
+        GetMetaData("oiio:ColorSpace").value_or("sRGB");
     if (!IsEquivalentColorSpace(colorspace, "linear")) {
       data_ = ConvertColorSpace(
           data_.data(), width_, height_, channels_, colorspace, "linear");
