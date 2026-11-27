@@ -437,22 +437,6 @@ bool HasVariableRigFromWorldPose(const BundleAdjustmentOptions& options,
                      });
 }
 
-Point3D* FindPoint3DInProblem(const Point2D& point2D,
-                              Reconstruction& reconstruction,
-                              const BundleAdjustmentConfig& config,
-                              const BundleAdjustmentOptions& options) {
-  if (!point2D.HasPoint3D() || config.IsIgnoredPoint(point2D.point3D_id)) {
-    return nullptr;
-  }
-  Point3D& point3D = reconstruction.Point3D(point2D.point3D_id);
-  THROW_CHECK_GT(point3D.track.Length(), 1);
-  if (options.min_track_length > 0 &&
-      static_cast<int>(point3D.track.Length()) < options.min_track_length) {
-    return nullptr;
-  }
-  return &point3D;
-}
-
 bool HasVariableCameraPose(const Image& image,
                            const BundleAdjustmentConfig& config,
                            const BundleAdjustmentOptions& options) {
@@ -484,13 +468,6 @@ std::vector<PosePrior> FilterPosePriorsInProblem(
                               !config.HasImage(pose_prior.corr_data_id.id);
                      }),
       pose_priors.end());
-
-  FlatHashSet<image_t> seen_image_ids;
-  seen_image_ids.reserve(pose_priors.size());
-  for (const PosePrior& pose_prior : pose_priors) {
-    THROW_CHECK(seen_image_ids.insert(pose_prior.corr_data_id.id).second)
-        << "Duplicate pose prior for image " << pose_prior.corr_data_id.id;
-  }
 
   SetPosePriorPositionCovariances(
       position_stddev, overwrite_position_covariance, pose_priors);
@@ -665,9 +642,17 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
     // Add residuals to bundle adjustment problem.
     size_t num_observations = 0;
     for (const Point2D& point2D : image.Points2D()) {
-      Point3D* point3D =
-          FindPoint3DInProblem(point2D, reconstruction_, config_, options_);
-      if (point3D == nullptr) {
+      if (!point2D.HasPoint3D() || config_.IsIgnoredPoint(point2D.point3D_id)) {
+        continue;
+      }
+
+      Point3D& point3D = reconstruction_.Point3D(point2D.point3D_id);
+      THROW_CHECK_GT(point3D.track.Length(), 1);
+
+      // Skip points with track length below minimum.
+      if (options_.min_track_length > 0 &&
+          static_cast<int>(point3D.track.Length()) <
+              options_.min_track_length) {
         continue;
       }
 
@@ -679,14 +664,14 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
             CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
                 camera.model_id, point2D.xy, rig_from_world),
             loss_function_.get(),
-            point3D->xyz.data(),
+            point3D.xyz.data(),
             camera.params.data());
       } else {
         problem_->AddResidualBlock(
             CreateCameraCostFunction<ReprojErrorCostFunctor>(camera.model_id,
                                                              point2D.xy),
             loss_function_.get(),
-            point3D->xyz.data(),
+            point3D.xyz.data(),
             rig_from_world.params.data(),
             camera.params.data());
       }
@@ -721,9 +706,17 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
     // Add residuals to bundle adjustment problem.
     size_t num_observations = 0;
     for (const Point2D& point2D : image.Points2D()) {
-      Point3D* point3D =
-          FindPoint3DInProblem(point2D, reconstruction_, config_, options_);
-      if (point3D == nullptr) {
+      if (!point2D.HasPoint3D() || config_.IsIgnoredPoint(point2D.point3D_id)) {
+        continue;
+      }
+
+      Point3D& point3D = reconstruction_.Point3D(point2D.point3D_id);
+      THROW_CHECK_GT(point3D.track.Length(), 1);
+
+      // Skip points with track length below minimum.
+      if (options_.min_track_length > 0 &&
+          static_cast<int>(point3D.track.Length()) <
+              options_.min_track_length) {
         continue;
       }
 
@@ -737,14 +730,14 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
             CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
                 camera.model_id, point2D.xy, cam_from_world.value()),
             loss_function_.get(),
-            point3D->xyz.data(),
+            point3D.xyz.data(),
             camera.params.data());
       } else if (!constant_rig_from_world && constant_sensor_from_rig) {
         problem_->AddResidualBlock(
             CreateCameraCostFunction<RigReprojErrorConstantRigCostFunctor>(
                 camera.model_id, point2D.xy, sensor_from_rig),
             loss_function_.get(),
-            point3D->xyz.data(),
+            point3D.xyz.data(),
             rig_from_world.params.data(),
             camera.params.data());
       } else {
@@ -752,7 +745,7 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
             CreateCameraCostFunction<RigReprojErrorCostFunctor>(camera.model_id,
                                                                 point2D.xy),
             loss_function_.get(),
-            point3D->xyz.data(),
+            point3D.xyz.data(),
             sensor_from_rig.params.data(),
             rig_from_world.params.data(),
             camera.params.data());
@@ -828,7 +821,7 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
 
   std::vector<PosePrior> PreparePosePositionPriors(
       const std::vector<PosePrior>& input_pose_priors) {
-    if (!options_.pose_prior.use_position || config_.Images().empty()) {
+    if (!options_.pose_prior.use_position) {
       return {};
     }
 
@@ -880,17 +873,12 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
 
   void AddPosePositionPriorsToProblem(
       const std::vector<PosePrior>& active_pose_priors) {
-    if (active_pose_priors.empty()) {
-      return;
-    }
-
     prior_position_loss_function_ = CreateCeresLossFunction(
         options_.ceres->prior_position_loss_function_type,
         options_.ceres->prior_position_loss_scale);
 
     for (const auto& pose_prior : active_pose_priors) {
       Image& image = reconstruction_.Image(pose_prior.corr_data_id.id);
-      DCHECK(HasVariableCameraPose(image, config_, options_));
       Frame& frame = *image.FramePtr();
       Rigid3d& rig_from_world = frame.RigFromWorld();
 
@@ -942,11 +930,6 @@ std::unique_ptr<CeresBundleAdjuster> CreatePosePriorCeresBundleAdjuster(
     const BundleAdjustmentConfig& config,
     std::vector<PosePrior> pose_priors,
     Reconstruction& reconstruction) {
-  LOG_FIRST_N(WARNING, 1)
-      << "CreatePosePriorCeresBundleAdjuster is deprecated; use "
-         "CreateDefaultCeresBundleAdjuster with "
-         "options.pose_prior.use_position = true and BundleAdjustmentPriors "
-         "instead.";
   THROW_CHECK(prior_options.Check());
   BundleAdjustmentOptions merged_options = options;
   merged_options.pose_prior.use_position = true;

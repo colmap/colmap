@@ -201,9 +201,6 @@ struct BundleAdjustmentOptions : public BundleAdjustmentBackendOptions {
   // each iteration. Other backends may only evaluate it between solver runs.
   std::function<bool()> check_if_stopped;
 
-  // Whether any enabled prior constrains the metric scale of the scene.
-  bool ConstrainMetricScale() const;
-
   bool Check() const;
 };
 

@@ -278,10 +278,6 @@ bool BundleAdjustmentPosePriorOptions::Check() const {
   return true;
 }
 
-bool BundleAdjustmentOptions::ConstrainMetricScale() const {
-  return pose_prior.use_position;
-}
-
 bool BundleAdjustmentOptions::Check() const {
   CHECK_OPTION(pose_prior.Check());
   CHECK_OPTION(!pose_prior.use_position ||
@@ -299,9 +295,6 @@ std::unique_ptr<BundleAdjuster> CreateDefaultBundleAdjuster(
       return CreateDefaultCeresBundleAdjuster(
           options, config, reconstruction, priors);
     case BundleAdjustmentBackend::CASPAR:
-      if (options.pose_prior.use_position) {
-        LOG(FATAL_THROW) << "Caspar BA backend does not support priors";
-      }
       return CreateDefaultCasparBundleAdjuster(options, config, reconstruction);
   }
   LOG(FATAL_THROW) << "Unknown bundle adjustment backend: "

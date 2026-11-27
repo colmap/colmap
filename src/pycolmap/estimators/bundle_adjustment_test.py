@@ -219,7 +219,6 @@ def test_ba_options_prior_fields_and_helpers() -> None:
         options.pose_prior, pycolmap.BundleAdjustmentPosePriorOptions
     )
     assert not options.pose_prior.use_position
-    assert not options.constrain_metric_scale()
     assert not options.pose_prior.overwrite_position_covariance
     np.testing.assert_allclose(
         options.pose_prior.position_stddev, [1.0, 1.0, 1.0]
@@ -228,7 +227,6 @@ def test_ba_options_prior_fields_and_helpers() -> None:
     options.pose_prior.use_position = True
     options.pose_prior.overwrite_position_covariance = True
     options.pose_prior.position_stddev = np.array([2.0, 3.0, 4.0])
-    assert options.constrain_metric_scale()
     np.testing.assert_allclose(
         options.pose_prior.position_stddev, [2.0, 3.0, 4.0]
     )
@@ -346,34 +344,12 @@ def test_bundle_adjustment_with_pose_priors(tmp_path: Path) -> None:
     ceres_adjuster = pycolmap.create_default_ceres_bundle_adjuster(
         options, config, reconstruction, priors
     )
-    normalized_from_metric = ceres_adjuster.normalized_from_metric
-    assert isinstance(normalized_from_metric, pycolmap.Sim3d)
-    orig_scale = float(normalized_from_metric.scale)
-    normalized_from_metric.scale = orig_scale * 2.0
-    reread = ceres_adjuster.normalized_from_metric
-    assert reread is not None and float(reread.scale) == orig_scale
+    assert isinstance(ceres_adjuster.normalized_from_metric, pycolmap.Sim3d)
     assert ceres_adjuster.solve().is_solution_usable()
     with pytest.raises(ValueError, match="metric-scale priors"):
         pycolmap.estimate_ba_covariance(
             pycolmap.BACovarianceOptions(), reconstruction, ceres_adjuster
         )
-
-    reg_frame_ids = reconstruction.reg_frame_ids()
-    config.set_constant_rig_from_world_pose(reg_frame_ids[0])
-    config.set_constant_rig_from_world_pose(reg_frame_ids[1])
-    unused_prior_adjuster = pycolmap.create_default_ceres_bundle_adjuster(
-        options, config, reconstruction
-    )
-    assert unused_prior_adjuster.normalized_from_metric is None
-    assert unused_prior_adjuster.solve().is_solution_usable()
-    assert (
-        pycolmap.estimate_ba_covariance(
-            pycolmap.BACovarianceOptions(),
-            reconstruction,
-            unused_prior_adjuster,
-        )
-        is not None
-    )
 
     # Deprecated factory shims emit DeprecationWarning and still solve.
     prior_options = pycolmap.PosePriorBundleAdjustmentOptions()

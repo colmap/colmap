@@ -386,7 +386,6 @@ void BindBundleAdjuster(py::module& m) {
           .def_readwrite("caspar",
                          &BAOpts::caspar,
                          "Caspar-specific bundle adjustment options.")
-          .def("constrain_metric_scale", &BAOpts::ConstrainMetricScale)
           .def("check", &BAOpts::Check);
   MakeDataclass(PyBundleAdjustmentOptions);
 

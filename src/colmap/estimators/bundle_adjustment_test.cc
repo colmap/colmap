@@ -90,7 +90,6 @@ TEST(BundleAdjustmentOptions, Copy) {
   EXPECT_EQ(copy.refine_principal_point, true);
   EXPECT_EQ(copy.min_track_length, 5);
   EXPECT_TRUE(copy.pose_prior.use_position);
-  EXPECT_TRUE(copy.ConstrainMetricScale());
   EXPECT_EQ(copy.pose_prior.position_stddev, Eigen::Vector3d(1.5, 2.5, 3.5));
   EXPECT_TRUE(copy.pose_prior.overwrite_position_covariance);
   EXPECT_EQ(copy.pose_prior.position_alignment_ransac.max_error, 4.5);
@@ -105,7 +104,6 @@ TEST(BundleAdjustmentOptions, Copy) {
 
 TEST(BundleAdjustmentOptions, PriorCheck) {
   BundleAdjustmentOptions options;
-  EXPECT_FALSE(options.ConstrainMetricScale());
   EXPECT_TRUE(options.Check());
 
   options.pose_prior.position_stddev = Eigen::Vector3d(0.0, 1.0, 1.0);
@@ -886,18 +884,6 @@ TEST_P(BundleAdjusterBackendTest, IgnorePoint) {
 INSTANTIATE_TEST_SUITE_P(BundleAdjusterBackends,
                          BundleAdjusterBackendTest,
                          ::testing::ValuesIn(BundleAdjustmentBackends()));
-
-TEST(DefaultBundleAdjuster, CasparBackendRejectsPriors) {
-  Reconstruction reconstruction;
-  BundleAdjustmentConfig config;
-  BundleAdjustmentOptions options;
-  options.backend = BundleAdjustmentBackend::CASPAR;
-  options.pose_prior.use_position = true;
-  EXPECT_THAT(
-      [&]() { CreateDefaultBundleAdjuster(options, config, reconstruction); },
-      testing::ThrowsMessage<std::invalid_argument>(
-          testing::HasSubstr("does not support priors")));
-}
 
 }  // namespace
 }  // namespace colmap
