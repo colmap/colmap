@@ -727,6 +727,12 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
                        }),
         pose_priors_.end());
 
+    SetPosePriorPositionCovariances(
+        Eigen::Vector3d::Constant(
+            prior_options_.prior_position_fallback_stddev),
+        /*overwrite=*/false,
+        pose_priors_);
+
     const bool use_prior_position =
         pose_priors_.size() >= 3 && AlignReconstruction();
 
@@ -830,41 +836,26 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
     }
   }
 
-  // Weights the prior by its covariance, or by the isotropic fallback stddev
-  // when it has none. An isotropic covariance stays isotropic under the
-  // similarity transform, so the fallback only needs a scale.
   template <typename CostFunctor>
   ceres::CostFunction* CreatePositionPriorCostFunction(
       const PosePrior& pose_prior) const {
     const Eigen::Vector3d normalized_position =
         normalized_from_metric_ * pose_prior.position;
-    if (pose_prior.HasPositionCov()) {
-      const Eigen::Matrix3d normalized_from_metric_scaled_rotation =
-          normalized_from_metric_.scale() *
-          normalized_from_metric_.rotation().toRotationMatrix();
-      return CovarianceWeightedCostFunctor<CostFunctor>::Create(
-          normalized_from_metric_scaled_rotation *
-              pose_prior.position_covariance *
-              normalized_from_metric_scaled_rotation.transpose(),
-          normalized_position);
-    }
-    return ScaleWeightedCostFunctor<CostFunctor>::Create(
+    const Eigen::Matrix3d normalized_from_metric_scaled_rotation =
         normalized_from_metric_.scale() *
-            prior_options_.prior_position_fallback_stddev,
+        normalized_from_metric_.rotation().toRotationMatrix();
+    return CovarianceWeightedCostFunctor<CostFunctor>::Create(
+        normalized_from_metric_scaled_rotation *
+            pose_prior.position_covariance *
+            normalized_from_metric_scaled_rotation.transpose(),
         normalized_position);
   }
 
   bool AlignReconstruction() {
-    std::vector<PosePrior> pose_priors = pose_priors_;
-    SetPosePriorPositionCovariances(
-        Eigen::Vector3d::Constant(
-            prior_options_.prior_position_fallback_stddev),
-        /*overwrite=*/false,
-        pose_priors);
     Sim3d metric_from_orig;
     if (!AlignReconstructionToPosePriors(
             reconstruction_,
-            pose_priors,
+            pose_priors_,
             prior_options_.alignment_ransac_options,
             &metric_from_orig)) {
       LOG(WARNING) << "Alignment w.r.t. prior positions failed";
