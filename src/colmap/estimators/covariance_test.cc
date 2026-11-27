@@ -4,10 +4,12 @@
 
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/estimators/cost_functions/manifold.h"
+#include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/synthetic.h"
 
 #include <ceres/normal_prior.h>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -421,6 +423,57 @@ INSTANTIATE_TEST_SUITE_P(
           BACovarianceTestOptions test_options;
           return std::make_pair(options, test_options);
         }()));
+
+TEST(BACovariance, RejectsMetricScalePriors) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 4;
+  synthetic_options.num_points3D = 40;
+  synthetic_options.prior_position = true;
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  SynthesizeDataset(synthetic_options, &reconstruction, database.get());
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+  auto bundle_adjuster =
+      CreatePosePriorCeresBundleAdjuster(BundleAdjustmentOptions(),
+                                         PosePriorBundleAdjustmentOptions(),
+                                         config,
+                                         database->ReadAllPosePriors(),
+                                         reconstruction);
+  EXPECT_TRUE(bundle_adjuster->NormalizedFromMetric().has_value());
+  ASSERT_TRUE(bundle_adjuster->Solve()->IsSolutionUsable());
+
+  EXPECT_THAT(
+      [&]() {
+        EstimateBACovariance(
+            BACovarianceOptions(), reconstruction, *bundle_adjuster);
+      },
+      testing::ThrowsMessage<std::invalid_argument>(
+          testing::HasSubstr("metric-scale priors")));
+
+  // When no priors are active, the problem stays in the reconstruction frame
+  // and EstimateBACovariance succeeds once the gauge is fixed via constant
+  // poses.
+  const std::vector<frame_t> reg_frame_ids = reconstruction.RegFrameIds();
+  config.SetConstantRigFromWorldPose(reg_frame_ids[0]);
+  config.SetConstantRigFromWorldPose(reg_frame_ids[1]);
+  auto unnormalized_adjuster =
+      CreatePosePriorCeresBundleAdjuster(BundleAdjustmentOptions(),
+                                         PosePriorBundleAdjustmentOptions(),
+                                         config,
+                                         /*pose_priors=*/{},
+                                         reconstruction);
+  EXPECT_FALSE(unnormalized_adjuster->NormalizedFromMetric().has_value());
+  ASSERT_TRUE(unnormalized_adjuster->Solve()->IsSolutionUsable());
+  EXPECT_TRUE(EstimateBACovariance(
+                  BACovarianceOptions(), reconstruction, *unnormalized_adjuster)
+                  .has_value());
+}
 
 }  // namespace
 }  // namespace colmap

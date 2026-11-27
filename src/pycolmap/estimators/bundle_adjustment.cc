@@ -404,7 +404,22 @@ void BindBundleAdjuster(py::module& m) {
            }),
            "options"_a,
            "config"_a)
-      .def_property_readonly("problem", &CeresBundleAdjuster::Problem);
+      .def_property_readonly(
+          "problem",
+          &CeresBundleAdjuster::Problem,
+          "Underlying Ceres Problem. When `normalized_from_metric` is not "
+          "None, residuals are constructed in that internally normalized "
+          "frame while `reconstruction` holds metric parameter values outside "
+          "`solve()`; custom residuals must map metric constants with "
+          "`normalized_from_metric`, and `problem` must not be solved directly "
+          "on metric parameters or passed to "
+          "`estimate_ba_covariance_from_problem`.")
+      .def_property_readonly(
+          "normalized_from_metric",
+          &CeresBundleAdjuster::NormalizedFromMetric,
+          "Similarity transform from metric reconstruction coordinates to the "
+          "internal normalized solver frame when metric priors are active, or "
+          "None otherwise.");
 
   m.def("create_default_bundle_adjuster",
         CreateDefaultBundleAdjuster,
