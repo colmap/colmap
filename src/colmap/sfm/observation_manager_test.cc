@@ -772,5 +772,26 @@ TEST(ObservationManager, AddImage) {
   EXPECT_EQ(obs_manager.Point3DVisibilityScore(3), 0);
 }
 
+TEST(ObservationManager, RegImageMissingFromCorrespondenceGraph) {
+  Reconstruction reconstruction;
+  GenerateReconstruction(3, reconstruction);
+
+  // Only images 1 and 2 are in the correspondence graph; registered image 3
+  // has no verified two-view geometry (e.g. when continuing a reconstruction
+  // with load_all_images=false).
+  auto correspondence_graph = std::make_shared<CorrespondenceGraph>();
+  correspondence_graph->AddImage(1, 10);
+  correspondence_graph->AddImage(2, 10);
+  TwoViewGeometry two_view_geometry;
+  two_view_geometry.inlier_matches.emplace_back(0, 0);
+  correspondence_graph->AddTwoViewGeometry(1, 2, two_view_geometry);
+  correspondence_graph->Finalize();
+
+  ObservationManager obs_manager(reconstruction, correspondence_graph);
+  EXPECT_EQ(obs_manager.NumObservations(1), 1);
+  EXPECT_EQ(obs_manager.NumObservations(2), 1);
+  EXPECT_EQ(obs_manager.NumObservations(3), 0);
+}
+
 }  // namespace
 }  // namespace colmap

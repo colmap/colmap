@@ -53,13 +53,15 @@ ObservationManager::ObservationManager(
   // registered previously, we need to initialize the observation bookkeeping.
   for (const image_t image_id : reconstruction_.RegImageIds()) {
     const Image& image = reconstruction_.Image(image_id);
+    const bool exists_in_correspondence_graph =
+        correspondence_graph_ && correspondence_graph_->ExistsImage(image_id);
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
          ++point2D_idx) {
       if (image.Point2D(point2D_idx).HasPoint3D()) {
         SetObservationAsTriangulated(
             image_id, point2D_idx, /*is_continued_point3D=*/false);
       }
-      if (correspondence_graph_) {
+      if (exists_in_correspondence_graph) {
         const auto corr_range =
             correspondence_graph_->FindCorrespondences(image_id, point2D_idx);
         for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
@@ -142,6 +144,8 @@ ObservationManager::ImageStat ObservationManager::InitImageStat(
   image_stat.num_visible_correspondences = 0;
   image_stat.num_correspondences_have_point3D.resize(image.NumPoints2D(), 0);
   image_stat.num_visible_points3D = 0;
+  image_stat.num_observations = 0;
+  image_stat.num_correspondences = 0;
   if (correspondence_graph_ && correspondence_graph_->ExistsImage(image_id)) {
     image_stat.num_observations =
         correspondence_graph_->NumObservationsForImage(image_id);
