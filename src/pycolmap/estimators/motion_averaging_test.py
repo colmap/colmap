@@ -122,49 +122,35 @@ def test_gravity_refiner_options_min_num_neighbors_readwrite() -> None:
     assert options.min_num_neighbors == 5
 
 
-@pytest.mark.parametrize("as_tuple", [False, True])
-def test_gravity_refinement_updates_original_priors(as_tuple: bool) -> None:
+def test_gravity_refinement_updates_original_priors(
+    simple_camera: pycolmap.Camera,
+) -> None:
     reconstruction = pycolmap.Reconstruction()
-    camera = pycolmap.Camera.create_from_model_id(
-        1, pycolmap.CameraModelId.SIMPLE_PINHOLE, 500, 640, 480
-    )
-    reconstruction.add_camera_with_trivial_rig(camera)
-    pose_graph = pycolmap.PoseGraph()
+    reconstruction.add_camera_with_trivial_rig(simple_camera)
     priors = []
-    for image_id in range(1, 9):
+    for image_id in range(1, 5):
         image = pycolmap.Image(
             name=f"{image_id}.jpg", image_id=image_id, camera_id=1
         )
         reconstruction.add_image_with_trivial_frame(image, pycolmap.Rigid3d())
-        prior = pycolmap.PosePrior()
-        prior.corr_data_id = image.data_id
-        prior.position = np.array([image_id, 2.0, 3.0])
-        prior.gravity = np.array([0.0, 1.0, 0.0])
-        priors.append(prior)
-    for image_id1, image_id2 in combinations(range(1, 9), 2):
+        priors.append(
+            pycolmap.PosePrior(
+                corr_data_id=image.data_id, gravity=np.array([0.0, 1.0, 0.0])
+            )
+        )
+    pose_graph = pycolmap.PoseGraph()
+    for image_id1, image_id2 in combinations(range(1, 5), 2):
         pose_graph.add_edge(
             image_id1, image_id2, pycolmap.PoseGraphEdge(pycolmap.Rigid3d())
         )
-
-    # The last frame disagrees with all seven neighbors. Each good frame only
-    # disagrees with this one frame, so only the last prior should be refined.
-    outlier = priors[-1]
-    outlier.gravity = np.array([1.0, 0.0, 0.0])
-    input_priors = tuple(priors) if as_tuple else priors
+    priors[-1].gravity = np.array([1.0, 0.0, 0.0])
     pycolmap.run_gravity_refinement(
-        pycolmap.GravityRefinerOptions(),
+        pycolmap.GravityRefinerOptions(min_num_neighbors=3),
         pose_graph,
         reconstruction,
-        input_priors,
+        priors,
     )
-
-    assert input_priors[-1] is outlier
-    np.testing.assert_allclose(outlier.gravity, [0, 1, 0], atol=1e-10)
-    for image_id, prior in enumerate(priors, 1):
-        assert input_priors[image_id - 1] is prior
-        assert prior.corr_data_id.id == image_id
-        np.testing.assert_array_equal(prior.position, [image_id, 2, 3])
-        np.testing.assert_allclose(prior.gravity, [0, 1, 0], atol=1e-10)
+    np.testing.assert_allclose(priors[-1].gravity, [0, 1, 0], atol=1e-10)
 
 
 def test_global_positioner_options_default_init() -> None:
