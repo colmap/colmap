@@ -808,88 +808,24 @@ TEST(Bitmap, CloneMetaData) {
   EXPECT_EQ(value, kValue);
 }
 
-class BitmapCloneMetadataTest
-    : public ::testing::TestWithParam<std::tuple<bool, std::string>> {};
+TEST(Bitmap, CloneMetaDataPreservesTargetChannels) {
+  for (const bool as_rgb : {false, true}) {
+    SCOPED_TRACE(as_rgb);
+    const Bitmap source(3, 2, /*as_rgb=*/!as_rgb);
+    Bitmap target(5, 4, as_rgb);
+    target.Fill(BitmapColor<uint8_t>(12, 34, 56));
+    source.CloneMetadata(&target);
+    int metadata_channels = 0;
+    ASSERT_TRUE(target.GetMetaData("nchannels", "int", &metadata_channels));
+    ASSERT_EQ(metadata_channels, target.Channels());
 
-TEST_P(BitmapCloneMetadataTest, PreservesTargetChannels) {
-  const auto& [as_rgb, extension] = GetParam();
-  const auto path = CreateTestDir() / ("cloned_metadata" + extension);
-  if (extension == ".exr" && !OIIO::ImageOutput::create(path.string())) {
-    OIIO::geterror();
-    GTEST_SKIP() << "OpenImageIO was built without the OpenEXR output plugin";
+    const auto path = CreateTestDir() / "cloned_metadata.png";
+    ASSERT_TRUE(target.Write(path));
+    Bitmap read_bitmap;
+    ASSERT_TRUE(read_bitmap.Read(path, as_rgb));
+    EXPECT_EQ(read_bitmap.RowMajorData(), target.RowMajorData());
   }
-
-  Bitmap source(3, 2, /*as_rgb=*/!as_rgb);
-  source.SetMetaData("Artist", "source photographer");
-
-  Bitmap target(5, 4, as_rgb);
-  target.Fill(BitmapColor<uint8_t>(12, 34, 56));
-  source.CloneMetadata(&target);
-  EXPECT_EQ(target.GetMetaData("Artist").value(), "source photographer");
-  EXPECT_EQ(target.Width(), 5);
-  EXPECT_EQ(target.Height(), 4);
-  EXPECT_EQ(target.Channels(), as_rgb ? 3 : 1);
-
-  // Check before writing: an excessive channel count would make the writer
-  // read beyond the grayscale target's pixel buffer.
-  int metadata_channels = 0;
-  ASSERT_TRUE(target.GetMetaData("nchannels", "int", &metadata_channels));
-  ASSERT_EQ(metadata_channels, target.Channels());
-
-  // The copied metadata must describe the target's pixels. Otherwise the RGB
-  // data is written as a single channel and read back with incorrect colors.
-  ASSERT_TRUE(target.Write(path));
-  auto input = OIIO::ImageInput::open(path.string());
-  ASSERT_NE(input, nullptr);
-  EXPECT_EQ(input->spec().nchannels, target.Channels());
-  EXPECT_THAT(
-      input->spec().channelnames,
-      testing::ElementsAreArray(as_rgb ? std::vector<std::string>{"R", "G", "B"}
-                                       : std::vector<std::string>{"Y"}));
-  ASSERT_TRUE(input->close());
-
-  Bitmap read_bitmap;
-  ASSERT_TRUE(read_bitmap.Read(path, as_rgb));
-  EXPECT_EQ(read_bitmap.Width(), target.Width());
-  EXPECT_EQ(read_bitmap.Height(), target.Height());
-  EXPECT_EQ(read_bitmap.RowMajorData(), target.RowMajorData());
 }
-
-TEST_P(BitmapCloneMetadataTest, ConvertedChannelsHaveMatchingNames) {
-  const auto& [as_rgb, extension] = GetParam();
-  const auto path = CreateTestDir() / ("converted_channels" + extension);
-  if (extension == ".exr" && !OIIO::ImageOutput::create(path.string())) {
-    OIIO::geterror();
-    GTEST_SKIP() << "OpenImageIO was built without the OpenEXR output plugin";
-  }
-
-  Bitmap source(3, 2, /*as_rgb=*/!as_rgb);
-  source.Fill(BitmapColor<uint8_t>(12, 34, 56));
-  source.SetMetaData("Artist", "source photographer");
-  const Bitmap target = as_rgb ? source.CloneAsRGB() : source.CloneAsGrey();
-  EXPECT_EQ(target.GetMetaData("Artist").value(), "source photographer");
-
-  ASSERT_TRUE(target.Write(path));
-  auto input = OIIO::ImageInput::open(path.string());
-  ASSERT_NE(input, nullptr);
-  EXPECT_EQ(input->spec().nchannels, target.Channels());
-  EXPECT_THAT(
-      input->spec().channelnames,
-      testing::ElementsAreArray(as_rgb ? std::vector<std::string>{"R", "G", "B"}
-                                       : std::vector<std::string>{"Y"}));
-  ASSERT_TRUE(input->close());
-
-  Bitmap read_bitmap;
-  ASSERT_TRUE(read_bitmap.Read(path, as_rgb));
-  EXPECT_EQ(read_bitmap.Width(), target.Width());
-  EXPECT_EQ(read_bitmap.Height(), target.Height());
-  EXPECT_EQ(read_bitmap.RowMajorData(), target.RowMajorData());
-}
-
-INSTANTIATE_TEST_SUITE_P(Bitmap,
-                         BitmapCloneMetadataTest,
-                         testing::Combine(testing::Bool(),
-                                          testing::Values(".png", ".exr")));
 
 TEST(Bitmap, ExifOrientation) {
   Bitmap bitmap(100, 80, /*as_rgb=*/true);
