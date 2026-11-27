@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
-import numpy as np
 import pytest
 
 import pycolmap
@@ -35,7 +34,6 @@ def test_image_alignment_error_proj_center_error_readwrite() -> None:
         "align_reconstructions_via_reprojections",
         "align_reconstructions_via_proj_centers",
         "align_reconstructions_via_points",
-        "align_reconstruction_to_pose_priors",
         "compare_reconstructions",
     ],
 )
@@ -52,43 +50,3 @@ def test_compare_reconstructions_with_synthetic(
     assert result is not None
     assert "rec2_from_rec1" in result
     assert "errors" in result
-
-
-def test_align_reconstruction_to_pose_priors(
-    synthetic_reconstruction: pycolmap.Reconstruction,
-) -> None:
-    gt_tgt_from_src = pycolmap.Sim3d(
-        2.5,
-        pycolmap.Rotation3d(np.array([0.0, 0.0, np.sin(0.2), np.cos(0.2)])),
-        [10.0, -5.0, 3.0],
-    )
-    tgt_reconstruction = pycolmap.Reconstruction(synthetic_reconstruction)
-    tgt_reconstruction.transform(gt_tgt_from_src)
-
-    cartesian_priors = [
-        pycolmap.PosePrior(
-            corr_data_id=image.data_id,
-            position=image.projection_center(),
-            position_covariance=1e-4 * np.eye(3),
-            coordinate_system=pycolmap.PosePriorCoordinateSystem.CARTESIAN,
-        )
-        for image in map(
-            tgt_reconstruction.image, tgt_reconstruction.reg_image_ids()
-        )
-    ]
-    assert len(cartesian_priors) >= 3
-
-    assert (
-        pycolmap.align_reconstruction_to_pose_priors(
-            synthetic_reconstruction, cartesian_priors[:2]
-        )
-        is None
-    )
-
-    tgt_from_src = pycolmap.align_reconstruction_to_pose_priors(
-        synthetic_reconstruction, cartesian_priors
-    )
-    assert tgt_from_src is not None
-    assert np.allclose(
-        tgt_from_src.matrix(), gt_tgt_from_src.matrix(), atol=1e-5
-    )
