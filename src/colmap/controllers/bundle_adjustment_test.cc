@@ -58,25 +58,33 @@ TEST(BundleAdjustmentController, Reconstruction) {
   synthetic_options.num_points3D = 100;
   SynthesizeDataset(synthetic_options, &gt_reconstruction);
 
-  auto reconstruction = std::make_shared<Reconstruction>(gt_reconstruction);
-
   SyntheticNoiseOptions noise_options;
   noise_options.point2D_stddev = 0.1;
   noise_options.point3D_stddev = 0.1;
   noise_options.rig_from_world_rotation_stddev = 0.1;
   noise_options.rig_from_world_translation_stddev = 0.1;
-  SynthesizeNoise(noise_options, reconstruction.get());
 
-  OptionManager options;
-  BundleAdjustmentController controller(options, reconstruction);
-  controller.Run();
+  const auto database_path = CreateTestDir() / "database.db";
+  Database::Open(database_path);
 
-  EXPECT_THAT(gt_reconstruction,
-              ReconstructionNear(*reconstruction,
-                                 /*max_rotation_error_deg=*/0.1,
-                                 /*max_proj_center_error=*/0.1,
-                                 /*max_scale_error=*/std::nullopt,
-                                 /*num_obs_tolerance=*/0.0));
+  // Without usable priors, position priors fall back to standard BA.
+  for (const bool use_prior_position : {false, true}) {
+    auto reconstruction = std::make_shared<Reconstruction>(gt_reconstruction);
+    SynthesizeNoise(noise_options, reconstruction.get());
+
+    OptionManager options;
+    *options.database_path = database_path;
+    options.bundle_adjustment->pose_prior.use_position = use_prior_position;
+    BundleAdjustmentController controller(options, reconstruction);
+    controller.Run();
+
+    EXPECT_THAT(gt_reconstruction,
+                ReconstructionNear(*reconstruction,
+                                   /*max_rotation_error_deg=*/0.1,
+                                   /*max_proj_center_error=*/0.1,
+                                   /*max_scale_error=*/std::nullopt,
+                                   /*num_obs_tolerance=*/0.0));
+  }
 }
 
 TEST(BundleAdjustmentController, MissingDatabasePathThrowsWhenPriorsEnabled) {
@@ -104,40 +112,6 @@ TEST(BundleAdjustmentController, MissingDatabasePathThrowsWhenPriorsEnabled) {
               testing::ThrowsMessage<std::invalid_argument>(
                   testing::HasSubstr("does not exist")));
   EXPECT_FALSE(std::filesystem::exists(missing_db_path));
-}
-
-TEST(BundleAdjustmentController,
-     EmptyPriorsFallBackToStandardBundleAdjustment) {
-  const auto database_path = CreateTestDir() / "database.db";
-
-  Reconstruction gt_reconstruction;
-  SyntheticDatasetOptions synthetic_options;
-  synthetic_options.num_rigs = 1;
-  synthetic_options.num_cameras_per_rig = 1;
-  synthetic_options.num_frames_per_rig = 3;
-  synthetic_options.num_points3D = 50;
-  SynthesizeDataset(synthetic_options,
-                    &gt_reconstruction,
-                    Database::Open(database_path).get());
-
-  auto reconstruction = std::make_shared<Reconstruction>(gt_reconstruction);
-  SyntheticNoiseOptions noise_options;
-  noise_options.point2D_stddev = 0.1;
-  noise_options.point3D_stddev = 0.05;
-  noise_options.rig_from_world_rotation_stddev = 0.05;
-  noise_options.rig_from_world_translation_stddev = 0.05;
-  SynthesizeNoise(noise_options, reconstruction.get());
-
-  OptionManager options;
-  *options.database_path = database_path;
-  options.bundle_adjustment->pose_prior.use_position = true;
-
-  BundleAdjustmentController controller(options, reconstruction);
-  EXPECT_NO_THROW(controller.Run());
-  EXPECT_THAT(gt_reconstruction,
-              ReconstructionNear(*reconstruction,
-                                 /*max_rotation_error_deg=*/0.1,
-                                 /*max_proj_center_error=*/0.1));
 }
 
 }  // namespace

@@ -452,10 +452,9 @@ available as ``colmap [command]``:
   same database the model was built from, so ``image_id`` values match) together
   with ``--BundleAdjustment.use_prior_position 1`` to include position priors;
   when at least 3 valid priors are present (with at least one variable camera
-  pose), the output model is aligned into the prior frame (local ENU anchored at
-  the first WGS84 prior), so run ``model_aligner`` afterwards if another target
-  coordinate frame is needed; otherwise, a warning is logged and the priors are
-  ignored.
+  pose), the output model is aligned into the prior frame, so run
+  ``model_aligner`` afterwards if another target coordinate frame is needed;
+  otherwise, a warning is logged and the priors are ignored.
   The solver backend is selected via ``--BundleAdjustment.backend`` (``CERES``
   or ``CASPAR``). Caspar [caspar]_ is an experimental GPU-accelerated backend;
   see :doc:`faq` for details and limitations.

@@ -82,8 +82,6 @@ BundleAdjustmentWidget::BundleAdjustmentWidget(MainWindow* main_window,
     prior_position_loss_combo_->addItem(
         QString::fromUtf8(name.data(), name.size()));
   }
-  prior_position_loss_combo_->setCurrentIndex(static_cast<int>(
-      options->bundle_adjustment->ceres->prior_position_loss_function_type));
   connect(
       prior_position_loss_combo_,
       QOverload<int>::of(&QComboBox::currentIndexChanged),
