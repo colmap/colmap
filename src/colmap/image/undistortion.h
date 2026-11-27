@@ -75,10 +75,10 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
 // Whether undistortion leaves the camera and its images unchanged, so that the
 // images can be copied through as-is: no max_image_size is requested and the
 // camera is either spherical (no pinhole image plane to undistort to) or an
-// undistorted pinhole camera without a target camera. Fisheye cameras always
-// need conversion to pinhole, even with zero distortion. The undistorted
-// reconstruction and the undistorted images must make the same decision to
-// stay consistent.
+// undistorted pinhole camera without a target camera or cropped ROI. Fisheye
+// cameras always need conversion to pinhole, even with zero distortion. The
+// undistorted reconstruction and the undistorted images must make the same
+// decision to stay consistent.
 bool IsUndistortionNoOp(const UndistortCameraOptions& options,
                         const Camera& camera);
 

@@ -126,6 +126,41 @@ TEST(COLMAPUndistorter, UndistortsZeroDistortionFisheyeCameras) {
             PinholeCameraModel::model_id);
 }
 
+TEST(COLMAPUndistorter, RegionOfInterest) {
+  const auto temp_dir = CreateTestDir();
+  const auto image_path = temp_dir / "input_images";
+  const auto output_path = temp_dir / "output";
+  CreateDirIfNotExists(image_path);
+  CreateDirIfNotExists(output_path);
+  const Reconstruction reconstruction =
+      CreateSyntheticReconstructionWithBitmaps(image_path,
+                                               1,
+                                               100,
+                                               80,
+                                               ".png",
+                                               CameraModelId::kPinhole,
+                                               {100, 100, 50, 40});
+  UndistortCameraOptions camera_options;
+  camera_options.roi_min_x = camera_options.roi_min_y = 0.25;
+  camera_options.roi_max_x = camera_options.roi_max_y = 0.75;
+  COLMAPUndistorter undistorter(COLMAPUndistorter::Options(),
+                                camera_options,
+                                reconstruction,
+                                image_path,
+                                output_path);
+  undistorter.Run();
+
+  Reconstruction output_reconstruction;
+  output_reconstruction.Read(output_path / "sparse");
+  EXPECT_EQ(output_reconstruction.Camera(1).width, 50);
+  EXPECT_EQ(output_reconstruction.Camera(1).height, 40);
+  Bitmap bitmap;
+  ASSERT_TRUE(bitmap.Read(output_path / "images" /
+                          reconstruction.Images().begin()->second.Name()));
+  EXPECT_EQ(bitmap.Width(), 50);
+  EXPECT_EQ(bitmap.Height(), 40);
+}
+
 TEST(COLMAPUndistorter, StopsPendingWork) {
   const auto temp_dir = CreateTestDir();
   const auto image_path = temp_dir / "input_images";
