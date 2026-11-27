@@ -31,26 +31,13 @@ std::string GetCudaErrorMessage(const cudaError_t error) {
   return message;
 }
 
-CudaTimer::CudaTimer() : start_(nullptr), stop_(nullptr) {
-  bool start_created = false;
-  bool stop_created = false;
-  try {
-    const auto start_status = cudaEventCreate(&start_);
-    start_created = start_status == cudaSuccess;
-    CUDA_SAFE_CALL(start_status);
-    const auto stop_status = cudaEventCreate(&stop_);
-    stop_created = stop_status == cudaSuccess;
-    CUDA_SAFE_CALL(stop_status);
-    CUDA_SAFE_CALL(cudaEventRecord(start_, 0));
-  } catch (...) {
-    if (start_created) (void)cudaEventDestroy(start_);
-    if (stop_created) (void)cudaEventDestroy(stop_);
-    throw;
-  }
+CudaTimer::CudaTimer() {
+  CUDA_SAFE_CALL(cudaEventCreate(&start_));
+  CUDA_SAFE_CALL(cudaEventCreate(&stop_));
+  CUDA_SAFE_CALL(cudaEventRecord(start_, 0));
 }
 
 CudaTimer::~CudaTimer() {
-  // Cleanup must not throw or prevent an attempt to release the second event.
   (void)cudaEventDestroy(start_);
   (void)cudaEventDestroy(stop_);
 }
