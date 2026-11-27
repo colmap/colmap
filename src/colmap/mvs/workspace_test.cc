@@ -5,9 +5,11 @@
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/file.h"
+#include "colmap/util/misc.h"
 #include "colmap/util/testing.h"
 
 #include <filesystem>
+#include <fstream>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -117,6 +119,30 @@ INSTANTIATE_TEST_SUITE_P(WorkspaceTests,
                                return std::make_unique<CachedWorkspace>(
                                    options);
                              }));
+
+TEST(Workspace, ImportPMVSClusterVisibility) {
+  const auto path = CreateTestDir();
+  CreateDirIfNotExists(path / "visualize");
+  CreateDirIfNotExists(path / "txt");
+  for (int i = 0; i < 2; ++i) {
+    ASSERT_TRUE(Bitmap(32, 24, true)
+                    .Write(path / "visualize" / StringPrintf("%08d.jpg", i)));
+    std::ofstream projection(path / "txt" / StringPrintf("%08d.txt", i));
+    projection << "CONTOUR\n32 0 16 " << -32 * i << "\n0 32 12 0\n0 0 1 0\n";
+  }
+  std::ofstream(path / "vis.dat") << "VISDATA\n2\n0 1 1\n1 1 0\n";
+  std::ofstream(path / "option-cluster") << "timages 1 1\n";
+  Workspace::Options options;
+  options.workspace_path = path;
+  options.workspace_format = "PMVS";
+  Workspace workspace(options);
+  ImportPMVSWorkspace(workspace, "option-cluster");
+  const auto config = ReadTextFileLines(path / "stereo" / "patch-match.cfg");
+  ASSERT_EQ(config.size(), 2);
+  EXPECT_EQ(config[0], "00000001.jpg");
+  EXPECT_THAT(CSVToVector<std::string>(config[1]),
+              testing::ElementsAre("00000000.jpg"));
+}
 
 }  // namespace
 }  // namespace mvs
