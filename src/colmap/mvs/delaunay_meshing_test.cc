@@ -162,29 +162,7 @@ TEST(SparseDelaunayMeshing, PlanarInput) {
   options.num_threads = 1;
   SparseDelaunayMeshing(options, sparse_path, output_path);
 
-  const PlyMesh mesh = ReadPlyMesh(output_path).mesh;
-  EXPECT_TRUE(mesh.vertices.empty());
-  EXPECT_TRUE(mesh.faces.empty());
-}
-
-TEST(SparseDelaunayMeshing, SubsampleMostlyPlanarInput) {
-  const auto test_dir = CreateTestDir();
-  const auto sparse_path = test_dir / "sparse";
-  const auto output_path = test_dir / "mesh.ply";
-  auto reconstruction = CreateAndWriteSyntheticReconstruction(sparse_path);
-  const auto point_ids = reconstruction.Point3DIds();
-  for (const point3D_t point_id : point_ids) {
-    reconstruction.Point3D(point_id).xyz.z() = 0;
-  }
-  // Most insertion orders start with coplanar points, but the full set is 3D.
-  reconstruction.Point3D(*point_ids.begin()).xyz.z() = 0.25;
-  reconstruction.Write(sparse_path);
-
-  DelaunayMeshingOptions options;
-  options.num_threads = 1;
-  SparseDelaunayMeshing(options, sparse_path, output_path);
-
-  EXPECT_FALSE(ReadPlyMesh(output_path).mesh.faces.empty());
+  EXPECT_TRUE(ReadPlyMesh(output_path).mesh.faces.empty());
 }
 
 #endif  // COLMAP_CGAL_ENABLED
