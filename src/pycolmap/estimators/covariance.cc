@@ -123,10 +123,11 @@ void BindCovarianceEstimator(py::module& m) {
       "problem. It is important that the problem has a structure suitable for "
       "solving using the Schur complement trick. This is the case for the "
       "standard configuration of bundle adjustment problems, but be careful "
-      "if you modify the underlying problem with custom residuals. The "
-      "problem must have a fixed gauge (e.g., via constant poses/points) so "
-      "that the Schur complement is full-rank. Returns None if the estimation "
-      "was not successful.");
+      "if you modify the underlying problem with custom residuals. If the "
+      "problem leaves the gauge free, the pose and other covariances are "
+      "returned in the minimum-trace gauge (any rank deficiency of dimension "
+      "<= 7 supported solely on pose parameters is treated as a gauge "
+      "freedom). Returns None if the estimation was not successful.");
 
   m.def(
       "estimate_ba_covariance_from_problem",
@@ -138,8 +139,9 @@ void BindCovarianceEstimator(py::module& m) {
       "problem. It is important that the problem has a structure suitable for "
       "solving using the Schur complement trick. This is the case for the "
       "standard configuration of bundle adjustment problems, but be careful "
-      "if you modify the underlying problem with custom residuals. The "
-      "problem must have a fixed gauge (e.g., via constant poses/points) so "
-      "that the Schur complement is full-rank. Returns None if the estimation "
-      "was not successful.");
+      "if you modify the underlying problem with custom residuals. If the "
+      "problem leaves the gauge free, the pose and other covariances are "
+      "returned in the minimum-trace gauge (any rank deficiency of dimension "
+      "<= 7 supported solely on pose parameters is treated as a gauge "
+      "freedom). Returns None if the estimation was not successful.");
 }

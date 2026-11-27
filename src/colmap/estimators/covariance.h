@@ -92,8 +92,14 @@ struct BACovarianceOptions {
 // important that the problem has a structure suitable for solving using the
 // Schur complement trick. This is the case for the standard configuration of
 // bundle adjustment problems, but be careful if you modify the underlying
-// problem with custom residuals. The problem must have a fixed gauge (e.g., via
-// constant poses/points) so that the Schur complement is full-rank.
+// problem with custom residuals. If the problem leaves the gauge free (up to
+// the 7 DoF of a similarity transform), the pose and other covariances are
+// returned in the minimum-trace gauge, i.e., the pseudo-inverse of the Schur
+// complement. Note that any rank deficiency of dimension <= 7 supported solely
+// on pose parameters is treated as a gauge freedom (underconstrained poses in
+// otherwise fixed-gauge problems are not distinguished from a free gauge).
+// Point covariances are conditioned on the pose and other parameters and thus
+// independent of the gauge.
 // Returns null if the estimation was not successful.
 std::optional<BACovariance> EstimateBACovariance(
     const BACovarianceOptions& options,
