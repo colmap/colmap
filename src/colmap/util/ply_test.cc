@@ -14,6 +14,7 @@
 #include <fstream>
 #include <iterator>
 #include <limits>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -915,14 +916,23 @@ TEST(Ply, FailedOutputIsReported) {
 #ifdef __linux__
 TEST(Ply, BinaryPayloadFailureIsReported) {
   const auto path = CreateTestDir() / "limited.ply";
-  const std::vector<PlyPoint> points(64);
   auto mesh = CreateTestTexturedMesh();
   mesh.face_uvs.clear();
   mesh.mesh.faces.resize(128, mesh.mesh.faces.front());
-  for (const bool write_mesh : {false, true}) {
-    SCOPED_TRACE(write_mesh);
+  struct TestCase {
+    bool write_mesh;
+    size_t num_points;
+    rlim_t file_limit;
+  };
+  for (const TestCase test : {TestCase{true, 0, 1024},
+                              {false, 64, 1024},
+                              {false, 40001, 1024 * 1024}}) {
+    SCOPED_TRACE(::testing::Message()
+                 << test.write_mesh << ", points=" << test.num_points
+                 << ", limit=" << test.file_limit);
+    const std::vector<PlyPoint> points(test.num_points);
     const auto Write = [&] {
-      if (write_mesh) {
+      if (test.write_mesh) {
         WriteBinaryPlyMesh(path, mesh);
       } else {
         WriteBinaryPlyPoints(path, points);
@@ -934,12 +944,12 @@ TEST(Ply, BinaryPayloadFailureIsReported) {
     input.close();
     const size_t header_end = bytes.find("end_header\n");
     ASSERT_NE(header_end, std::string::npos);
-    ASSERT_LT(header_end + std::string("end_header\n").size(), 1024);
-    ASSERT_GT(bytes.size(), 1024);
-    ASSERT_LT(bytes.size(), 4096);
+    ASSERT_LT(header_end + std::string("end_header\n").size(), test.file_limit);
+    ASSERT_GT(bytes.size(), test.file_limit);
     ASSERT_TRUE(std::filesystem::remove(path));
     // Restrict only the isolated child. The header fits; the buffered binary
-    // payload reaches the file-size limit and must be reported on completion.
+    // payload reaches the file-size limit and must be reported on completion,
+    // including multi-chunk point output.
     EXPECT_EXIT(
         {
           struct rlimit limit;
@@ -947,7 +957,7 @@ TEST(Ply, BinaryPayloadFailureIsReported) {
               std::signal(SIGXFSZ, SIG_IGN) == SIG_ERR) {
             std::_Exit(2);
           }
-          limit.rlim_cur = 1024;
+          limit.rlim_cur = test.file_limit;
           if (setrlimit(RLIMIT_FSIZE, &limit) != 0) std::_Exit(2);
           try {
             Write();
@@ -962,7 +972,7 @@ TEST(Ply, BinaryPayloadFailureIsReported) {
         },
         testing::ExitedWithCode(0),
         "");
-    EXPECT_EQ(std::filesystem::file_size(path), 1024);
+    EXPECT_EQ(std::filesystem::file_size(path), test.file_limit);
   }
 }
 #endif
@@ -1055,6 +1065,73 @@ TEST(Ply, MeshWriterPayloadAndColorRetention) {
       EXPECT_EQ(points[i].r, mesh.mesh.vertices[i].r);
       EXPECT_EQ(points[i].g, mesh.mesh.vertices[i].g);
       EXPECT_EQ(points[i].b, mesh.mesh.vertices[i].b);
+    }
+  }
+}
+
+TEST(Ply, BinaryPointWireBytes) {
+  const auto test_dir = CreateTestDir();
+  const auto test_file = test_dir / "wire.ply";
+  const std::array<float, 7> values = {0.0f,
+                                       -0.0f,
+                                       std::numeric_limits<float>::denorm_min(),
+                                       std::numeric_limits<float>::max(),
+                                       std::numeric_limits<float>::lowest(),
+                                       std::numeric_limits<float>::infinity(),
+                                       std::numeric_limits<float>::quiet_NaN()};
+  for (const bool write_normal : {false, true}) {
+    for (const bool write_rgb : {false, true}) {
+      // Bracket the 27 KiB chunk capacity for this record layout.
+      const size_t record_bytes =
+          12 + (write_normal ? 12 : 0) + (write_rgb ? 3 : 0);
+      const size_t capacity = 27 * 1024 / record_bytes;
+      for (const size_t count :
+           {size_t{0}, size_t{1}, capacity - 1, capacity, capacity + 1}) {
+        std::vector<PlyPoint> points(count);
+        for (size_t i = 0; i < count; ++i) {
+          auto& point = points[i];
+          point.x = values[i % values.size()];
+          point.y = values[(i + 1) % values.size()];
+          point.z = values[(i + 2) % values.size()];
+          point.nx = values[(i + 3) % values.size()];
+          point.ny = values[(i + 4) % values.size()];
+          point.nz = values[(i + 5) % values.size()];
+          point.r = static_cast<uint8_t>(i);
+          point.g = static_cast<uint8_t>(17 * i + 3);
+          point.b = static_cast<uint8_t>(31 * i + 7);
+        }
+        SCOPED_TRACE(::testing::Message()
+                     << count << " points, normal=" << write_normal
+                     << ", rgb=" << write_rgb);
+        WriteBinaryPlyPoints(test_file, points, write_normal, write_rgb);
+        std::ifstream file(test_file, std::ios::binary);
+        ASSERT_TRUE(file.is_open());
+        const std::string actual((std::istreambuf_iterator<char>(file)),
+                                 std::istreambuf_iterator<char>());
+        const size_t marker = actual.find("end_header");
+        ASSERT_NE(marker, std::string::npos);
+        const size_t header_end = actual.find('\n', marker);
+        ASSERT_NE(header_end, std::string::npos);
+        // The scalar wire writer independently defines field order and endian
+        // conversion, including signed zero and non-finite float bits.
+        std::ostringstream expected(std::ios::out | std::ios::binary);
+        for (const auto& point : points) {
+          WriteBinaryLittleEndian<float>(&expected, point.x);
+          WriteBinaryLittleEndian<float>(&expected, point.y);
+          WriteBinaryLittleEndian<float>(&expected, point.z);
+          if (write_normal) {
+            WriteBinaryLittleEndian<float>(&expected, point.nx);
+            WriteBinaryLittleEndian<float>(&expected, point.ny);
+            WriteBinaryLittleEndian<float>(&expected, point.nz);
+          }
+          if (write_rgb) {
+            WriteBinaryLittleEndian<uint8_t>(&expected, point.r);
+            WriteBinaryLittleEndian<uint8_t>(&expected, point.g);
+            WriteBinaryLittleEndian<uint8_t>(&expected, point.b);
+          }
+        }
+        EXPECT_EQ(actual.substr(header_end + 1), expected.str());
+      }
     }
   }
 }

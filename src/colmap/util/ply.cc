@@ -9,6 +9,7 @@
 #include "colmap/util/string.h"
 
 #include <algorithm>
+#include <array>
 #include <cstring>
 #include <fstream>
 #include <limits>
@@ -401,6 +402,14 @@ void WriteBinaryPlyPoints(const std::filesystem::path& path,
                           const std::vector<PlyPoint>& points,
                           const bool write_normal,
                           const bool write_rgb) {
+  // Pack complete wire records without emitting struct padding or invoking
+  // the stream for every scalar. The final chunk may be partially filled.
+  constexpr size_t kMaxRecordBytes = 6 * sizeof(float) + 3 * sizeof(uint8_t);
+  std::array<char, 1024 * kMaxRecordBytes> payload;
+  const size_t record_bytes = 3 * sizeof(float) +
+                              (write_normal ? 3 * sizeof(float) : 0) +
+                              (write_rgb ? 3 * sizeof(uint8_t) : 0);
+
   std::fstream text_file(path, std::ios::out);
   THROW_CHECK_FILE_OPEN(text_file, path);
   SetFullPrecTextStream(text_file);
@@ -433,22 +442,34 @@ void WriteBinaryPlyPoints(const std::filesystem::path& path,
                            std::ios::out | std::ios::binary | std::ios::app);
   THROW_CHECK_FILE_OPEN(binary_file, path);
 
+  const bool native_little_endian = IsLittleEndian();
+  size_t used = 0;
+  const auto append = [&](auto value) {
+    if (!native_little_endian) value = ReverseBytes(value);
+    std::memcpy(payload.data() + used, &value, sizeof(value));
+    used += sizeof(value);
+  };
   for (const auto& point : points) {
-    WriteBinaryLittleEndian<float>(&binary_file, point.x);
-    WriteBinaryLittleEndian<float>(&binary_file, point.y);
-    WriteBinaryLittleEndian<float>(&binary_file, point.z);
-
+    if (payload.size() - used < record_bytes) {
+      binary_file.write(payload.data(), static_cast<std::streamsize>(used));
+      used = 0;
+    }
+    append(point.x);
+    append(point.y);
+    append(point.z);
     if (write_normal) {
-      WriteBinaryLittleEndian<float>(&binary_file, point.nx);
-      WriteBinaryLittleEndian<float>(&binary_file, point.ny);
-      WriteBinaryLittleEndian<float>(&binary_file, point.nz);
+      append(point.nx);
+      append(point.ny);
+      append(point.nz);
     }
-
     if (write_rgb) {
-      WriteBinaryLittleEndian<uint8_t>(&binary_file, point.r);
-      WriteBinaryLittleEndian<uint8_t>(&binary_file, point.g);
-      WriteBinaryLittleEndian<uint8_t>(&binary_file, point.b);
+      append(point.r);
+      append(point.g);
+      append(point.b);
     }
+  }
+  if (used != 0) {
+    binary_file.write(payload.data(), static_cast<std::streamsize>(used));
   }
 
   binary_file.close();
