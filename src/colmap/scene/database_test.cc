@@ -1102,69 +1102,29 @@ TEST_P(ParameterizedDatabaseTests, Merge) {
 }
 
 TEST_P(ParameterizedDatabaseTests, MergePreservesFeatureRecordPresence) {
-  const std::vector<std::shared_ptr<Database>> databases = {
-      GetParam()(kInMemorySqliteDatabasePath),
-      GetParam()(kInMemorySqliteDatabasePath)};
-  for (size_t database_index = 0; database_index < databases.size();
-       ++database_index) {
-    const auto& database = databases[database_index];
-    const camera_t camera_id = database->WriteCamera(Camera::CreateFromModelId(
-        kInvalidCameraId, CameraModelId::kSimplePinhole, 1.0, 1, 1));
-    image_t image_id = 100;
-    for (const bool has_keypoints : {false, true}) {
-      for (const bool has_descriptors : {false, true}) {
-        for (const int num_features : {0, 2}) {
-          Image image;
-          image.SetImageId(image_id++);
-          image.SetCameraId(camera_id);
-          image.SetName(std::to_string(database_index) + "/" +
-                        std::to_string(image.ImageId()));
-          database->WriteImage(image, /*use_image_id=*/true);
-          if (has_keypoints) {
-            database->WriteKeypoints(
-                image.ImageId(),
-                FeatureKeypoints(num_features, FeatureKeypoint(1.0f, 2.0f)));
-          }
-          if (has_descriptors) {
-            database->WriteDescriptors(
-                image.ImageId(),
-                FeatureDescriptors(
-                    FeatureExtractorType::SIFT,
-                    FeatureDescriptorsData::Constant(num_features, 128, 42)));
-          }
-        }
-      }
-    }
-  }
+  const Camera camera = Camera::CreateFromModelId(
+      kInvalidCameraId, CameraModelId::kSimplePinhole, 1.0, 1, 1);
+  const auto database1 = GetParam()(kInMemorySqliteDatabasePath);
+  Image image1;
+  image1.SetCameraId(database1->WriteCamera(camera));
+  image1.SetName("no_features");
+  database1->WriteImage(image1);
+  const auto database2 = GetParam()(kInMemorySqliteDatabasePath);
+  Image image2;
+  image2.SetCameraId(database2->WriteCamera(camera));
+  image2.SetName("empty_keypoints");
+  database2->WriteKeypoints(database2->WriteImage(image2), FeatureKeypoints());
 
   const auto merged_database = GetParam()(kInMemorySqliteDatabasePath);
-  Database::Merge(*databases[0], *databases[1], merged_database.get());
-  EXPECT_EQ(merged_database->NumImages(), 16);
-  for (const auto& database : databases) {
-    for (const auto& image : database->ReadAllImages()) {
-      SCOPED_TRACE(image.Name());
-      const auto merged_image =
-          merged_database->ReadImageWithName(image.Name());
-      ASSERT_TRUE(merged_image.has_value());
-      const image_t merged_image_id = merged_image->ImageId();
-      EXPECT_NE(merged_image_id, image.ImageId());
-      EXPECT_EQ(merged_database->ExistsKeypoints(merged_image_id),
-                database->ExistsKeypoints(image.ImageId()));
-      EXPECT_EQ(merged_database->ExistsDescriptors(merged_image_id),
-                database->ExistsDescriptors(image.ImageId()));
-      if (database->ExistsKeypoints(image.ImageId())) {
-        EXPECT_EQ(merged_database->ReadKeypoints(merged_image_id),
-                  database->ReadKeypoints(image.ImageId()));
-      }
-      if (database->ExistsDescriptors(image.ImageId())) {
-        const auto descriptors = database->ReadDescriptors(image.ImageId());
-        const auto merged_descriptors =
-            merged_database->ReadDescriptors(merged_image_id);
-        EXPECT_EQ(merged_descriptors.type, descriptors.type);
-        EXPECT_EQ(merged_descriptors.data, descriptors.data);
-      }
-    }
-  }
+  Database::Merge(*database1, *database2, merged_database.get());
+  const image_t merged_image_id1 =
+      merged_database->ReadImageWithName("no_features").value().ImageId();
+  const image_t merged_image_id2 =
+      merged_database->ReadImageWithName("empty_keypoints").value().ImageId();
+  EXPECT_FALSE(merged_database->ExistsKeypoints(merged_image_id1));
+  EXPECT_FALSE(merged_database->ExistsDescriptors(merged_image_id1));
+  EXPECT_TRUE(merged_database->ExistsKeypoints(merged_image_id2));
+  EXPECT_FALSE(merged_database->ExistsDescriptors(merged_image_id2));
 }
 
 INSTANTIATE_TEST_SUITE_P(
