@@ -312,9 +312,6 @@ std::vector<ImageTileSpec> CollectSpatialDeffImageSpecs(
   image_specs.reserve(reg_image_ids.size());
   for (const image_t image_id : reg_image_ids) {
     const Image& image = reconstruction.Image(image_id);
-    if (!image.HasPose()) {
-      continue;
-    }
     const Rigid3d& rig_from_world = image.FramePtr()->RigFromWorld();
     if (problem.HasParameterBlock(rig_from_world.params.data())) {
       const int pose_dof = problem.IsParameterBlockConstant(const_cast<double*>(
@@ -465,7 +462,7 @@ std::optional<double> ComputeSpatialDesignEffect(
   }
 
   const double raw_res_var = total_res_sq / (2.0 * total_obs);
-  if (!std::isfinite(raw_res_var) || raw_res_var <= 0.0) {
+  if (raw_res_var <= 0.0) {
     LOG(WARNING) << StringPrintf(
         "Unable to estimate spatial design effect. Non-positive residual "
         "variance (%e).",
@@ -473,12 +470,7 @@ std::optional<double> ComputeSpatialDesignEffect(
     return std::nullopt;
   }
 
-  const double raw_deff = total_tile_quad / (raw_res_var * total_tile_dof);
-  if (!std::isfinite(raw_deff)) {
-    LOG(WARNING) << "Unable to estimate spatial design effect (non-finite).";
-    return std::nullopt;
-  }
-  return std::max(1.0, raw_deff);
+  return std::max(1.0, total_tile_quad / (raw_res_var * total_tile_dof));
 }
 
 // Returns L_inv such that L_inv^T * L_inv = S^-1, given S = P^T L D L^T P.
@@ -864,25 +856,16 @@ std::optional<BACovariance> EstimateBACovarianceImpl(
         point_num_params + pose_num_params + other_num_params;
     const int redundancy =
         problem.NumResiduals() - (total_num_params - num_null);
-    if (redundancy <= 0 || !std::isfinite(total_cost) || total_cost < 0.0) {
+    if (redundancy <= 0) {
       LOG(WARNING) << StringPrintf(
-          "Unable to compute posterior variance factor (cost=%e, "
-          "num_residuals=%d, num_params=%d, num_null=%d).",
-          total_cost,
+          "Unable to compute posterior variance factor (num_residuals=%d, "
+          "num_params=%d, num_null=%d).",
           problem.NumResiduals(),
           total_num_params,
           num_null);
       return std::nullopt;
     }
     posterior_variance_factor = (2.0 / redundancy) * total_cost;
-    if (!std::isfinite(posterior_variance_factor)) {
-      LOG(WARNING) << StringPrintf(
-          "Unable to compute posterior variance factor (overflow: cost=%e, "
-          "redundancy=%d).",
-          total_cost,
-          redundancy);
-      return std::nullopt;
-    }
 
     if (options.variance_scaling ==
         BACovarianceOptions::VarianceScaling::SPATIAL_DEFF) {
@@ -894,21 +877,10 @@ std::optional<BACovariance> EstimateBACovarianceImpl(
       spatial_design_effect = *deff;
     }
 
-    const double pose_variance_factor =
-        posterior_variance_factor * spatial_design_effect;
-    if (!std::isfinite(pose_variance_factor)) {
-      LOG(WARNING) << StringPrintf(
-          "Unable to scale covariance (non-finite variance factor: "
-          "sigma0_sq=%e, deff=%e).",
-          posterior_variance_factor,
-          spatial_design_effect);
-      return std::nullopt;
-    }
-
     for (auto& [point3D_id, cov] : point_covs) {
       cov *= posterior_variance_factor;
     }
-    L_inv *= std::sqrt(pose_variance_factor);
+    L_inv *= std::sqrt(posterior_variance_factor * spatial_design_effect);
   }
 
   return BACovariance(std::move(point_covs),
@@ -926,14 +898,6 @@ std::optional<BACovariance> EstimateBACovariance(
     const Reconstruction& reconstruction,
     CeresBundleAdjuster& bundle_adjuster) {
   ceres::Problem& problem = *THROW_CHECK_NOTNULL(bundle_adjuster.Problem());
-  if (options.variance_scaling != BACovarianceOptions::VarianceScaling::NONE &&
-      bundle_adjuster.Options().ceres != nullptr &&
-      bundle_adjuster.Options().ceres->loss_function_type !=
-          CeresLossFunctionType::TRIVIAL) {
-    LOG(WARNING)
-        << "Variance scaling assumes quadratic (TRIVIAL) residuals; results "
-           "may be distorted under non-trivial robust loss functions.";
-  }
   return EstimateBACovarianceImpl(
       options, reconstruction, problem, &bundle_adjuster.Config());
 }

@@ -111,9 +111,9 @@ struct BACovarianceOptions {
   Params params = Params::ALL;
 
   // How to scale the unscaled inverse-Hessian covariances from residuals.
-  // Estimation returns nullopt if residual redundancy <= 0, variance scaling
-  // overflows, or (for SPATIAL_DEFF) residuals are zero or insufficient
-  // observations populate the 3x2 image tiles.
+  // Estimation returns nullopt if residual redundancy <= 0 or (for
+  // SPATIAL_DEFF) residuals are zero or insufficient observations populate the
+  // 3x2 image tiles.
   VarianceScaling variance_scaling = VarianceScaling::NONE;
 
   // Damping for the point covariances and the Schur elimination of the other

@@ -1391,63 +1391,31 @@ TEST(EstimateBACovariance,
   }
 }
 
-TEST(EstimateBACovariance,
-     VarianceScalingFailsOnNonPositiveRedundancyAndOverflow) {
-  const BACovarianceOptions post_opts =
-      MakeCovarianceOptions(BACovarianceOptions::VarianceScaling::POSTERIOR);
-
+TEST(EstimateBACovariance, VarianceScalingFailsOnNonPositiveRedundancy) {
   // Zero redundancy (2 residuals, 2 parameters): unscaled succeeds, variance
   // scaling fails loudly.
-  {
-    Reconstruction reconstruction;
-    ceres::Problem ceres_problem;
-    double x[2] = {1.0, 2.0};
-    ceres_problem.AddResidualBlock(
-        new ceres::AutoDiffCostFunction<LinearComboCost, 1, 2>(
-            new LinearComboCost{1.0, 1.0}),
-        nullptr,
-        x);
-    ceres_problem.AddResidualBlock(
-        new ceres::AutoDiffCostFunction<LinearComboCost, 1, 2>(
-            new LinearComboCost{1.0, -1.0}),
-        nullptr,
-        x);
-    EXPECT_TRUE(EstimateBACovarianceFromProblem(
-                    BACovarianceOptions(), reconstruction, ceres_problem)
-                    .has_value());
-    EXPECT_FALSE(EstimateBACovarianceFromProblem(
-                     post_opts, reconstruction, ceres_problem)
-                     .has_value());
-  }
-
-  // Overflowing posterior variance factor (finite total_cost ~ 0.98e308 with
-  // redundancy == 1 so (2 / redundancy) * total_cost == +Inf): must fail loudly
-  // instead of producing NaN covariances.
-  {
-    Reconstruction reconstruction;
-    ceres::Problem ceres_problem;
-    double x[2] = {1.4e154, 0.0};
-    ceres_problem.AddResidualBlock(
-        new ceres::AutoDiffCostFunction<LinearComboCost, 1, 2>(
-            new LinearComboCost{1.0, 0.0}),
-        nullptr,
-        x);
-    ceres_problem.AddResidualBlock(
-        new ceres::AutoDiffCostFunction<LinearComboCost, 1, 2>(
-            new LinearComboCost{0.0, 1.0}),
-        nullptr,
-        x);
-    ceres_problem.AddResidualBlock(
-        new ceres::AutoDiffCostFunction<LinearComboCost, 1, 2>(
-            new LinearComboCost{0.0, 1.0}),
-        nullptr,
-        x);
-    // 3 residuals, 2 parameters -> redundancy == 1; cost == 0.5 * (1.4e154)^2
-    // is finite, while 2 * cost overflows double.
-    EXPECT_FALSE(EstimateBACovarianceFromProblem(
-                     post_opts, reconstruction, ceres_problem)
-                     .has_value());
-  }
+  Reconstruction reconstruction;
+  ceres::Problem ceres_problem;
+  double x[2] = {1.0, 2.0};
+  ceres_problem.AddResidualBlock(
+      new ceres::AutoDiffCostFunction<LinearComboCost, 1, 2>(
+          new LinearComboCost{1.0, 1.0}),
+      nullptr,
+      x);
+  ceres_problem.AddResidualBlock(
+      new ceres::AutoDiffCostFunction<LinearComboCost, 1, 2>(
+          new LinearComboCost{1.0, -1.0}),
+      nullptr,
+      x);
+  EXPECT_TRUE(EstimateBACovarianceFromProblem(
+                  BACovarianceOptions(), reconstruction, ceres_problem)
+                  .has_value());
+  EXPECT_FALSE(EstimateBACovarianceFromProblem(
+                   MakeCovarianceOptions(
+                       BACovarianceOptions::VarianceScaling::POSTERIOR),
+                   reconstruction,
+                   ceres_problem)
+                   .has_value());
 }
 
 TEST(EstimateBACovariance, VarianceScalingWithFixedPosesAndPointsOnly) {
@@ -1457,15 +1425,9 @@ TEST(EstimateBACovariance, VarianceScalingWithFixedPosesAndPointsOnly) {
   // 1. Fixed camera poses (poses empty; intrinsics and points variable).
   {
     Reconstruction fixed_recon = base_recon;
-    auto ceres_ba = CreateDefaultCeresBundleAdjuster(
-        BundleAdjustmentOptions(),
-        CreateAllImagesBAConfig(fixed_recon, /*constant_poses=*/true),
-        fixed_recon);
-    const auto summary =
-        std::dynamic_pointer_cast<CeresBundleAdjustmentSummary>(
-            ceres_ba->Solve());
-    ASSERT_NE(summary, nullptr);
-    ASSERT_TRUE(summary->IsSolutionUsable());
+    const auto [ceres_ba, summary] =
+        SolveBA(CreateAllImagesBAConfig(fixed_recon, /*constant_poses=*/true),
+                fixed_recon);
 
     const int expected_redundancy =
         summary->ceres_summary.num_residuals_reduced -
@@ -1501,15 +1463,8 @@ TEST(EstimateBACovariance, VarianceScalingWithFixedPosesAndPointsOnly) {
   // 2. Free-gauge BA with Params::POINTS (does not factor S, so num_null == 0).
   {
     Reconstruction free_recon = base_recon;
-    auto ceres_ba =
-        CreateDefaultCeresBundleAdjuster(BundleAdjustmentOptions(),
-                                         CreateAllImagesBAConfig(free_recon),
-                                         free_recon);
-    const auto summary =
-        std::dynamic_pointer_cast<CeresBundleAdjustmentSummary>(
-            ceres_ba->Solve());
-    ASSERT_NE(summary, nullptr);
-    ASSERT_TRUE(summary->IsSolutionUsable());
+    const auto [ceres_ba, summary] =
+        SolveBA(CreateAllImagesBAConfig(free_recon), free_recon);
 
     const int expected_redundancy_no_null =
         summary->ceres_summary.num_residuals_reduced -
@@ -1689,87 +1644,58 @@ TEST(EstimateBACovariance,
 
 TEST(EstimateBACovariance, SpatialDesignEffectWrapsEquirectangularSeam) {
   SetPRNGSeed(321);
+  SyntheticDatasetOptions dataset_options;
+  dataset_options.num_rigs = 1;
+  dataset_options.num_cameras_per_rig = 1;
+  dataset_options.num_frames_per_rig = 10;
+  dataset_options.num_points3D = 240;
+  dataset_options.camera_width = 1000;
+  dataset_options.camera_height = 500;
+  dataset_options.camera_model_id = CameraModelId::kEquirectangular;
+  dataset_options.camera_params = {1000.0, 500.0};
   Reconstruction eq_recon;
-  const int width = 1000;
-  const int height = 500;
-  Camera camera = Camera::CreateFromModelId(
-      /*camera_id=*/1,
-      CameraModelId::kEquirectangular,
-      /*focal_length=*/0.0,
-      width,
-      height);
-  eq_recon.AddCamera(camera);
+  SynthesizeDataset(dataset_options, &eq_recon);
 
-  Rig rig;
-  rig.SetRigId(1);
-  rig.AddRefSensor(camera.SensorId());
-  eq_recon.AddRig(rig);
-
-  std::vector<Eigen::Vector3d> pts3D;
-  pts3D.reserve(240);
-  for (int i = 0; i < 240; ++i) {
-    // Place a handful of points right near the ±pi horizontal seam so some
-    // observations wrap across x=0 / x=width under noise.
-    const double az = (i < 12) ? (EIGEN_PI - 0.002 + 0.004 * (i / 12.0))
-                               : RandomUniformReal<double>(-EIGEN_PI, EIGEN_PI);
-    const double el =
-        RandomUniformReal<double>(-0.35 * EIGEN_PI, 0.35 * EIGEN_PI);
-    const double r = RandomUniformReal<double>(5.0, 15.0);
-    pts3D.emplace_back(r * std::cos(el) * std::sin(az),
-                       r * std::sin(el),
-                       r * std::cos(el) * std::cos(az));
+  // Spread points around the cameras to populate all 3x2 tiles and place a
+  // handful near image 0's ±pi horizontal seam (-z in camera frame) so noise
+  // wraps observations across x = 0 / x = width.
+  const Rigid3d world_from_cam0 =
+      Inverse(eq_recon.Image(eq_recon.RegImageIds()[0]).CamFromWorld());
+  const FlatHashSet<point3D_t> point3D_id_set = eq_recon.Point3DIds();
+  std::vector<point3D_t> point3D_ids(point3D_id_set.begin(),
+                                     point3D_id_set.end());
+  std::sort(point3D_ids.begin(), point3D_ids.end());
+  for (size_t i = 0; i < point3D_ids.size(); ++i) {
+    Point3D& point3D = eq_recon.Point3D(point3D_ids[i]);
+    if (i < 12) {
+      point3D.xyz = world_from_cam0 *
+                    Eigen::Vector3d(0.0, RandomUniformReal(-5.0, 5.0), -10.0);
+    } else {
+      point3D.xyz *= 10.0;
+    }
   }
 
-  const int num_frames = 10;
-  std::vector<image_t> img_ids;
   int num_seam_crossings = 0;
-  for (int f = 0; f < num_frames; ++f) {
-    const frame_t frame_id = f + 1;
-    const image_t image_id = f + 1;
-    Frame frame;
-    frame.SetFrameId(frame_id);
-    frame.SetRigId(1);
-    frame.AddDataId(data_t(camera.SensorId(), image_id));
-    const double angle = 0.05 * f;
-    frame.SetRigFromWorld(Rigid3d(
-        Eigen::Quaterniond(Eigen::AngleAxisd(angle, Eigen::Vector3d::UnitY())),
-        Eigen::Vector3d(0.4 * f, 0.1 * (f % 2), 0.0)));
-    eq_recon.AddFrame(frame);
-
-    Image image;
-    image.SetImageId(image_id);
-    image.SetName("eq_" + std::to_string(f) + ".jpg");
-    image.SetCameraId(1);
-    image.SetFrameId(frame_id);
-    std::vector<Eigen::Vector2d> points2D;
-    points2D.reserve(pts3D.size());
-    for (const Eigen::Vector3d& xyz : pts3D) {
-      const Eigen::Vector2d proj =
-          *camera.ImgFromCam(frame.RigFromWorld() * xyz);
+  for (const image_t image_id : eq_recon.RegImageIds()) {
+    Image& image = eq_recon.Image(image_id);
+    const Camera& camera = *image.CameraPtr();
+    const Rigid3d cam_from_world = image.CamFromWorld();
+    for (Point2D& point2D : image.Points2D()) {
+      if (!point2D.HasPoint3D()) {
+        continue;
+      }
+      const Eigen::Vector2d proj = *camera.ImgFromCam(
+          cam_from_world * eq_recon.Point3D(point2D.point3D_id).xyz);
       Eigen::Vector2d xy = proj + Eigen::Vector2d(RandomGaussian(0.0, 1.0),
                                                   RandomGaussian(0.0, 1.0));
-      // Wrap x into [0, width) so observations near x=0 / x=width cross the
-      // horizontal seam.
-      xy.x() -= width * std::floor(xy.x() / width);
-      if (std::abs(proj.x() - xy.x()) > 0.5 * width) {
+      xy.x() -= camera.width * std::floor(xy.x() / camera.width);
+      if (std::abs(proj.x() - xy.x()) > 0.5 * camera.width) {
         ++num_seam_crossings;
       }
-      points2D.push_back(xy);
+      point2D.xy = xy;
     }
-    image.SetPoints2D(points2D);
-    eq_recon.AddImage(image);
-    eq_recon.RegisterFrame(frame_id);
-    img_ids.push_back(image_id);
   }
   ASSERT_GT(num_seam_crossings, 0);
-
-  for (size_t p = 0; p < pts3D.size(); ++p) {
-    Track track;
-    for (const image_t img_id : img_ids) {
-      track.AddElement(img_id, p);
-    }
-    eq_recon.AddPoint3D(pts3D[p], std::move(track));
-  }
 
   BundleAdjustmentOptions eq_ba_opts;
   eq_ba_opts.refine_focal_length = false;
@@ -1795,15 +1721,39 @@ TEST(EstimateBACovariance,
   const BACovarianceOptions deff_opts =
       MakeCovarianceOptions(BACovarianceOptions::VarianceScaling::SPATIAL_DEFF);
 
-  // 1. Minimally fixed gauge: EstimateBACovarianceFromProblem and
-  //    EstimateBACovariance + experimental_custom_poses both preserve the
-  //    constant-pose gauge image and match EstimateBACovariance exactly.
+  // 1. Free gauge and minimally fixed gauge: EstimateBACovarianceFromProblem
+  //    and experimental_custom_poses match EstimateBACovariance exactly
+  //    (including preserving the constant-pose gauge image).
   {
     Reconstruction recon = base_recon;
     const std::vector<image_t> ids = recon.RegImageIds();
     auto ceres_ba = CreateDefaultCeresBundleAdjuster(
         BundleAdjustmentOptions(), CreateAllImagesBAConfig(recon), recon);
     ASSERT_TRUE(ceres_ba->Solve()->IsSolutionUsable());
+
+    // Free-gauge: experimental_custom_poses via EstimateBACovarianceFromProblem
+    // matches standard EstimateBACovariance.
+    const std::optional<BACovariance> free_cov =
+        EstimateBACovariance(deff_opts, recon, *ceres_ba);
+    ASSERT_TRUE(free_cov.has_value());
+    BACovarianceOptions free_custom_opts = deff_opts;
+    free_custom_opts.experimental_custom_poses =
+        internal::GetPoseParams(recon, *ceres_ba->Problem());
+    ASSERT_FALSE(free_custom_opts.experimental_custom_poses.empty());
+    const std::optional<BACovariance> custom_prob_cov =
+        EstimateBACovarianceFromProblem(
+            free_custom_opts, recon, *ceres_ba->Problem());
+    ASSERT_TRUE(custom_prob_cov.has_value());
+    EXPECT_NEAR(custom_prob_cov->PosteriorVarianceFactor(),
+                free_cov->PosteriorVarianceFactor(),
+                1e-12);
+    EXPECT_NEAR(custom_prob_cov->SpatialDesignEffect(),
+                free_cov->SpatialDesignEffect(),
+                1e-12);
+
+    // Minimally fixed gauge: EstimateBACovarianceFromProblem and
+    // EstimateBACovariance + experimental_custom_poses both preserve the
+    // constant-pose gauge image and match EstimateBACovariance exactly.
     FixGaugeMinimally(
         recon, *ceres_ba->Problem(), ids[0], ids[1], /*pin_ref_pose=*/true);
 
@@ -1819,8 +1769,6 @@ TEST(EstimateBACovariance,
     EXPECT_NEAR(
         cov_prob->SpatialDesignEffect(), cov_ba->SpatialDesignEffect(), 1e-12);
 
-    // experimental_custom_poses with EstimateBACovariance must still use
-    // config to include the constant-pose image1.
     BACovarianceOptions custom_opts = deff_opts;
     custom_opts.experimental_custom_poses =
         internal::GetPoseParams(recon, *ceres_ba->Problem());
@@ -1834,34 +1782,6 @@ TEST(EstimateBACovariance,
                 1e-12);
     EXPECT_NEAR(custom_ba_cov->SpatialDesignEffect(),
                 cov_ba->SpatialDesignEffect(),
-                1e-12);
-
-    // experimental_custom_poses via EstimateBACovarianceFromProblem on a
-    // free-gauge problem matches standard EstimateBACovariance.
-    Reconstruction free_recon = base_recon;
-    auto free_ba =
-        CreateDefaultCeresBundleAdjuster(BundleAdjustmentOptions(),
-                                         CreateAllImagesBAConfig(free_recon),
-                                         free_recon);
-    ASSERT_TRUE(free_ba->Solve()->IsSolutionUsable());
-
-    const std::optional<BACovariance> free_cov =
-        EstimateBACovariance(deff_opts, free_recon, *free_ba);
-    ASSERT_TRUE(free_cov.has_value());
-
-    BACovarianceOptions free_custom_opts = deff_opts;
-    free_custom_opts.experimental_custom_poses =
-        internal::GetPoseParams(free_recon, *free_ba->Problem());
-    ASSERT_FALSE(free_custom_opts.experimental_custom_poses.empty());
-    const std::optional<BACovariance> custom_prob_cov =
-        EstimateBACovarianceFromProblem(
-            free_custom_opts, free_recon, *free_ba->Problem());
-    ASSERT_TRUE(custom_prob_cov.has_value());
-    EXPECT_NEAR(custom_prob_cov->PosteriorVarianceFactor(),
-                free_cov->PosteriorVarianceFactor(),
-                1e-12);
-    EXPECT_NEAR(custom_prob_cov->SpatialDesignEffect(),
-                free_cov->SpatialDesignEffect(),
                 1e-12);
   }
 
