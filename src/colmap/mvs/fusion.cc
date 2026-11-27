@@ -11,6 +11,7 @@
 #include "colmap/util/threading.h"
 #include "colmap/util/timer.h"
 
+#include <algorithm>
 #include <fstream>
 
 #include <Eigen/Geometry>
@@ -218,6 +219,13 @@ void StereoFusion::Run() {
             .transpose();
   }
 
+  const auto first_image =
+      std::find(used_images_.begin(), used_images_.end(), true);
+  if (first_image == used_images_.end()) {
+    LOG(WARNING) << "No images with fusion inputs were found.";
+    return;
+  }
+
   LOG(INFO) << StringPrintf("Starting fusion with %d threads", num_threads);
   ThreadPool thread_pool(num_threads);
 
@@ -244,7 +252,8 @@ void StereoFusion::Run() {
 
   size_t num_fused_images = 0;
   size_t total_fused_points = 0;
-  for (int image_idx = 0; image_idx >= 0;
+  for (int image_idx = static_cast<int>(first_image - used_images_.begin());
+       image_idx >= 0;
        image_idx = internal::FindNextImage(
            overlapping_images_, used_images_, fused_images_, image_idx)) {
     if (CheckIfStopped()) {
