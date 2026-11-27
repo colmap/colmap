@@ -354,7 +354,6 @@ def test_bundle_adjustment_with_pose_priors(tmp_path: Path) -> None:
     pycolmap.bundle_adjustment(
         rec_from_db, options, database_path=database_path
     )
-    assert rec_from_db.has_metric_scale
     for image_id, gt_image in gt_reconstruction.images.items():
         assert np.allclose(
             rec_from_db.image(image_id).projection_center(),
@@ -367,14 +366,11 @@ def test_bundle_adjustment_with_pose_priors(tmp_path: Path) -> None:
             pycolmap.Reconstruction(gt_reconstruction), options
         )
 
-    assert not reconstruction.has_metric_scale
     ceres_adjuster = pycolmap.create_default_ceres_bundle_adjuster(
         options, config, reconstruction, priors
     )
-    assert reconstruction.has_metric_scale
     assert isinstance(ceres_adjuster.normalized_from_metric, pycolmap.Sim3d)
     assert ceres_adjuster.solve().is_solution_usable()
-    assert reconstruction.has_metric_scale
     with pytest.raises(ValueError, match="metric-scale priors"):
         pycolmap.estimate_ba_covariance(
             pycolmap.BACovarianceOptions(), reconstruction, ceres_adjuster

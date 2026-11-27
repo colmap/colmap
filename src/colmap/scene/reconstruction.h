@@ -81,9 +81,7 @@ class Reconstruction {
   bool IsValid() const;
 
   // Whether the reconstruction is expressed in metric scale (e.g. aligned to
-  // metric pose priors). Preserved across rigid transforms (`scale == 1`) and
-  // `Normalize(/*fixed_scale=*/true)`, and cleared on non-unit scaling or
-  // `Normalize(/*fixed_scale=*/false)`.
+  // metric pose priors). Cleared by any `Transform` with `scale != 1`.
   inline bool HasMetricScale() const;
   inline void SetHasMetricScale(bool has_metric_scale);
 

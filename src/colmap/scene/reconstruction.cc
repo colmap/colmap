@@ -695,9 +695,6 @@ Sim3d Reconstruction::Normalize(const bool fixed_scale,
                                 const double max_percentile,
                                 const bool use_images) {
   THROW_CHECK_GT(extent, 0);
-  if (!fixed_scale) {
-    has_metric_scale_ = false;
-  }
 
   if ((use_images && NumRegFrames() < 2) ||
       (!use_images && points3D_.size() < 2)) {

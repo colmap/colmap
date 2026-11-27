@@ -1633,7 +1633,7 @@ TEST(Reconstruction, ExtractColorsForAllImages) {
 
 TEST(Reconstruction, HasMetricScaleLifecycle) {
   Reconstruction reconstruction;
-  GenerateReconstruction(4, &reconstruction);
+  SynthesizeDataset(SyntheticDatasetOptions(), &reconstruction);
   EXPECT_FALSE(reconstruction.HasMetricScale());
 
   reconstruction.SetHasMetricScale(true);
@@ -1663,7 +1663,14 @@ TEST(Reconstruction, HasMetricScaleLifecycle) {
   EXPECT_FALSE(reconstruction.HasMetricScale());
 
   reconstruction.SetHasMetricScale(true);
-  reconstruction.Normalize(/*fixed_scale=*/false);
+  EXPECT_NE(reconstruction.Normalize(/*fixed_scale=*/false).scale(), 1.0);
+  EXPECT_FALSE(reconstruction.HasMetricScale());
+
+  // The flag is not persisted and reading resets it.
+  const auto test_dir = CreateTestDir();
+  reconstruction.WriteBinary(test_dir);
+  reconstruction.SetHasMetricScale(true);
+  reconstruction.ReadBinary(test_dir);
   EXPECT_FALSE(reconstruction.HasMetricScale());
 }
 

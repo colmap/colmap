@@ -346,7 +346,3 @@ def test_reconstruction_has_metric_scale(
     rec.has_metric_scale = True
     assert rec.has_metric_scale
     assert pycolmap.Reconstruction(rec).has_metric_scale
-    rec.normalize(fixed_scale=True)
-    assert rec.has_metric_scale
-    rec.normalize(fixed_scale=False)
-    assert not rec.has_metric_scale
