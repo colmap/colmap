@@ -42,6 +42,11 @@ DatabaseCache::DatabaseCache()
     : correspondence_graph_(std::make_shared<class CorrespondenceGraph>()) {}
 
 void DatabaseCache::Load(const Database& database, const Options& options) {
+  rigs_.clear();
+  cameras_.clear();
+  frames_.clear();
+  images_.clear();
+
   const bool has_rigs = database.NumRigs() > 0;
   const bool has_frames = database.NumFrames() > 0;
 

@@ -44,7 +44,8 @@ class DatabaseCache {
 
   DatabaseCache();
 
-  // Load cameras, images, features, and matches from database.
+  // Load cameras, images, features, and matches from database, replacing
+  // previously cached data.
   void Load(const Database& database, const Options& options);
 
   static std::shared_ptr<DatabaseCache> Create(const Database& database,
