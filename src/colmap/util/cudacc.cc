@@ -38,8 +38,8 @@ CudaTimer::CudaTimer() {
 }
 
 CudaTimer::~CudaTimer() {
-  CUDA_SAFE_CALL(cudaEventDestroy(start_));
-  CUDA_SAFE_CALL(cudaEventDestroy(stop_));
+  (void)cudaEventDestroy(start_);
+  (void)cudaEventDestroy(stop_);
 }
 
 void CudaTimer::Print(const std::string& message) {
