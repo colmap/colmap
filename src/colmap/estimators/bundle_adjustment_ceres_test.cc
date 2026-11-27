@@ -985,7 +985,7 @@ TEST(DefaultBundleAdjuster, PosePriorInsufficientPriorsIgnored) {
 
   Reconstruction noisy_reconstruction = gt_reconstruction;
   SyntheticNoiseOptions synthetic_noise_options;
-  synthetic_noise_options.point2D_stddev = 0.1;
+  synthetic_noise_options.point2D_stddev = 0.5;
   synthetic_noise_options.point3D_stddev = 0.1;
   synthetic_noise_options.rig_from_world_rotation_stddev = 0.5;
   synthetic_noise_options.rig_from_world_translation_stddev = 0.1;
@@ -1187,27 +1187,19 @@ TEST(DefaultBundleAdjuster, PosePriorOptimizationRobustToOutliers) {
 }
 
 TEST(CeresBundleAdjustmentOptions, CheckPriorPositionGemanMcClure) {
-  CeresBundleAdjustmentOptions options;
-  options.prior_position_loss_function_type =
-      CeresLossFunctionType::GEMAN_MCCLURE;
-  options.prior_position_loss_scale = 1.0;
-  EXPECT_TRUE(options.Check());
-  for (const double bad_scale :
-       {0.0, 1e-200, 1e200, std::numeric_limits<double>::infinity()}) {
-    options.prior_position_loss_scale = bad_scale;
-    EXPECT_FALSE(options.Check());
-  }
-
-  CeresPosePriorBundleAdjustmentOptions deprecated_options;
-  deprecated_options.prior_position_loss_function_type =
-      CeresLossFunctionType::GEMAN_MCCLURE;
-  deprecated_options.prior_position_loss_scale = 1.0;
-  EXPECT_TRUE(deprecated_options.Check());
-  for (const double bad_scale :
-       {0.0, 1e-200, 1e200, std::numeric_limits<double>::infinity()}) {
-    deprecated_options.prior_position_loss_scale = bad_scale;
-    EXPECT_FALSE(deprecated_options.Check());
-  }
+  const auto check = [](auto options) {
+    options.prior_position_loss_function_type =
+        CeresLossFunctionType::GEMAN_MCCLURE;
+    options.prior_position_loss_scale = 1.0;
+    EXPECT_TRUE(options.Check());
+    for (const double bad_scale :
+         {0.0, 1e-200, 1e200, std::numeric_limits<double>::infinity()}) {
+      options.prior_position_loss_scale = bad_scale;
+      EXPECT_FALSE(options.Check());
+    }
+  };
+  check(CeresBundleAdjustmentOptions());
+  check(CeresPosePriorBundleAdjustmentOptions());
 }
 
 TEST(DefaultBundleAdjuster, PosePriorOnRigCameraWithoutVisualObservations) {

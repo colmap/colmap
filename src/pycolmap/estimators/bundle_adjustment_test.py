@@ -213,7 +213,7 @@ def test_bundle_adjustment_priors_default_init() -> None:
     assert priors.pose_priors == []
 
 
-def test_ba_options_prior_fields_and_helpers() -> None:
+def test_ba_options_prior_fields() -> None:
     options = pycolmap.BundleAdjustmentOptions()
     assert isinstance(
         options.pose_prior, pycolmap.BundleAdjustmentPosePriorOptions
