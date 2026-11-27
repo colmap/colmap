@@ -1795,17 +1795,17 @@ TEST(EstimateBACovariance,
   const BACovarianceOptions deff_opts =
       MakeCovarianceOptions(BACovarianceOptions::VarianceScaling::SPATIAL_DEFF);
 
-  // 1. Fixed-gauge FixGauge(TWO_CAMS_FROM_WORLD):
-  //    EstimateBACovarianceFromProblem and EstimateBACovariance +
-  //    experimental_custom_poses both preserve the constant-pose gauge image
-  //    and match EstimateBACovariance exactly.
+  // 1. Minimally fixed gauge: EstimateBACovarianceFromProblem and
+  //    EstimateBACovariance + experimental_custom_poses both preserve the
+  //    constant-pose gauge image and match EstimateBACovariance exactly.
   {
     Reconstruction recon = base_recon;
-    BundleAdjustmentConfig config = CreateAllImagesBAConfig(recon);
-    config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+    const std::vector<image_t> ids = recon.RegImageIds();
     auto ceres_ba = CreateDefaultCeresBundleAdjuster(
-        BundleAdjustmentOptions(), config, recon);
+        BundleAdjustmentOptions(), CreateAllImagesBAConfig(recon), recon);
     ASSERT_TRUE(ceres_ba->Solve()->IsSolutionUsable());
+    FixGaugeMinimally(
+        recon, *ceres_ba->Problem(), ids[0], ids[1], /*pin_ref_pose=*/true);
 
     const std::optional<BACovariance> cov_ba =
         EstimateBACovariance(deff_opts, recon, *ceres_ba);
