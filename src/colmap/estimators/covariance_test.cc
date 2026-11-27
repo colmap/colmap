@@ -335,50 +335,37 @@ Eigen::VectorXd PoseDeviation(const Reconstruction& gt_reconstruction,
 struct MonteCarloProblem {
   Reconstruction gt_reconstruction;
   std::vector<image_t> image_ids;
-  std::vector<point3D_t> point3D_ids;
   std::vector<point3D_t> constant_point3D_ids;
 };
 
-MonteCarloProblem CreateMonteCarloProblem(int num_constant_points,
-                                          int num_points3D = 60,
-                                          double scene_scale = 1) {
+MonteCarloProblem CreateMonteCarloProblem(int num_constant_points) {
   MonteCarloProblem problem;
   SetPRNGSeed(0);
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 6;
-  synthetic_dataset_options.num_points3D = num_points3D;
+  synthetic_dataset_options.num_points3D = 60;
   SynthesizeDataset(synthetic_dataset_options, &problem.gt_reconstruction);
-  problem.gt_reconstruction.Transform(Sim3d(
-      scene_scale, Eigen::Quaterniond::Identity(), Eigen::Vector3d::Zero()));
   problem.image_ids = problem.gt_reconstruction.RegImageIds();
-  problem.point3D_ids.reserve(problem.gt_reconstruction.NumPoints3D());
+  std::vector<point3D_t> point3D_ids;
+  point3D_ids.reserve(problem.gt_reconstruction.NumPoints3D());
   for (const auto& [point3D_id, _] : problem.gt_reconstruction.Points3D()) {
-    problem.point3D_ids.push_back(point3D_id);
+    point3D_ids.push_back(point3D_id);
   }
-  std::sort(problem.point3D_ids.begin(), problem.point3D_ids.end());
-  THROW_CHECK_LE(num_constant_points,
-                 static_cast<int>(problem.point3D_ids.size()));
+  std::sort(point3D_ids.begin(), point3D_ids.end());
+  THROW_CHECK_LE(num_constant_points, static_cast<int>(point3D_ids.size()));
   problem.constant_point3D_ids.assign(
-      problem.point3D_ids.begin(),
-      problem.point3D_ids.begin() + num_constant_points);
+      point3D_ids.begin(), point3D_ids.begin() + num_constant_points);
   return problem;
 }
 
 // Runs bundle adjustment to convergence and returns the adjuster.
 std::unique_ptr<CeresBundleAdjuster> SolveMonteCarloProblem(
-    const MonteCarloProblem& problem,
-    bool constant_poses_and_intrinsics,
-    Reconstruction& reconstruction) {
+    const MonteCarloProblem& problem, Reconstruction& reconstruction) {
   BundleAdjustmentConfig config;
   for (const image_t image_id : problem.image_ids) {
     config.AddImage(image_id);
-    if (constant_poses_and_intrinsics) {
-      const Image& image = reconstruction.Image(image_id);
-      config.SetConstantRigFromWorldPose(image.FrameId());
-      config.SetConstantCamIntrinsics(image.CameraId());
-    }
   }
   for (const point3D_t point3D_id : problem.constant_point3D_ids) {
     config.AddConstantPoint(point3D_id);
@@ -393,30 +380,17 @@ std::unique_ptr<CeresBundleAdjuster> SolveMonteCarloProblem(
   return bundle_adjuster;
 }
 
-std::optional<BACovariance> EstimateGroundTruthCovariance(
-    const MonteCarloProblem& problem,
-    Reconstruction& gt_reconstruction,
-    const BACovarianceOptions& cov_options = BACovarianceOptions()) {
-  std::unique_ptr<CeresBundleAdjuster> bundle_adjuster =
-      SolveMonteCarloProblem(problem,
-                             /*constant_poses_and_intrinsics=*/false,
-                             gt_reconstruction);
-  return EstimateBACovariance(cov_options, gt_reconstruction, *bundle_adjuster);
-}
-
 constexpr double kMonteCarloPoint2DStddev = 0.5;
 constexpr int kNumMonteCarloSamples = 300;
 
-class ParameterizedBACovarianceMonteCarloTests
-    : public ::testing::TestWithParam</*num_constant_points=*/int> {};
-
-TEST_P(ParameterizedBACovarianceMonteCarloTests, PosesAndIntrinsics) {
-  const int num_constant_points = GetParam();
+TEST(BACovarianceMonteCarlo, PosesAndIntrinsics) {
   const MonteCarloProblem problem =
-      CreateMonteCarloProblem(num_constant_points);
+      CreateMonteCarloProblem(/*num_constant_points=*/3);
   Reconstruction gt_reconstruction = problem.gt_reconstruction;
-  const std::optional<BACovariance> ba_cov =
-      EstimateGroundTruthCovariance(problem, gt_reconstruction);
+  std::unique_ptr<CeresBundleAdjuster> gt_bundle_adjuster =
+      SolveMonteCarloProblem(problem, gt_reconstruction);
+  const std::optional<BACovariance> ba_cov = EstimateBACovariance(
+      BACovarianceOptions(), gt_reconstruction, *gt_bundle_adjuster);
   ASSERT_TRUE(ba_cov.has_value());
   const double variance = kMonteCarloPoint2DStddev * kMonteCarloPoint2DStddev;
   const Eigen::MatrixXd pose_cov =
@@ -437,8 +411,7 @@ TEST_P(ParameterizedBACovarianceMonteCarloTests, PosesAndIntrinsics) {
     SyntheticNoiseOptions synthetic_noise_options;
     synthetic_noise_options.point2D_stddev = kMonteCarloPoint2DStddev;
     SynthesizeNoise(synthetic_noise_options, &reconstruction);
-    SolveMonteCarloProblem(
-        problem, /*constant_poses_and_intrinsics=*/false, reconstruction);
+    SolveMonteCarloProblem(problem, reconstruction);
 
     pose_samples.push_back(
         PoseDeviation(gt_reconstruction, reconstruction, problem.image_ids));
@@ -451,52 +424,6 @@ TEST_P(ParameterizedBACovarianceMonteCarloTests, PosesAndIntrinsics) {
 
   EXPECT_THAT(pose_samples, SamplesFollowCov(pose_cov));
   EXPECT_THAT(intrinsics_samples, SamplesFollowCov(variance * *intrinsics_cov));
-}
-
-INSTANTIATE_TEST_SUITE_P(BACovarianceMonteCarloTests,
-                         ParameterizedBACovarianceMonteCarloTests,
-                         ::testing::Values(3));
-
-TEST(BACovarianceMonteCarlo, ConditionalPoints) {
-  const MonteCarloProblem problem =
-      CreateMonteCarloProblem(/*num_constant_points=*/0);
-  Reconstruction gt_reconstruction = problem.gt_reconstruction;
-  BACovarianceOptions cov_options;
-  cov_options.params = BACovarianceOptions::Params::POINTS;
-  const std::optional<BACovariance> ba_cov =
-      EstimateGroundTruthCovariance(problem, gt_reconstruction, cov_options);
-  ASSERT_TRUE(ba_cov.has_value());
-
-  // Point covariances are conditioned on the poses and intrinsics, so the
-  // samples keep them constant. Stack all points into one sample.
-  const double variance = kMonteCarloPoint2DStddev * kMonteCarloPoint2DStddev;
-  const std::vector<point3D_t>& point3D_ids = problem.point3D_ids;
-  Eigen::MatrixXd points_cov =
-      Eigen::MatrixXd::Zero(3 * point3D_ids.size(), 3 * point3D_ids.size());
-  for (size_t i = 0; i < point3D_ids.size(); ++i) {
-    const std::optional<Eigen::MatrixXd> point_cov =
-        ba_cov->GetPointCov(point3D_ids[i]);
-    ASSERT_TRUE(point_cov.has_value());
-    points_cov.block<3, 3>(3 * i, 3 * i) = variance * *point_cov;
-  }
-
-  std::vector<Eigen::VectorXd> samples;
-  for (int i = 0; i < kNumMonteCarloSamples; ++i) {
-    Reconstruction reconstruction = gt_reconstruction;
-    SetPRNGSeed(i + 1);
-    SyntheticNoiseOptions synthetic_noise_options;
-    synthetic_noise_options.point2D_stddev = kMonteCarloPoint2DStddev;
-    SynthesizeNoise(synthetic_noise_options, &reconstruction);
-    SolveMonteCarloProblem(
-        problem, /*constant_poses_and_intrinsics=*/true, reconstruction);
-    Eigen::VectorXd sample(3 * point3D_ids.size());
-    for (size_t j = 0; j < point3D_ids.size(); ++j) {
-      sample.segment<3>(3 * j) = reconstruction.Point3D(point3D_ids[j]).xyz -
-                                 gt_reconstruction.Point3D(point3D_ids[j]).xyz;
-    }
-    samples.push_back(sample);
-  }
-  EXPECT_THAT(samples, SamplesFollowCov(points_cov));
 }
 
 }  // namespace

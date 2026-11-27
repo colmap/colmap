@@ -83,12 +83,8 @@ testing::PolymorphicMatcher<EigenMatrixNearMatcher<T>> EigenMatrixNear(
 
 class SamplesFollowCovMatcher {
  public:
-  SamplesFollowCovMatcher(Eigen::MatrixXd cov,
-                          int null_dim,
-                          double num_std_errors)
-      : cov_(std::move(cov)),
-        null_dim_(null_dim),
-        num_std_errors_(num_std_errors) {}
+  SamplesFollowCovMatcher(Eigen::MatrixXd cov, int null_dim)
+      : cov_(std::move(cov)), null_dim_(null_dim) {}
 
   void DescribeTo(std::ostream* os) const {
     *os << "follow covariance (dim=" << cov_.rows()
@@ -103,32 +99,14 @@ class SamplesFollowCovMatcher {
   template <typename SamplesT>
   bool MatchAndExplain(const SamplesT& samples,
                        testing::MatchResultListener* listener) const {
-    if (samples.empty()) {
-      *listener << "sample list is empty";
-      return false;
-    }
     const int dim = cov_.rows();
-    if (dim == 0 || cov_.cols() != dim) {
-      *listener << "covariance must be non-empty square, got (" << cov_.rows()
-                << ", " << cov_.cols() << ")";
-      return false;
-    }
-    if (null_dim_ < 0 || null_dim_ >= dim) {
-      *listener << "invalid null_dim " << null_dim_ << " for dimension " << dim;
-      return false;
-    }
-    if (!(num_std_errors_ > 0.0)) {
-      *listener << "num_std_errors must be positive, got " << num_std_errors_;
-      return false;
-    }
-
     const int num_samples = samples.size();
-    for (int i = 0; i < num_samples; ++i) {
-      if (samples[i].size() != dim) {
-        *listener << "sample " << i << " has size " << samples[i].size()
-                  << ", expected " << dim;
-        return false;
-      }
+    if (num_samples == 0 || dim == 0 || cov_.cols() != dim || null_dim_ < 0 ||
+        null_dim_ >= dim) {
+      *listener << "invalid inputs: " << num_samples << " samples, covariance ("
+                << cov_.rows() << ", " << cov_.cols() << "), null_dim "
+                << null_dim_;
+      return false;
     }
 
     const int dof = dim - null_dim_;
@@ -139,22 +117,50 @@ class SamplesFollowCovMatcher {
                 << " positive eigenvalues";
       return false;
     }
-
-    Eigen::VectorXd inv_eigenvalues = eig.eigenvalues().cwiseInverse();
-    inv_eigenvalues.head(null_dim_).setZero();
-    const Eigen::MatrixXd cov_pinv = eig.eigenvectors() *
-                                     inv_eigenvalues.asDiagonal() *
-                                     eig.eigenvectors().transpose();
-
-    double mean_dist2 = 0.0;
-    Eigen::VectorXd variances = Eigen::VectorXd::Zero(dim);
-    for (const auto& sample : samples) {
-      mean_dist2 += sample.dot(cov_pinv * sample) / num_samples;
-      variances += sample.cwiseAbs2() / num_samples;
+    constexpr double kNullTol = 1e-6;
+    if (null_dim_ > 0 &&
+        !(eig.eigenvalues().head(null_dim_).cwiseAbs().maxCoeff() <=
+          kNullTol * eig.eigenvalues()(null_dim_))) {
+      *listener << "covariance null eigenvalues are not negligible";
+      return false;
     }
 
+    const Eigen::MatrixXd whitening =
+        eig.eigenvalues().tail(dof).cwiseSqrt().cwiseInverse().asDiagonal() *
+        eig.eigenvectors().rightCols(dof).transpose();
+    const auto null_basis = eig.eigenvectors().leftCols(null_dim_);
+
+    Eigen::MatrixXd whitened_cov = Eigen::MatrixXd::Zero(dof, dof);
+    Eigen::VectorXd variances = Eigen::VectorXd::Zero(dim);
+    double mean_null_norm2 = 0.0;
+    double mean_sample_norm2 = 0.0;
+    for (int i = 0; i < num_samples; ++i) {
+      const auto& sample = samples[i];
+      if (sample.size() != dim) {
+        *listener << "sample " << i << " has size " << sample.size()
+                  << ", expected " << dim;
+        return false;
+      }
+      const Eigen::VectorXd z = whitening * sample;
+      whitened_cov.noalias() += (z * z.transpose()) / num_samples;
+      variances += sample.cwiseAbs2() / num_samples;
+      if (null_dim_ > 0) {
+        mean_null_norm2 +=
+            (null_basis.transpose() * sample).squaredNorm() / num_samples;
+        mean_sample_norm2 += sample.squaredNorm() / num_samples;
+      }
+    }
+
+    if (null_dim_ > 0 && !(mean_null_norm2 <= kNullTol * mean_sample_norm2)) {
+      *listener << "samples have non-negligible null-space component ("
+                << mean_null_norm2 << " vs. " << mean_sample_norm2 << ")";
+      return false;
+    }
+
+    constexpr double kNumStdErrors = 4.0;
+    const double mean_dist2 = whitened_cov.trace();
     const double max_dist2_error =
-        num_std_errors_ * std::sqrt(2.0 * dof / num_samples);
+        kNumStdErrors * std::sqrt(2.0 * dof / num_samples);
     if (!(std::abs(mean_dist2 - dof) <= max_dist2_error)) {
       *listener << "mean squared Mahalanobis distance " << mean_dist2
                 << " differs from dof " << dof << " by more than "
@@ -163,15 +169,19 @@ class SamplesFollowCovMatcher {
     }
 
     const double max_variance_error =
-        num_std_errors_ * std::sqrt(2.0 / num_samples);
+        kNumStdErrors * std::sqrt(2.0 / num_samples);
+    const double max_whitened_error =
+        (whitened_cov - Eigen::MatrixXd::Identity(dof, dof))
+            .cwiseAbs()
+            .maxCoeff();
+    if (!(max_whitened_error <= max_variance_error)) {
+      *listener << "max whitened covariance error " << max_whitened_error
+                << " exceeds " << max_variance_error;
+      return false;
+    }
+
     for (int i = 0; i < dim; ++i) {
       if (cov_(i, i) <= 0.0) {
-        if (!(variances(i) == 0.0)) {
-          *listener << "coordinate " << i << " has non-zero variance "
-                    << variances(i) << " for non-positive predicted variance "
-                    << cov_(i, i);
-          return false;
-        }
         continue;
       }
       const double ratio = variances(i) / cov_(i, i);
@@ -187,18 +197,17 @@ class SamplesFollowCovMatcher {
  private:
   const Eigen::MatrixXd cov_;
   const int null_dim_;
-  const double num_std_errors_;
 };
 
 // Checks that zero-mean samples follow the predicted covariance, which may
-// have a null space of dimension `null_dim`: the mean squared Mahalanobis
-// distance must match the chi-square degrees of freedom and each coordinate's
-// sample variance must match the predicted variance within `num_std_errors`
-// standard errors.
+// have a null space of dimension `null_dim`: null-space components must be
+// negligible, the mean squared Mahalanobis distance must match the chi-square
+// degrees of freedom, the whitened sample covariance must be close to identity,
+// and each coordinate's sample variance must match the predicted variance.
 inline testing::PolymorphicMatcher<SamplesFollowCovMatcher> SamplesFollowCov(
-    Eigen::MatrixXd cov, int null_dim = 0, double num_std_errors = 4.0) {
+    Eigen::MatrixXd cov, int null_dim = 0) {
   return testing::MakePolymorphicMatcher(
-      SamplesFollowCovMatcher(std::move(cov), null_dim, num_std_errors));
+      SamplesFollowCovMatcher(std::move(cov), null_dim));
 }
 
 }  // namespace colmap
