@@ -35,14 +35,20 @@ void BindCovarianceEstimator(py::module& m) {
             if (!self.cam_from_world)
               return py::none();
             else
-              return py::array_t<double>(4, self.cam_from_world);
+              return py::array_t<double>(7, self.cam_from_world);
           },
-          [](internal::PoseParam& self, py::array_t<double> pyarray) {
-            THROW_CHECK_EQ(pyarray.ndim(), 1);
-            THROW_CHECK_EQ(pyarray.size(), 4);
-            py::buffer_info info = pyarray.request();
-            self.cam_from_world = (double*)info.ptr;
-          });
+          py::cpp_function(
+              [](internal::PoseParam& self,
+                 py::array_t<double, py::array::c_style> pyarray) {
+                THROW_CHECK_EQ(pyarray.ndim(), 1);
+                THROW_CHECK_EQ(pyarray.size(), 7);
+                self.cam_from_world = pyarray.data();
+              },
+              py::arg("self"),
+              py::arg("cam_from_world").noconvert()),
+          "Pose parameter block [qx, qy, qz, qw, tx, ty, tz]. The input must "
+          "be a contiguous float64 array and remain alive while covariance "
+          "is estimated.");
   MakeDataclass(PyExperimentalPoseParam);
 
   py::classh<BACovarianceOptions> PyBACovarianceOptions(m,
