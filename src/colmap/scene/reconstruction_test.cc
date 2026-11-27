@@ -1668,8 +1668,8 @@ TEST(Reconstruction, HasMetricScaleLifecycle) {
 
   // The flag is not persisted and reading resets it.
   const auto test_dir = CreateTestDir();
-  reconstruction.WriteBinary(test_dir);
   reconstruction.SetHasMetricScale(true);
+  reconstruction.WriteBinary(test_dir);
   reconstruction.ReadBinary(test_dir);
   EXPECT_FALSE(reconstruction.HasMetricScale());
 }
