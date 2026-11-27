@@ -29,6 +29,7 @@ TEST(StereoFusion, Integration) {
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 2;
+  synthetic_dataset_options.image_extension = ".bmp";
   synthetic_dataset_options.camera_width = 30;
   synthetic_dataset_options.camera_height = 20;
   Reconstruction reconstruction;
@@ -121,6 +122,29 @@ TEST(StereoFusion, Integration) {
   cancelled_fusion.Run();
   EXPECT_TRUE(stop_checked);
   EXPECT_TRUE(cancelled_fusion.GetFusedPoints().empty());
+
+  options.mask_path = temp_dir / "masks";
+  CreateDirIfNotExists(options.mask_path);
+  Bitmap mask(synthetic_dataset_options.camera_width,
+              synthetic_dataset_options.camera_height,
+              false);
+  mask.Fill(BitmapColor<uint8_t>(0));
+  for (const auto& name : image_names) {
+    auto mask_path = options.mask_path / name;
+    ASSERT_TRUE(mask.Write(mask_path.replace_extension(".png")));
+  }
+  StereoFusion masked(options, temp_dir, "COLMAP", "", "geometric");
+  masked.Run();
+  EXPECT_TRUE(masked.GetFusedPoints().empty());
+
+  // When both names exist, the image-name-plus-.png mask takes priority.
+  mask.Fill(BitmapColor<uint8_t>(255));
+  for (const auto& name : image_names) {
+    ASSERT_TRUE(mask.Write(options.mask_path / (name + ".png")));
+  }
+  StereoFusion unmasked(options, temp_dir, "COLMAP", "", "geometric");
+  unmasked.Run();
+  EXPECT_FALSE(unmasked.GetFusedPoints().empty());
 }
 
 TEST(ReadPointsVisibility, RoundTrip) {
