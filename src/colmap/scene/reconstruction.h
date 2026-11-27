@@ -80,8 +80,9 @@ class Reconstruction {
   // Check whether the reconstruction object is internally consistent.
   bool IsValid() const;
 
-  // Whether the reconstruction is expressed in metric scale (e.g. aligned to
-  // metric pose priors). Cleared by any `Transform` with `scale != 1`.
+  // Whether the reconstruction is known to be in metric scale (e.g. aligned to
+  // metric pose priors). In-memory only: not written by `Write*`, reset by
+  // `Read*`. Cleared by any `Transform` with `scale != 1`.
   inline bool HasMetricScale() const;
   inline void SetHasMetricScale(bool has_metric_scale);
 
