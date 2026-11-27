@@ -4,8 +4,12 @@
 
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/estimators/cost_functions/manifold.h"
+#include "colmap/math/random.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/synthetic.h"
+#include "colmap/util/eigen_matchers.h"
+
+#include <algorithm>
 
 #include <gtest/gtest.h>
 
@@ -294,6 +298,133 @@ INSTANTIATE_TEST_SUITE_P(
           BACovarianceTestOptions test_options;
           return std::make_pair(options, test_options);
         }()));
+
+// Joint covariance of the stacked pose tangent spaces.
+Eigen::MatrixXd JointPoseCov(const BACovariance& ba_cov,
+                             const std::vector<image_t>& image_ids) {
+  const int num_images = image_ids.size();
+  Eigen::MatrixXd cov(6 * num_images, 6 * num_images);
+  for (int i = 0; i < num_images; ++i) {
+    for (int j = 0; j < num_images; ++j) {
+      cov.block<6, 6>(6 * i, 6 * j) =
+          ba_cov.GetCamCrossCovFromWorld(image_ids[i], image_ids[j]).value();
+    }
+  }
+  return cov;
+}
+
+// Stacked pose tangent space deviations [rotation, translation] of the
+// estimate from the ground truth, consistent with the Ceres quaternion
+// manifold: Plus(q, d) = [cos(|d|), sin(|d|) * d / |d|] * q.
+Eigen::VectorXd PoseDeviation(const Reconstruction& gt_reconstruction,
+                              const Reconstruction& reconstruction,
+                              const std::vector<image_t>& image_ids) {
+  Eigen::VectorXd deviation(6 * image_ids.size());
+  for (size_t i = 0; i < image_ids.size(); ++i) {
+    const Rigid3d gt = gt_reconstruction.Image(image_ids[i]).CamFromWorld();
+    const Rigid3d estimate = reconstruction.Image(image_ids[i]).CamFromWorld();
+    const Eigen::AngleAxisd delta_rotation(estimate.rotation() *
+                                           gt.rotation().inverse());
+    deviation.segment<3>(6 * i) =
+        0.5 * delta_rotation.angle() * delta_rotation.axis();
+    deviation.segment<3>(6 * i + 3) = estimate.translation() - gt.translation();
+  }
+  return deviation;
+}
+
+struct MonteCarloProblem {
+  Reconstruction gt_reconstruction;
+  std::vector<image_t> image_ids;
+  std::vector<point3D_t> constant_point3D_ids;
+};
+
+MonteCarloProblem CreateMonteCarloProblem(int num_constant_points) {
+  MonteCarloProblem problem;
+  SetPRNGSeed(0);
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 6;
+  synthetic_dataset_options.num_points3D = 60;
+  SynthesizeDataset(synthetic_dataset_options, &problem.gt_reconstruction);
+  problem.image_ids = problem.gt_reconstruction.RegImageIds();
+  std::vector<point3D_t> point3D_ids;
+  point3D_ids.reserve(problem.gt_reconstruction.NumPoints3D());
+  for (const auto& [point3D_id, _] : problem.gt_reconstruction.Points3D()) {
+    point3D_ids.push_back(point3D_id);
+  }
+  std::sort(point3D_ids.begin(), point3D_ids.end());
+  THROW_CHECK_LE(num_constant_points, static_cast<int>(point3D_ids.size()));
+  problem.constant_point3D_ids.assign(
+      point3D_ids.begin(), point3D_ids.begin() + num_constant_points);
+  return problem;
+}
+
+// Runs bundle adjustment to convergence and returns the adjuster.
+std::unique_ptr<CeresBundleAdjuster> SolveMonteCarloProblem(
+    const MonteCarloProblem& problem, Reconstruction& reconstruction) {
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : problem.image_ids) {
+    config.AddImage(image_id);
+  }
+  for (const point3D_t point3D_id : problem.constant_point3D_ids) {
+    config.AddConstantPoint(point3D_id);
+  }
+  BundleAdjustmentOptions options;
+  options.ceres->solver_options.max_num_iterations = 200;
+  options.ceres->solver_options.gradient_tolerance = 1e-12;
+  std::unique_ptr<CeresBundleAdjuster> bundle_adjuster =
+      CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
+  THROW_CHECK_EQ(bundle_adjuster->Solve()->termination_type,
+                 BundleAdjustmentTerminationType::CONVERGENCE);
+  return bundle_adjuster;
+}
+
+constexpr double kMonteCarloPoint2DStddev = 0.5;
+constexpr int kNumMonteCarloSamples = 300;
+
+TEST(BACovarianceMonteCarlo, PosesAndIntrinsics) {
+  const MonteCarloProblem problem =
+      CreateMonteCarloProblem(/*num_constant_points=*/3);
+  Reconstruction gt_reconstruction = problem.gt_reconstruction;
+  std::unique_ptr<CeresBundleAdjuster> gt_bundle_adjuster =
+      SolveMonteCarloProblem(problem, gt_reconstruction);
+  const std::optional<BACovariance> ba_cov = EstimateBACovariance(
+      BACovarianceOptions(), gt_reconstruction, *gt_bundle_adjuster);
+  ASSERT_TRUE(ba_cov.has_value());
+  const double variance = kMonteCarloPoint2DStddev * kMonteCarloPoint2DStddev;
+  const Eigen::MatrixXd pose_cov =
+      variance * JointPoseCov(*ba_cov, problem.image_ids);
+  const Camera& gt_camera = gt_reconstruction.Camera(
+      gt_reconstruction.Image(problem.image_ids[0]).CameraId());
+  const std::optional<Eigen::MatrixXd> intrinsics_cov =
+      ba_cov->GetOtherParamsCov(gt_camera.params.data());
+  ASSERT_TRUE(intrinsics_cov.has_value());
+  // Tangent space of SIMPLE_RADIAL with constant principal point.
+  ASSERT_EQ(intrinsics_cov->rows(), 2);
+
+  std::vector<Eigen::VectorXd> pose_samples;
+  std::vector<Eigen::VectorXd> intrinsics_samples;
+  for (int i = 0; i < kNumMonteCarloSamples; ++i) {
+    Reconstruction reconstruction = gt_reconstruction;
+    SetPRNGSeed(i + 1);
+    SyntheticNoiseOptions synthetic_noise_options;
+    synthetic_noise_options.point2D_stddev = kMonteCarloPoint2DStddev;
+    SynthesizeNoise(synthetic_noise_options, &reconstruction);
+    SolveMonteCarloProblem(problem, reconstruction);
+
+    pose_samples.push_back(
+        PoseDeviation(gt_reconstruction, reconstruction, problem.image_ids));
+
+    const Camera& camera = reconstruction.Camera(gt_camera.camera_id);
+    intrinsics_samples.push_back(
+        Eigen::Vector2d(camera.params[0] - gt_camera.params[0],
+                        camera.params[3] - gt_camera.params[3]));
+  }
+
+  EXPECT_THAT(pose_samples, SamplesFollowCov(pose_cov));
+  EXPECT_THAT(intrinsics_samples, SamplesFollowCov(variance * *intrinsics_cov));
+}
 
 }  // namespace
 }  // namespace colmap
