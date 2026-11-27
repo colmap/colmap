@@ -6,7 +6,9 @@
 #include "colmap/util/hash_containers.h"
 
 #include <algorithm>
+#include <limits>
 #include <random>
+
 #include <ceres/crs_matrix.h>
 
 namespace colmap {
@@ -274,19 +276,10 @@ bool ComputeLInverse(const Eigen::SparseMatrix<double>& S,
   const Eigen::VectorXd D_inv_sqrt = S_diag.cwiseSqrt().cwiseInverse();
   const Eigen::SparseMatrix<double> S_s =
       D_inv_sqrt.asDiagonal() * S * D_inv_sqrt.asDiagonal();
-  // Escalate regularization once if negative round-off within
-  // [-kMaxNullEigenvalue, -kScaledRegularization] makes S_s + eps*I indefinite.
   Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ldlt_S_s_damped;
-  double regularization = 0.0;
-  for (const double reg : {kScaledRegularization, 2.0 * kMaxNullEigenvalue}) {
-    ldlt_S_s_damped.setShift(reg).compute(S_s);
-    if (ldlt_S_s_damped.info() == Eigen::Success &&
-        (ldlt_S_s_damped.vectorD().array() > 0).all()) {
-      regularization = reg;
-      break;
-    }
-  }
-  if (regularization == 0.0) {
+  ldlt_S_s_damped.setShift(kScaledRegularization).compute(S_s);
+  if (ldlt_S_s_damped.info() != Eigen::Success ||
+      !(ldlt_S_s_damped.vectorD().array() > 0).all()) {
     LOG(WARNING) << "Simplicial LDLT of the damped Schur complement failed";
     return false;
   }
@@ -308,13 +301,6 @@ bool ComputeLInverse(const Eigen::SparseMatrix<double>& S,
                                                             (S_s * X));
   VLOG(2) << "Smallest eigenvalues of the scaled Schur complement: "
           << ritz.eigenvalues().transpose();
-  if (ritz.eigenvalues()(0) < -kMaxNullEigenvalue) {
-    LOG(WARNING) << StringPrintf(
-        "Unable to compute covariance. The Schur complement on pose/other "
-        "parameters has a negative eigenvalue (%e) beyond numerical round-off.",
-        ritz.eigenvalues()(0));
-    return false;
-  }
   const int num_null =
       (ritz.eigenvalues().array() <= kMaxNullEigenvalue).count();
   if (num_null == 0) {
@@ -329,8 +315,7 @@ bool ComputeLInverse(const Eigen::SparseMatrix<double>& S,
         num_null);
     return false;
   }
-  if (ritz.eigenvalues()(num_null) <
-      kMinNullSpectralGap * std::max(kMaxNullEigenvalue, regularization)) {
+  if (ritz.eigenvalues()(num_null) < kMinNullSpectralGap * kMaxNullEigenvalue) {
     LOG(WARNING) << StringPrintf(
         "Unable to compute covariance. The Schur complement on pose/other "
         "parameters has an ambiguous near-zero eigenvalue (%e) that is not "
