@@ -213,9 +213,9 @@ constexpr double kMinNullSpectralGap = 1e2;
 // well below the null space threshold. It biases the covariance by a relative
 // O(kScaledRegularization / eigenvalue).
 constexpr double kScaledRegularization = 1e-13;
-// A similarity transform does not change the other parameters (intrinsics), so
-// gauge null vectors of the Jacobi-scaled Schur complement (unit norm) must
-// have components below this threshold on them.
+// Gauge null vectors of the Jacobi-scaled Schur complement (unit norm) must
+// have components below this threshold on the other parameters; gauge-dependent
+// other parameters (e.g., rig extrinsics) are not supported and are rejected.
 constexpr double kMaxGaugeOtherParamsNorm = 1e-6;
 // Maximum estimated relative error from mapping the scaled gauge null space
 // back to unscaled coordinates and projecting out the W = I minimum-trace
@@ -231,15 +231,11 @@ constexpr int kMaxGaugeDim = 7;
 // Returns L_inv such that L_inv^T * L_inv = S^-1, given S = P^T L D L^T P.
 Eigen::MatrixXd LInverseFromLDLT(
     const Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>>& ldlt_S) {
-  const Eigen::VectorXd D_dense = ldlt_S.vectorD();
   const Eigen::SparseMatrix<double> L_sparse = ldlt_S.matrixL();
   Eigen::MatrixXd L_inv =
       Eigen::MatrixXd::Identity(L_sparse.rows(), L_sparse.cols());
   L_sparse.triangularView<Eigen::Lower>().solveInPlace(L_inv);
-  for (int i = 0; i < L_inv.rows(); ++i) {
-    L_inv.row(i) *= 1.0 / std::max(std::sqrt(std::max(D_dense(i), 0.)),
-                                   std::numeric_limits<double>::min());
-  }
+  L_inv = ldlt_S.vectorD().cwiseSqrt().cwiseInverse().asDiagonal() * L_inv;
   L_inv *= ldlt_S.permutationP();
   return L_inv;
 }
@@ -283,11 +279,7 @@ bool ComputeLInverse(const Eigen::SparseMatrix<double>& S,
   Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ldlt_S_s_damped;
   double regularization = 0.0;
   for (const double reg : {kScaledRegularization, 2.0 * kMaxNullEigenvalue}) {
-    Eigen::SparseMatrix<double> S_s_damped = S_s;
-    for (int i = 0; i < n; ++i) {
-      S_s_damped.coeffRef(i, i) += reg;
-    }
-    ldlt_S_s_damped.compute(S_s_damped);
+    ldlt_S_s_damped.setShift(reg).compute(S_s);
     if (ldlt_S_s_damped.info() == Eigen::Success &&
         (ldlt_S_s_damped.vectorD().array() > 0).all()) {
       regularization = reg;

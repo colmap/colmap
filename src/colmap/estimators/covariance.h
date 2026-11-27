@@ -98,7 +98,7 @@ struct BACovarianceOptions {
 // complement. Note that any rank deficiency of dimension <= 7 supported solely
 // on pose parameters is treated as a gauge freedom (underconstrained poses in
 // otherwise fixed-gauge problems are not distinguished from a free gauge).
-// Point covariances are conditioned on the other parameters and thus
+// Point covariances are conditioned on the pose and other parameters and thus
 // independent of the gauge.
 // Returns null if the estimation was not successful.
 std::optional<BACovariance> EstimateBACovariance(
