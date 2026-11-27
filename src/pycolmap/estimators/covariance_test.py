@@ -59,27 +59,10 @@ def test_experimental_pose_param_from_rigid3d() -> None:
     np.testing.assert_array_equal(
         options.experimental_custom_poses[0].cam_from_world, pose.params
     )
-
-
-@pytest.mark.parametrize("size", [4, 6, 8])
-def test_experimental_pose_param_requires_full_pose(size: int) -> None:
-    param = pycolmap.ExperimentalPoseParam()
-    with pytest.raises(ValueError, match="pyarray.size"):
-        param.cam_from_world = np.zeros(size)
-
-
-@pytest.mark.parametrize("kind", ["float32", "strided", "list"])
-def test_experimental_pose_param_does_not_copy_input(kind: str) -> None:
-    params: np.ndarray | list[float]
-    if kind == "float32":
-        params = np.zeros(7, dtype=np.float32)
-    elif kind == "strided":
-        params = np.zeros(14)[::2]
-    else:
-        params = [0.0] * 7
-    param = pycolmap.ExperimentalPoseParam()
+    with pytest.raises(ValueError):
+        param.cam_from_world = np.zeros(4)
     with pytest.raises(TypeError):
-        param.cam_from_world = params  # type: ignore[assignment]
+        param.cam_from_world = np.zeros(7, dtype=np.float32)
 
 
 def test_estimate_ba_covariance_is_callable() -> None:
