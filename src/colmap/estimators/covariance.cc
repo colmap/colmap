@@ -3,9 +3,12 @@
 #include "colmap/estimators/covariance.h"
 
 #include "colmap/estimators/cost_functions/manifold.h"
+#include "colmap/estimators/cost_functions/reprojection_error.h"
 #include "colmap/util/hash_containers.h"
 
 #include <algorithm>
+#include <array>
+#include <cmath>
 #include <limits>
 #include <random>
 
@@ -28,7 +31,8 @@ bool ComputeSchurComplement(bool estimate_point_covs,
                             const std::vector<const double*>& others,
                             ceres::Problem& problem,
                             FlatHashMap<point3D_t, Eigen::MatrixXd>& point_covs,
-                            Eigen::SparseMatrix<double>& S) {
+                            Eigen::SparseMatrix<double>& S,
+                            double* total_cost) {
   VLOG(2) << "Evaluating the Jacobian for Schur elimination";
 
   ceres::Problem::EvaluateOptions eval_options;
@@ -48,7 +52,8 @@ bool ComputeSchurComplement(bool estimate_point_covs,
   }
 
   ceres::CRSMatrix J_full_crs;
-  if (!problem.Evaluate(eval_options, nullptr, nullptr, nullptr, &J_full_crs)) {
+  if (!problem.Evaluate(
+          eval_options, total_cost, nullptr, nullptr, &J_full_crs)) {
     LOG(WARNING) << "Failed to evaluate Jacobian";
     return false;
   }
@@ -230,6 +235,244 @@ constexpr double kMaxGaugeProjectionError = 1e-1;
 // 7-DoF gauge freedom (Sim3).
 constexpr int kMaxGaugeDim = 7;
 
+// Grid dimensions and minimum observations per tile for the 3x2 spatial-tile
+// design effect estimator.
+constexpr int kSpatialGridLong = 3;
+constexpr int kSpatialGridShort = 2;
+constexpr int kNumSpatialTiles = kSpatialGridLong * kSpatialGridShort;
+constexpr int kMinObsPerSpatialTile = 5;
+
+struct ImageTileSpec {
+  image_t image_id = kInvalidImageId;
+  int pose_tangent_size = 0;
+  // False for external images that only entered the problem via
+  // config->VariablePoints() / config->ConstantPoints().
+  bool all_image_observations = true;
+};
+
+std::vector<ImageTileSpec> CollectSpatialDeffImageSpecs(
+    const Reconstruction& reconstruction,
+    const ceres::Problem& problem,
+    const std::vector<internal::PoseParam>& poses,
+    const BundleAdjustmentConfig* config,
+    bool has_custom_poses) {
+  std::vector<ImageTileSpec> image_specs;
+  if (config != nullptr) {
+    FlatHashMap<image_t, int> variable_pose_dofs;
+    variable_pose_dofs.reserve(poses.size());
+    for (const auto& pose : poses) {
+      variable_pose_dofs.emplace(
+          pose.image_id,
+          ParameterBlockTangentSize(problem, pose.cam_from_world));
+    }
+
+    FlatHashSet<image_t> added_images;
+    added_images.reserve(config->NumImages());
+    image_specs.reserve(config->NumImages());
+    for (const image_t image_id : config->Images()) {
+      const auto it = variable_pose_dofs.find(image_id);
+      const int pose_dof = it != variable_pose_dofs.end() ? it->second : 0;
+      image_specs.push_back({image_id, pose_dof, true});
+      added_images.insert(image_id);
+    }
+
+    auto add_point_track_images = [&](const FlatHashSet<point3D_t>& point_ids) {
+      for (const point3D_t point3D_id : point_ids) {
+        const Point3D& point3D = reconstruction.Point3D(point3D_id);
+        if (!problem.HasParameterBlock(point3D.xyz.data())) {
+          continue;
+        }
+        for (const TrackElement& track_el : point3D.track.Elements()) {
+          if (added_images.insert(track_el.image_id).second) {
+            image_specs.push_back({track_el.image_id, 0, false});
+          }
+        }
+      }
+    };
+    add_point_track_images(config->VariablePoints());
+    add_point_track_images(config->ConstantPoints());
+    return image_specs;
+  }
+
+  if (has_custom_poses) {
+    image_specs.reserve(poses.size());
+    for (const auto& pose : poses) {
+      if (!reconstruction.ExistsImage(pose.image_id)) {
+        continue;
+      }
+      image_specs.push_back(
+          {pose.image_id,
+           ParameterBlockTangentSize(problem, pose.cam_from_world),
+           true});
+    }
+    return image_specs;
+  }
+
+  const std::vector<image_t> reg_image_ids = reconstruction.RegImageIds();
+  image_specs.reserve(reg_image_ids.size());
+  for (const image_t image_id : reg_image_ids) {
+    const Image& image = reconstruction.Image(image_id);
+    const Rigid3d& rig_from_world = image.FramePtr()->RigFromWorld();
+    if (problem.HasParameterBlock(rig_from_world.params.data())) {
+      const int pose_dof = problem.IsParameterBlockConstant(const_cast<double*>(
+                               rig_from_world.params.data()))
+                               ? 0
+                               : ParameterBlockTangentSize(
+                                     problem, rig_from_world.params.data());
+      image_specs.push_back({image_id, pose_dof, true});
+    }
+  }
+  if (image_specs.empty()) {
+    // All poses were baked into constant-pose cost functors, so no pose
+    // parameter blocks exist in the problem.
+    for (const image_t image_id : reg_image_ids) {
+      const Image& image = reconstruction.Image(image_id);
+      if (problem.HasParameterBlock(image.CameraPtr()->params.data())) {
+        image_specs.push_back({image_id, 0, true});
+      }
+    }
+  }
+  return image_specs;
+}
+
+// Estimates the within-image spatial design effect (DEFF >= 1.0) from 3x2
+// spatial tile means of reprojection residuals. Under i.i.d. noise, 3D point
+// elimination attenuates each residual's variance equally to raw_res_var, and
+// each tile mean of n_t distinct-point observations has variance raw_res_var /
+// n_t (minus 0.5 * pose_tangent_size tile-pair DoFs absorbed by the image's
+// pose). Positively correlated spatial errors inflate the tile-mean quadratic
+// form by DEFF = 1 + (n_tile - 1) * rho_bar, preventing covariance collapse
+// with growing observation density.
+std::optional<double> ComputeSpatialDesignEffect(
+    const Reconstruction& reconstruction,
+    const ceres::Problem& problem,
+    const std::vector<internal::PoseParam>& poses,
+    const BundleAdjustmentConfig* config,
+    bool has_custom_poses) {
+  const std::vector<ImageTileSpec> image_specs = CollectSpatialDeffImageSpecs(
+      reconstruction, problem, poses, config, has_custom_poses);
+
+  double total_res_sq = 0.0;
+  int64_t total_obs = 0;
+  double total_tile_quad = 0.0;
+  double total_tile_dof = 0.0;
+
+  for (const ImageTileSpec& spec : image_specs) {
+    const Image& image = reconstruction.Image(spec.image_id);
+    if (!image.HasPose()) {
+      continue;
+    }
+    const Camera& camera = *image.CameraPtr();
+    if (camera.width == 0 || camera.height == 0) {
+      continue;
+    }
+
+    const int num_tiles_x =
+        camera.width >= camera.height ? kSpatialGridLong : kSpatialGridShort;
+    const int num_tiles_y =
+        camera.width >= camera.height ? kSpatialGridShort : kSpatialGridLong;
+
+    std::array<Eigen::Vector2d, kNumSpatialTiles> tile_res_sum;
+    tile_res_sum.fill(Eigen::Vector2d::Zero());
+    std::array<double, kNumSpatialTiles> tile_res_sq;
+    tile_res_sq.fill(0.0);
+    std::array<int, kNumSpatialTiles> tile_obs_count;
+    tile_obs_count.fill(0);
+
+    const Rigid3d cam_from_world = image.CamFromWorld();
+    const double inv_width = static_cast<double>(num_tiles_x) / camera.width;
+    const double inv_height = static_cast<double>(num_tiles_y) / camera.height;
+
+    for (const Point2D& point2D : image.Points2D()) {
+      if (!point2D.HasPoint3D()) {
+        continue;
+      }
+      if (config != nullptr) {
+        if (config->IsIgnoredPoint(point2D.point3D_id)) {
+          continue;
+        }
+        if (!spec.all_image_observations &&
+            !config->HasPoint(point2D.point3D_id)) {
+          continue;
+        }
+      }
+      if (!std::isfinite(point2D.xy.x()) || !std::isfinite(point2D.xy.y())) {
+        continue;
+      }
+      const Point3D& point3D = reconstruction.Point3D(point2D.point3D_id);
+      if (!problem.HasParameterBlock(point3D.xyz.data())) {
+        continue;
+      }
+      const std::optional<Eigen::Vector2d> proj =
+          camera.ImgFromCam(cam_from_world * point3D.xyz);
+      if (!proj.has_value()) {
+        continue;
+      }
+      Eigen::Vector2d residual = *proj - point2D.xy;
+      if (camera.model_id == CameraModelId::kEquirectangular) {
+        WrapEquirectangularHorizontalSeam<EquirectangularCameraModel>(
+            camera.params.data(), residual.data());
+      }
+      if (!residual.allFinite()) {
+        continue;
+      }
+
+      const int gx =
+          static_cast<int>(std::clamp(std::floor(point2D.xy.x() * inv_width),
+                                      0.0,
+                                      static_cast<double>(num_tiles_x - 1)));
+      const int gy =
+          static_cast<int>(std::clamp(std::floor(point2D.xy.y() * inv_height),
+                                      0.0,
+                                      static_cast<double>(num_tiles_y - 1)));
+      const int tile_idx = gy * num_tiles_x + gx;
+      tile_res_sum[tile_idx] += residual;
+      tile_res_sq[tile_idx] += residual.squaredNorm();
+      tile_obs_count[tile_idx] += 1;
+    }
+
+    int num_populated_tiles = 0;
+    double image_tile_quad = 0.0;
+    double image_res_sq = 0.0;
+    int64_t image_obs = 0;
+    for (int t = 0; t < kNumSpatialTiles; ++t) {
+      if (tile_obs_count[t] >= kMinObsPerSpatialTile) {
+        num_populated_tiles += 1;
+        image_tile_quad +=
+            0.5 * tile_res_sum[t].squaredNorm() / tile_obs_count[t];
+        image_res_sq += tile_res_sq[t];
+        image_obs += tile_obs_count[t];
+      }
+    }
+
+    const double image_tile_dof =
+        num_populated_tiles - 0.5 * static_cast<double>(spec.pose_tangent_size);
+    if (image_tile_dof >= 1.0) {
+      total_tile_quad += image_tile_quad;
+      total_tile_dof += image_tile_dof;
+      total_res_sq += image_res_sq;
+      total_obs += image_obs;
+    }
+  }
+
+  if (total_obs == 0 || total_tile_dof <= 0.0) {
+    LOG(WARNING) << "Unable to estimate spatial design effect. Insufficient "
+                    "observations per 3x2 image tile.";
+    return std::nullopt;
+  }
+
+  const double raw_res_var = total_res_sq / (2.0 * total_obs);
+  if (raw_res_var <= 0.0) {
+    LOG(WARNING) << StringPrintf(
+        "Unable to estimate spatial design effect. Non-positive residual "
+        "variance (%e).",
+        raw_res_var);
+    return std::nullopt;
+  }
+
+  return std::max(1.0, total_tile_quad / (raw_res_var * total_tile_dof));
+}
+
 // Returns L_inv such that L_inv^T * L_inv = S^-1, given S = P^T L D L^T P.
 Eigen::MatrixXd LInverseFromLDLT(
     const Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>>& ldlt_S) {
@@ -265,7 +508,9 @@ bool ComputeLInverseFullRank(const Eigen::SparseMatrix<double>& S,
 // which is independent of the parameter units and the scene scale.
 bool ComputeLInverse(const Eigen::SparseMatrix<double>& S,
                      int pose_num_params,
-                     Eigen::MatrixXd& L_inv) {
+                     Eigen::MatrixXd& L_inv,
+                     int* num_null_out) {
+  *num_null_out = 0;
   const int n = S.rows();
   const Eigen::VectorXd S_diag = S.diagonal();
   if ((S_diag.array() <= 0).any()) {
@@ -385,6 +630,7 @@ bool ComputeLInverse(const Eigen::SparseMatrix<double>& S,
   L_inv *= D_inv_sqrt.asDiagonal();
   const Eigen::MatrixXd L_pose_N = L_inv.leftCols(pose_num_params) * N_pose;
   L_inv.leftCols(pose_num_params).noalias() -= L_pose_N * N_pose.transpose();
+  *num_null_out = num_null;
   return true;
 }
 
@@ -403,11 +649,27 @@ BACovariance::BACovariance(
     FlatHashMap<point3D_t, Eigen::MatrixXd> point_covs,
     NodeHashMap<image_t, std::pair<int, int>> pose_L_start_size,
     NodeHashMap<const double*, std::pair<int, int>> other_L_start_size,
-    Eigen::MatrixXd L_inv)
+    Eigen::MatrixXd L_inv,
+    double posterior_variance_factor,
+    double spatial_design_effect)
     : point_covs_(std::move(point_covs)),
       pose_L_start_size_(std::move(pose_L_start_size)),
       other_L_start_size_(std::move(other_L_start_size)),
-      L_inv_(std::move(L_inv)) {}
+      L_inv_(std::move(L_inv)),
+      posterior_variance_factor_(posterior_variance_factor),
+      spatial_design_effect_(spatial_design_effect) {}
+
+double BACovariance::PosteriorVarianceFactor() const {
+  return posterior_variance_factor_;
+}
+
+double BACovariance::SpatialDesignEffect() const {
+  return spatial_design_effect_;
+}
+
+double BACovariance::VarianceFactor() const {
+  return posterior_variance_factor_ * spatial_design_effect_;
+}
 
 std::optional<Eigen::MatrixXd> BACovariance::GetPointCov(
     point3D_t point3D_id) const {
@@ -479,18 +741,13 @@ std::optional<Eigen::MatrixXd> BACovariance::GetOtherParamsCov(
   return ExtractCovFromLInverse(L_inv_, start, start, size, size);
 }
 
-std::optional<BACovariance> EstimateBACovariance(
-    const BACovarianceOptions& options,
-    const Reconstruction& reconstruction,
-    CeresBundleAdjuster& bundle_adjuster) {
-  ceres::Problem& problem = *THROW_CHECK_NOTNULL(bundle_adjuster.Problem());
-  return EstimateBACovarianceFromProblem(options, reconstruction, problem);
-}
+namespace {
 
-std::optional<BACovariance> EstimateBACovarianceFromProblem(
+std::optional<BACovariance> EstimateBACovarianceImpl(
     const BACovarianceOptions& options,
     const Reconstruction& reconstruction,
-    ceres::Problem& problem) {
+    ceres::Problem& problem,
+    const BundleAdjustmentConfig* config) {
   const bool estimate_point_covs =
       options.params == BACovarianceOptions::Params::POINTS ||
       options.params == BACovarianceOptions::Params::POSES_AND_POINTS ||
@@ -504,10 +761,10 @@ std::optional<BACovariance> EstimateBACovarianceFromProblem(
 
   const std::vector<internal::PointParam> points =
       internal::GetPointParams(reconstruction, problem);
+  const bool has_custom_poses = !options.experimental_custom_poses.empty();
   const std::vector<internal::PoseParam>& poses =
-      options.experimental_custom_poses.empty()
-          ? internal::GetPoseParams(reconstruction, problem)
-          : options.experimental_custom_poses;
+      has_custom_poses ? options.experimental_custom_poses
+                       : internal::GetPoseParams(reconstruction, problem);
   const std::vector<const double*> others =
       GetOtherParams(problem, poses, points);
 
@@ -519,76 +776,138 @@ std::optional<BACovariance> EstimateBACovarianceFromProblem(
   for (const auto& point : points) {
     point_num_params += ParameterBlockTangentSize(problem, point.xyz);
   }
-  if (estimate_pose_covs || estimate_other_covs) {
+  if (estimate_pose_covs) {
     pose_L_start_size.reserve(poses.size());
-    for (const auto& pose : poses) {
-      const int num_params =
-          ParameterBlockTangentSize(problem, pose.cam_from_world);
+  }
+  if (estimate_other_covs) {
+    other_L_start_size.reserve(others.size());
+  }
+  for (const auto& pose : poses) {
+    const int num_params =
+        ParameterBlockTangentSize(problem, pose.cam_from_world);
+    if (estimate_pose_covs) {
       pose_L_start_size.emplace(pose.image_id,
                                 std::make_pair(pose_num_params, num_params));
-      pose_num_params += num_params;
     }
-
-    other_L_start_size.reserve(poses.size());
-    for (const double* other : others) {
-      const int num_params = ParameterBlockTangentSize(problem, other);
+    pose_num_params += num_params;
+  }
+  for (const double* other : others) {
+    const int num_params = ParameterBlockTangentSize(problem, other);
+    if (estimate_other_covs) {
       other_L_start_size.emplace(
           other,
           std::make_pair(pose_num_params + other_num_params, num_params));
-      other_num_params += num_params;
     }
+    other_num_params += num_params;
   }
 
+  const bool scale_variance =
+      options.variance_scaling != BACovarianceOptions::VarianceScaling::NONE;
+  double total_cost = 0.0;
   const bool compute_pose_or_other_covs =
       (estimate_pose_covs && pose_num_params > 0) ||
       (estimate_other_covs && other_num_params > 0);
-  if (!compute_pose_or_other_covs && (!estimate_point_covs || points.empty())) {
-    return BACovariance(/*point_covs=*/{},
-                        /*pose_L_start_size=*/{},
-                        /*other_L_start_size=*/{},
-                        /*L_inv=*/Eigen::MatrixXd());
-  }
-
   FlatHashMap<point3D_t, Eigen::MatrixXd> point_covs;
   Eigen::SparseMatrix<double> S;
-  if (!ComputeSchurComplement(estimate_point_covs,
-                              compute_pose_or_other_covs,
-                              options.damping,
-                              point_num_params,
-                              points,
-                              poses,
-                              others,
-                              problem,
-                              point_covs,
-                              S)) {
+  if (!compute_pose_or_other_covs && (!estimate_point_covs || points.empty())) {
+    if (scale_variance && !problem.Evaluate(ceres::Problem::EvaluateOptions(),
+                                            &total_cost,
+                                            nullptr,
+                                            nullptr,
+                                            nullptr)) {
+      LOG(WARNING) << "Failed to evaluate cost";
+      return std::nullopt;
+    }
+  } else if (!ComputeSchurComplement(estimate_point_covs,
+                                     compute_pose_or_other_covs,
+                                     options.damping,
+                                     point_num_params,
+                                     points,
+                                     poses,
+                                     others,
+                                     problem,
+                                     point_covs,
+                                     S,
+                                     scale_variance ? &total_cost : nullptr)) {
     return std::nullopt;
   }
 
-  if (!compute_pose_or_other_covs) {
-    return BACovariance(std::move(point_covs),
-                        /*pose_L_start_size=*/{},
-                        /*other_L_start_size=*/{},
-                        /*L_inv=*/Eigen::MatrixXd());
-  }
+  Eigen::MatrixXd L_inv;
+  int num_null = 0;
+  if (compute_pose_or_other_covs) {
+    if (!estimate_other_covs && other_num_params > 0) {
+      if (!SchurEliminateOtherParams(
+              options.damping, pose_num_params, other_num_params, S)) {
+        return std::nullopt;
+      }
+    }
 
-  if (!estimate_other_covs && other_num_params > 0) {
-    if (!SchurEliminateOtherParams(
-            options.damping, pose_num_params, other_num_params, S)) {
+    VLOG(2) << "Computing L inverse";
+
+    if (!ComputeLInverse(S, pose_num_params, L_inv, &num_null)) {
       return std::nullopt;
     }
   }
 
-  VLOG(2) << "Computing L inverse";
+  double posterior_variance_factor = 1.0;
+  double spatial_design_effect = 1.0;
+  if (scale_variance) {
+    const int total_num_params =
+        point_num_params + pose_num_params + other_num_params;
+    const int redundancy =
+        problem.NumResiduals() - (total_num_params - num_null);
+    if (redundancy <= 0) {
+      LOG(WARNING) << StringPrintf(
+          "Unable to compute posterior variance factor (num_residuals=%d, "
+          "num_params=%d, num_null=%d).",
+          problem.NumResiduals(),
+          total_num_params,
+          num_null);
+      return std::nullopt;
+    }
+    posterior_variance_factor = (2.0 / redundancy) * total_cost;
 
-  Eigen::MatrixXd L_inv;
-  if (!ComputeLInverse(S, pose_num_params, L_inv)) {
-    return std::nullopt;
+    if (options.variance_scaling ==
+        BACovarianceOptions::VarianceScaling::SPATIAL_DEFF) {
+      const std::optional<double> deff = ComputeSpatialDesignEffect(
+          reconstruction, problem, poses, config, has_custom_poses);
+      if (!deff.has_value()) {
+        return std::nullopt;
+      }
+      spatial_design_effect = *deff;
+    }
+
+    for (auto& [point3D_id, cov] : point_covs) {
+      cov *= posterior_variance_factor;
+    }
+    L_inv *= std::sqrt(posterior_variance_factor * spatial_design_effect);
   }
 
   return BACovariance(std::move(point_covs),
                       std::move(pose_L_start_size),
                       std::move(other_L_start_size),
-                      std::move(L_inv));
+                      std::move(L_inv),
+                      posterior_variance_factor,
+                      spatial_design_effect);
+}
+
+}  // namespace
+
+std::optional<BACovariance> EstimateBACovariance(
+    const BACovarianceOptions& options,
+    const Reconstruction& reconstruction,
+    CeresBundleAdjuster& bundle_adjuster) {
+  ceres::Problem& problem = *THROW_CHECK_NOTNULL(bundle_adjuster.Problem());
+  return EstimateBACovarianceImpl(
+      options, reconstruction, problem, &bundle_adjuster.Config());
+}
+
+std::optional<BACovariance> EstimateBACovarianceFromProblem(
+    const BACovarianceOptions& options,
+    const Reconstruction& reconstruction,
+    ceres::Problem& problem) {
+  return EstimateBACovarianceImpl(
+      options, reconstruction, problem, /*config=*/nullptr);
 }
 
 namespace internal {

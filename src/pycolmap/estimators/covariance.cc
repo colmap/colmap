@@ -24,6 +24,15 @@ void BindCovarianceEstimator(py::module& m) {
           .value("ALL", BACovarianceOptions::Params::ALL);
   AddStringToEnumConstructor(PyBACovarianceOptionsParams);
 
+  auto PyBACovarianceOptionsVarianceScaling =
+      py::enum_<BACovarianceOptions::VarianceScaling>(
+          m, "BACovarianceOptionsVarianceScaling")
+          .value("NONE", BACovarianceOptions::VarianceScaling::NONE)
+          .value("POSTERIOR", BACovarianceOptions::VarianceScaling::POSTERIOR)
+          .value("SPATIAL_DEFF",
+                 BACovarianceOptions::VarianceScaling::SPATIAL_DEFF);
+  AddStringToEnumConstructor(PyBACovarianceOptionsVarianceScaling);
+
   py::classh<internal::PoseParam> PyExperimentalPoseParam(
       m, "ExperimentalPoseParam");
   PyExperimentalPoseParam.def(py::init<>())
@@ -52,6 +61,11 @@ void BindCovarianceEstimator(py::module& m) {
                      &BACovarianceOptions::params,
                      "For which parameters to compute the covariance.")
       .def_readwrite(
+          "variance_scaling",
+          &BACovarianceOptions::variance_scaling,
+          "How to scale the unscaled inverse-Hessian covariances from "
+          "residuals (NONE, POSTERIOR, or SPATIAL_DEFF).")
+      .def_readwrite(
           "damping",
           &BACovarianceOptions::damping,
           "Damping for the point covariances and the Schur elimination of the "
@@ -69,6 +83,23 @@ void BindCovarianceEstimator(py::module& m) {
   MakeDataclass(PyBACovarianceOptions);
 
   py::classh<BACovariance>(m, "BACovariance")
+      .def_property_readonly(
+          "posterior_variance_factor",
+          &BACovariance::PosteriorVarianceFactor,
+          "Estimated a posteriori observation variance factor sigma_0^2 "
+          "(1.0 when variance_scaling == NONE). Scales all covariances.")
+      .def_property_readonly(
+          "spatial_design_effect",
+          &BACovariance::SpatialDesignEffect,
+          "Estimated 3x2 spatial-tile design effect DEFF >= 1.0 accounting "
+          "for within-image spatially correlated residuals (1.0 unless "
+          "variance_scaling == SPATIAL_DEFF). Scales pose and other "
+          "covariances.")
+      .def_property_readonly(
+          "variance_factor",
+          &BACovariance::VarianceFactor,
+          "Combined variance scaling applied to pose and other covariances: "
+          "posterior_variance_factor * spatial_design_effect.")
       .def("get_point_cov",
            &BACovariance::GetPointCov,
            "point3D_id"_a,
@@ -143,5 +174,8 @@ void BindCovarianceEstimator(py::module& m) {
       "problem leaves the gauge free, the pose and other covariances are "
       "returned in the minimum-trace gauge (any rank deficiency of dimension "
       "<= 7 supported solely on pose parameters is treated as a gauge "
-      "freedom). Returns None if the estimation was not successful.");
+      "freedom). Prefer estimate_ba_covariance when using SPATIAL_DEFF with a "
+      "CeresBundleAdjuster so constant-pose images are resolved from its "
+      "BundleAdjustmentConfig. Returns None if the estimation was not "
+      "successful.");
 }
