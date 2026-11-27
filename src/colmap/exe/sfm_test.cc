@@ -2,6 +2,7 @@
 
 #include "colmap/exe/sfm.h"
 
+#include "colmap/controllers/option_manager.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
@@ -285,6 +286,153 @@ TEST(BundleAdjusterExe, WithDatabasePositionPriors) {
   for (const PosePrior& prior : reopened_db->ReadAllPosePriors()) {
     EXPECT_EQ(prior.position_covariance, orig_db_cov);
   }
+}
+
+TEST(PosePriorMapperExe, DeprecatedShimPreservesDatabaseCovariances) {
+  const auto test_path = CreateTestDir();
+  const auto database_path = test_path / "database.db";
+  const auto image_path = test_path / "images";
+  const auto output_path = test_path / "output";
+  CreateDirIfNotExists(image_path);
+  CreateDirIfNotExists(output_path);
+
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 5;
+  synthetic_options.num_points3D = 80;
+  synthetic_options.prior_position = true;
+  SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
+  const std::vector<PosePrior> orig_priors = database->ReadAllPosePriors();
+  database.reset();
+
+  const auto project_path = test_path / "project.ini";
+  OptionManager project_options;
+  project_options.AddAllOptions();
+  *project_options.database_path = database_path;
+  *project_options.image_path = image_path;
+  ASSERT_FALSE(project_options.mapper->use_prior_position);
+  project_options.mapper->prior_position_stddev =
+      Eigen::Vector3d::Constant(2.5);
+  project_options.mapper->prior_position_loss_scale = 4.5;
+  project_options.Write(project_path);
+
+  // Invalid --prior_position_std_* is rejected even when
+  // --overwrite_priors_covariance=0.
+  std::vector<std::string> invalid_args = {
+      "pose_prior_mapper",
+      "--project_path=" + project_path.string(),
+      "--output_path=" + output_path.string(),
+      "--prior_position_std_x=-1.0",
+  };
+  std::vector<char*> invalid_argv;
+  for (std::string& arg : invalid_args) {
+    invalid_argv.push_back(arg.data());
+  }
+  EXPECT_EQ(RunPosePriorMapper(invalid_argv.size(), invalid_argv.data()),
+            EXIT_FAILURE);
+
+  std::vector<std::string> args = {
+      "pose_prior_mapper",
+      "--project_path=" + project_path.string(),
+      "--output_path=" + output_path.string(),
+      "--Mapper.extract_colors=0",
+      "--Mapper.min_model_size=3",
+      "--Mapper.num_threads=1",
+      "--overwrite_priors_covariance=1",
+      "--prior_position_std_x=0.1",
+      "--prior_position_std_y=0.1",
+      "--prior_position_std_z=1.0",
+      "--use_robust_loss_on_prior_position=1",
+  };
+  std::vector<char*> argv;
+  argv.reserve(args.size());
+  for (std::string& arg : args) {
+    argv.push_back(arg.data());
+  }
+  ASSERT_EQ(RunPosePriorMapper(argv.size(), argv.data()), EXIT_SUCCESS);
+
+  std::filesystem::path saved_input_path;
+  std::filesystem::path saved_output_path;
+  OptionManager saved_options;
+  saved_options.AddAllOptions();
+  saved_options.AddDefaultOption("input_path", &saved_input_path);
+  saved_options.AddDefaultOption("output_path", &saved_output_path);
+  ASSERT_TRUE(saved_options.Read(output_path / "0" / "project.ini",
+                                 /*allow_unregistered=*/false));
+  EXPECT_TRUE(saved_options.mapper->use_prior_position);
+  EXPECT_TRUE(saved_options.mapper->overwrite_prior_position_covariance);
+  EXPECT_EQ(saved_options.mapper->prior_position_stddev,
+            Eigen::Vector3d(0.1, 0.1, 1.0));
+  EXPECT_TRUE(saved_options.mapper->use_robust_loss_on_prior_position);
+  EXPECT_DOUBLE_EQ(saved_options.mapper->prior_position_loss_scale, 4.5);
+
+  auto check_db = Database::Open(database_path);
+  EXPECT_EQ(check_db->ReadAllPosePriors(), orig_priors);
+  Reconstruction mapped;
+  mapped.Read(output_path / "0");
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(mapped,
+                                 /*max_rotation_error_deg=*/0.2,
+                                 /*max_proj_center_error=*/0.1,
+                                 /*max_scale_error=*/1e-2,
+                                 /*num_obs_tolerance=*/0.05,
+                                 /*align=*/false));
+}
+
+TEST(IncrementalMapper, FixExistingFramesWithPositionPriorsKeepsMetricFrame) {
+  const auto test_path = CreateTestDir();
+  const auto database_path = test_path / "database.db";
+  const auto output_path = test_path / "output";
+  CreateDirIfNotExists(output_path);
+
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 6;
+  synthetic_options.num_points3D = 80;
+  synthetic_options.prior_position = true;
+  SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
+  database.reset();
+
+  const std::vector<frame_t> frame_ids = gt_reconstruction.RegFrameIds();
+  ASSERT_EQ(frame_ids.size(), 6);
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  Reconstruction& initial =
+      *reconstruction_manager->Get(reconstruction_manager->Add());
+  initial = gt_reconstruction;
+  initial.DeRegisterFrame(frame_ids[4]);
+  initial.DeRegisterFrame(frame_ids[5]);
+  initial.Transform(Sim3d(
+      2.5,
+      Eigen::Quaterniond(Eigen::AngleAxisd(0.4, Eigen::Vector3d::UnitZ())),
+      Eigen::Vector3d(50.0, -25.0, 10.0)));
+
+  auto options = std::make_shared<IncrementalPipelineOptions>();
+  options->extract_colors = false;
+  options->fix_existing_frames = true;
+  options->use_prior_position = true;
+  options->ba_global_frames_freq = 1;
+  options->num_threads = 1;
+  options->random_seed = 0;
+
+  ASSERT_TRUE(RunIncrementalMapperImpl(
+      database_path, test_path, output_path, options, reconstruction_manager));
+
+  Reconstruction continued;
+  continued.Read(output_path);
+  EXPECT_EQ(continued.NumRegFrames(), 6);
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(continued,
+                                 /*max_rotation_error_deg=*/0.5,
+                                 /*max_proj_center_error=*/0.05,
+                                 /*max_scale_error=*/1e-2,
+                                 /*num_obs_tolerance=*/0.05,
+                                 /*align=*/false));
 }
 
 }  // namespace

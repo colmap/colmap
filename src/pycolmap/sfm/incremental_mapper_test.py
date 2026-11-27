@@ -171,8 +171,47 @@ def test_incremental_pipeline_options_get_local_bundle_adjustment() -> None:
 
 def test_incremental_pipeline_options_get_global_bundle_adjustment() -> None:
     options = pycolmap.IncrementalPipelineOptions()
+    options.use_prior_position = True
+    options.overwrite_prior_position_covariance = True
     bundle_adjustment_options = options.get_global_bundle_adjustment()
-    assert bundle_adjustment_options is not None
+    assert bundle_adjustment_options.pose_prior.use_position
+    assert bundle_adjustment_options.pose_prior.overwrite_position_covariance
+
+
+def test_incremental_mapper_has_metric_scale(tmp_path: Path) -> None:
+    pycolmap.set_random_seed(0)
+    database_path = tmp_path / "database.db"
+    with pycolmap.Database.open(database_path) as database:
+        synth_options = pycolmap.SyntheticDatasetOptions()
+        synth_options.num_rigs = 1
+        synth_options.num_cameras_per_rig = 1
+        synth_options.num_frames_per_rig = 4
+        synth_options.num_points3D = 40
+        synth_options.prior_position = True
+        gt_rec = pycolmap.synthesize_dataset(synth_options, database)
+        cache = pycolmap.DatabaseCache.create(
+            database, pycolmap.DatabaseCacheOptions()
+        )
+
+    mapper = pycolmap.IncrementalMapper(cache)
+    rec = pycolmap.Reconstruction(gt_rec)
+    mapper.begin_reconstruction(rec)
+    assert not rec.has_metric_scale
+
+    mapper_opts = pycolmap.IncrementalMapperOptions()
+    ba_opts = pycolmap.BundleAdjustmentOptions()
+    ba_opts.print_summary = False
+    assert mapper.adjust_global_bundle(mapper_opts, ba_opts)
+    assert not rec.has_metric_scale
+
+    ba_opts.pose_prior.use_position = True
+    assert mapper.adjust_global_bundle(mapper_opts, ba_opts)
+    assert rec.has_metric_scale
+
+    mapper.end_reconstruction(False)
+    assert rec.has_metric_scale
+    rec.normalize()
+    assert not rec.has_metric_scale
 
 
 def test_incremental_pipeline_options_ba_local_backend_readwrite() -> None:

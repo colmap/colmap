@@ -19,7 +19,15 @@
 namespace colmap {
 namespace {
 
-bool RunBundleAdjustment(const BundleAdjustmentOptions& options,
+void DisableUnsupportedPosePriors(BundleAdjustmentOptions& options) {
+  if (options.pose_prior.use_position) {
+    LOG_FIRST_N(WARNING, 1)
+        << "Position priors are not supported by the global mapper; ignoring.";
+    options.pose_prior.use_position = false;
+  }
+}
+
+bool RunBundleAdjustment(BundleAdjustmentOptions options,
                          Reconstruction& reconstruction) {
   if (reconstruction.NumImages() == 0) {
     LOG(ERROR) << "Cannot run bundle adjustment: no registered images";
@@ -29,6 +37,8 @@ bool RunBundleAdjustment(const BundleAdjustmentOptions& options,
     LOG(ERROR) << "Cannot run bundle adjustment: no 3D points to optimize";
     return false;
   }
+
+  DisableUnsupportedPosePriors(options);
 
   BundleAdjustmentConfig ba_config;
   for (const auto& [image_id, image] : reconstruction.Images()) {
@@ -45,6 +55,7 @@ bool RunBundleAdjustment(const BundleAdjustmentOptions& options,
 BundleAdjustmentOptions RefinementBundleAdjustmentOptions(
     const BundleAdjustmentOptions& ba_options) {
   BundleAdjustmentOptions custom_ba_options = ba_options;
+  DisableUnsupportedPosePriors(custom_ba_options);
   custom_ba_options.refine_focal_length = false;
   custom_ba_options.refine_principal_point = false;
   custom_ba_options.refine_extra_params = false;

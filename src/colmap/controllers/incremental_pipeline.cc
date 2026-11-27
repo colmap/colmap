@@ -5,7 +5,6 @@
 #include "colmap/estimators/alignment.h"
 #include "colmap/estimators/bundle_adjustment_caspar.h"
 #include "colmap/estimators/bundle_adjustment_ceres.h"
-#include "colmap/geometry/pose_prior.h"
 #include "colmap/scene/database.h"
 #include "colmap/util/file.h"
 #include "colmap/util/hash_containers.h"
@@ -113,35 +112,6 @@ bool HasUnknownSensorFromRig(const Reconstruction& reconstruction) {
   return false;
 }
 
-void AlignReconstructionToPriorsOrRigScale(
-    const IncrementalPipelineOptions& options,
-    const DatabaseCache& database_cache,
-    Reconstruction* reconstruction) {
-  if (options.use_prior_position) {
-    PosePriorBundleAdjustmentOptions prior_options;
-    prior_options.alignment_ransac_options.random_seed = options.random_seed;
-
-    std::vector<PosePrior> pose_priors = database_cache.PosePriors();
-    SetPosePriorPositionCovariances(
-        Eigen::Vector3d::Constant(prior_options.prior_position_fallback_stddev),
-        /*overwrite=*/false,
-        pose_priors);
-
-    Sim3d metric_from_reconstruction;
-    if (AlignReconstructionToPosePriors(*reconstruction,
-                                        pose_priors,
-                                        prior_options.alignment_ransac_options,
-                                        &metric_from_reconstruction)) {
-      reconstruction->Transform(metric_from_reconstruction);
-      return;
-    }
-    LOG(WARNING) << "Final alignment w.r.t. prior positions failed; restoring "
-                    "the original rig scale instead";
-  }
-
-  AlignReconstructionToOrigRigScales(database_cache.Rigs(), reconstruction);
-}
-
 }  // namespace
 
 IncrementalMapper::Options IncrementalPipelineOptions::Mapper() const {
@@ -155,9 +125,6 @@ IncrementalMapper::Options IncrementalPipelineOptions::Mapper() const {
   options.fix_existing_frames = fix_existing_frames;
   options.constant_rigs = constant_rigs;
   options.constant_cameras = constant_cameras;
-  options.use_prior_position = use_prior_position;
-  options.use_robust_loss_on_prior_position = use_robust_loss_on_prior_position;
-  options.prior_position_loss_scale = prior_position_loss_scale;
   options.random_seed = random_seed;
   return options;
 }
@@ -233,6 +200,11 @@ BundleAdjustmentOptions IncrementalPipelineOptions::GlobalBundleAdjustment()
   options.refine_principal_point = ba_refine_principal_point;
   options.refine_extra_params = ba_refine_extra_params;
   options.refine_sensor_from_rig = ba_refine_sensor_from_rig;
+  options.pose_prior.use_position = use_prior_position;
+  options.pose_prior.position_stddev = prior_position_stddev;
+  options.pose_prior.overwrite_position_covariance =
+      overwrite_prior_position_covariance;
+  options.pose_prior.position_alignment_ransac.random_seed = random_seed;
   if (options.ceres) {
     options.ceres->solver_options.function_tolerance =
         ba_global_function_tolerance;
@@ -256,6 +228,10 @@ BundleAdjustmentOptions IncrementalPipelineOptions::GlobalBundleAdjustment()
     options.ceres->min_num_residuals_for_cpu_multi_threading =
         ba_min_num_residuals_for_cpu_multi_threading;
     options.ceres->loss_function_type = CeresLossFunctionType::TRIVIAL;
+    options.ceres->prior_position_loss_function_type =
+        use_robust_loss_on_prior_position ? CeresLossFunctionType::CAUCHY
+                                          : CeresLossFunctionType::TRIVIAL;
+    options.ceres->prior_position_loss_scale = prior_position_loss_scale;
     options.ceres->use_gpu = ba_use_gpu;
     options.ceres->gpu_index = ba_gpu_index;
     options.ceres->min_num_images_gpu_solver = ba_min_num_images_gpu_solver;
@@ -330,7 +306,6 @@ bool IncrementalPipelineOptions::Check() const {
   CHECK_OPTION_LT(ba_max_num_images_direct_dense_gpu_solver,
                   ba_max_num_images_direct_sparse_gpu_solver);
   CHECK_OPTION_GE(snapshot_frames_freq, 0);
-  CHECK_OPTION_GT(prior_position_loss_scale, 0.);
   CHECK_OPTION_GE(num_threads, -1);
   CHECK_OPTION_GE(random_seed, -1);
 #ifndef CASPAR_ENABLED
@@ -339,6 +314,7 @@ bool IncrementalPipelineOptions::Check() const {
 #endif
   CHECK_OPTION(Mapper().Check());
   CHECK_OPTION(Triangulation().Check());
+  CHECK_OPTION(GlobalBundleAdjustment().Check());
   return true;
 }
 
@@ -517,7 +493,11 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
   if (CheckIfStopped() || CheckReachedMaxRuntime()) {
     return Status::INTERRUPTED;
   }
-  reconstruction.Normalize();
+  // Keep the metric frame between BAs when metric priors constrain scale,
+  // consistent with IterativeGlobalRefinement.
+  if (!reconstruction.HasMetricScale()) {
+    reconstruction.Normalize();
+  }
   mapper.FilterPoints(mapper_options);
   mapper.FilterFrames(mapper_options);
 
@@ -770,8 +750,10 @@ IncrementalPipeline::Status IncrementalPipeline::Reconstruct(
         reconstruction->UpdatePoint3DErrors();
         LOG(INFO) << "Keeping reconstruction due to interrupt";
         mapper.EndReconstruction(/*discard=*/false);
-        AlignReconstructionToPriorsOrRigScale(
-            *options_, *database_cache_, reconstruction.get());
+        if (!reconstruction->HasMetricScale()) {
+          AlignReconstructionToOrigRigScales(database_cache_->Rigs(),
+                                             reconstruction.get());
+        }
         return Status::STOP;
       }
 
@@ -828,8 +810,10 @@ IncrementalPipeline::Status IncrementalPipeline::Reconstruct(
           reconstruction->UpdatePoint3DErrors();
           LOG(INFO) << "Keeping successful reconstruction";
           mapper.EndReconstruction(/*discard=*/false);
-          AlignReconstructionToPriorsOrRigScale(
-              *options_, *database_cache_, reconstruction.get());
+          if (!reconstruction->HasMetricScale()) {
+            AlignReconstructionToOrigRigScales(database_cache_->Rigs(),
+                                               reconstruction.get());
+          }
         }
 
         Callback(LAST_IMAGE_REG_CALLBACK);

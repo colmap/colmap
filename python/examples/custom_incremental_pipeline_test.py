@@ -5,6 +5,7 @@
 from pathlib import Path
 
 import custom_incremental_pipeline
+import numpy as np
 import pytest
 
 import pycolmap
@@ -218,3 +219,115 @@ def test_write_snapshot(
 
     snapshot = pycolmap.Reconstruction(snapshot_root / "0000123456")
     assert snapshot.num_images() == 0
+
+
+def _set_pose_priors_with_shifted_anchor(
+    database: pycolmap.Database,
+    shifted_image_id: int,
+    shift: np.ndarray,
+    metric_from_synth: pycolmap.Sim3d | None = None,
+) -> np.ndarray:
+    shifted_prior_position = np.zeros(3)
+    for prior in database.read_all_pose_priors():
+        if metric_from_synth is not None:
+            prior.position = metric_from_synth * prior.position
+        if prior.corr_data_id.id == shifted_image_id:
+            prior.position = prior.position + shift
+            prior.position_covariance = 1e-12 * np.eye(3)
+            shifted_prior_position = prior.position.copy()
+        else:
+            prior.position_covariance = 1e-6 * np.eye(3)
+        database.update_pose_prior(prior)
+    return shifted_prior_position
+
+
+@pytest.mark.parametrize("continue_with_fixed_frames", [False, True])
+def test_with_pose_priors(
+    tmp_path: Path, continue_with_fixed_frames: bool
+) -> None:
+    pycolmap.set_random_seed(0)
+
+    database_path = tmp_path / "database.db"
+    image_path = tmp_path / "images"
+    image_path.mkdir()
+    output_path = tmp_path / "sparse"
+    output_path.mkdir()
+
+    metric_from_synth = (
+        None
+        if continue_with_fixed_frames
+        else pycolmap.Sim3d(3.0, pycolmap.Rotation3d(), [10.0, -5.0, 2.0])
+    )
+    with pycolmap.Database.open(database_path) as database:
+        synthetic_dataset_options = pycolmap.SyntheticDatasetOptions()
+        synthetic_dataset_options.num_rigs = 1
+        synthetic_dataset_options.num_cameras_per_rig = 1
+        synthetic_dataset_options.num_frames_per_rig = 6
+        synthetic_dataset_options.num_points3D = 80
+        synthetic_dataset_options.prior_position = True
+        gt_reconstruction = pycolmap.synthesize_dataset(
+            synthetic_dataset_options, database
+        )
+        if metric_from_synth is not None:
+            gt_reconstruction.transform(metric_from_synth)
+
+        frame_ids = gt_reconstruction.reg_frame_ids()
+        assert len(frame_ids) == 6
+        shifted_image_id = next(
+            iter(gt_reconstruction.frame(frame_ids[-1]).image_ids)
+        ).id
+        shifted_prior_position = _set_pose_priors_with_shifted_anchor(
+            database,
+            shifted_image_id,
+            np.array([0.01, 0.0, 0.0]),
+            metric_from_synth=metric_from_synth,
+        )
+
+    options = create_test_options()
+    options.use_prior_position = True
+    options.random_seed = 0
+    input_path = None
+    if continue_with_fixed_frames:
+        input_path = tmp_path / "input"
+        input_path.mkdir()
+        initial_reconstruction = pycolmap.Reconstruction(gt_reconstruction)
+        initial_reconstruction.deregister_frame(frame_ids[4])
+        initial_reconstruction.deregister_frame(frame_ids[5])
+        initial_reconstruction.transform(
+            pycolmap.Sim3d(
+                2.5,
+                pycolmap.Rotation3d(
+                    np.array([0.0, 0.0, np.sin(0.25), np.cos(0.25)])
+                ),
+                [100.0, -50.0, 20.0],
+            )
+        )
+        initial_reconstruction.write(input_path)
+        options.fix_existing_frames = True
+        options.ba_global_frames_freq = 1
+
+    custom_incremental_pipeline.main(
+        database_path=database_path,
+        image_path=image_path,
+        input_path=input_path,
+        output_path=output_path,
+        options=options,
+    )
+
+    computed = pycolmap.Reconstruction(output_path / "0")
+    assert computed.num_reg_frames() == 6
+    shifted_err = float(
+        np.linalg.norm(
+            computed.image(shifted_image_id).projection_center()
+            - shifted_prior_position
+        )
+    )
+    assert shifted_err < 1e-3
+    for image_id, gt_image in gt_reconstruction.images.items():
+        err = float(
+            np.linalg.norm(
+                computed.image(image_id).projection_center()
+                - gt_image.projection_center()
+            )
+        )
+        assert err < 2e-2

@@ -375,7 +375,9 @@ available as ``colmap [command]``:
   improve match verification results.
 
 - ``mapper``: Sparse 3D reconstruction / mapping of the dataset using SfM after
-  performing feature extraction and matching.
+  performing feature extraction and matching. Pass
+  ``--Mapper.use_prior_position 1`` to incorporate position priors (e.g., GPS)
+  from the database.
 
 - ``global_mapper``: Sparse 3D reconstruction using the global SfM pipeline.
   Unlike the incremental ``mapper``, the global approach solves for all camera
@@ -386,7 +388,8 @@ available as ``colmap [command]``:
   camera intrinsics and estimate relative poses from the view graph, or provide
   camera calibrations manually.
 
-- ``pose_prior_mapper``: Sparse 3D reconstruction / mapping using pose priors.
+- ``pose_prior_mapper``: Deprecated alias for
+  ``mapper --Mapper.use_prior_position 1``.
 
 - ``hierarchical_mapper``: Sparse 3D reconstruction / mapping of the dataset
   using hierarchical SfM after performing feature extraction and matching.
