@@ -405,10 +405,17 @@ void PMVSUndistorter::WriteVisibilityData() const {
   file << "VISDATA\n";
   file << reconstruction_.NumRegImages() << '\n';
 
+  const auto image_ids = reconstruction_.RegImageIds();
+  FlatHashMap<image_t, size_t> image_id_to_idx;
+  image_id_to_idx.reserve(image_ids.size());
+  for (size_t i = 0; i < image_ids.size(); ++i) {
+    image_id_to_idx.emplace(image_ids[i], i);
+  }
+
   size_t image_idx = 0;
-  for (const image_t image_id : reconstruction_.RegImageIds()) {
+  for (const image_t image_id : image_ids) {
     const Image& image = reconstruction_.Image(image_id);
-    FlatHashSet<image_t> visible_image_ids;
+    FlatHashSet<size_t> visible_image_idxs;
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
          ++point2D_idx) {
       const Point2D& point2D = image.Point2D(point2D_idx);
@@ -416,19 +423,20 @@ void PMVSUndistorter::WriteVisibilityData() const {
         const Point3D& point3D = reconstruction_.Point3D(point2D.point3D_id);
         for (const TrackElement& track_el : point3D.track.Elements()) {
           if (track_el.image_id != image_id) {
-            visible_image_ids.insert(track_el.image_id);
+            visible_image_idxs.insert(image_id_to_idx.at(track_el.image_id));
           }
         }
       }
     }
 
-    std::vector<image_t> sorted_visible_image_ids(visible_image_ids.begin(),
-                                                  visible_image_ids.end());
-    std::sort(sorted_visible_image_ids.begin(), sorted_visible_image_ids.end());
+    std::vector<size_t> sorted_visible_image_idxs(visible_image_idxs.begin(),
+                                                  visible_image_idxs.end());
+    std::sort(sorted_visible_image_idxs.begin(),
+              sorted_visible_image_idxs.end());
 
-    file << image_idx++ << " " << visible_image_ids.size();
-    for (const image_t visible_image_id : sorted_visible_image_ids) {
-      file << " " << visible_image_id;
+    file << image_idx++ << " " << visible_image_idxs.size();
+    for (const size_t visible_image_idx : sorted_visible_image_idxs) {
+      file << " " << visible_image_idx;
     }
     file << '\n';
   }

@@ -254,9 +254,17 @@ TEST(PMVSUndistorter, Integration) {
   CreateDirIfNotExists(image_path);
   CreateDirIfNotExists(output_path);
 
-  // Create synthetic reconstruction with dummy images.
+  // Create synthetic reconstruction with dummy images. The camera must fit the
+  // image so that both images observe common 3D points.
   const Reconstruction reconstruction =
-      CreateSyntheticReconstructionWithBitmaps(image_path);
+      CreateSyntheticReconstructionWithBitmaps(
+          image_path,
+          /*num_images=*/2,
+          /*image_width=*/100,
+          /*image_height=*/100,
+          ".png",
+          SimpleRadialCameraModel::model_id,
+          {100, 50, 50, 0.05});
 
   // Run PMVS undistorter.
   PMVSUndistorter undistorter(PMVSUndistorter::Options(),
@@ -279,6 +287,10 @@ TEST(PMVSUndistorter, Integration) {
     const std::string image_name = StringPrintf("%08zu.jpg", i);
     EXPECT_TRUE(ExistsFile(output_path / "pmvs" / "visualize" / image_name));
   }
+
+  // Visibility refers to the exported image indices, not the image IDs.
+  EXPECT_THAT(ReadTextFileLines(output_path / "pmvs" / "vis.dat"),
+              testing::ElementsAre("VISDATA", "2", "0 1 1", "1 1 0"));
 }
 
 TEST(CMPMVSUndistorter, Integration) {
