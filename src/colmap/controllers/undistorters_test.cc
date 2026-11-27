@@ -48,6 +48,18 @@ Reconstruction CreateSyntheticReconstructionWithBitmaps(
   return reconstruction;
 }
 
+// Every generated COLMAP command must end at its --output_path line.
+void ExpectCommandsTerminated(const std::filesystem::path& script) {
+  int num_output_paths = 0;
+  for (const auto& line : ReadTextFileLines(script)) {
+    if (StringContains(line, "--output_path")) {
+      ++num_output_paths;
+      EXPECT_NE(line.back(), '\\') << line;
+    }
+  }
+  EXPECT_EQ(num_output_paths, 3);
+}
+
 TEST(COLMAPUndistorter, Integration) {
   const auto temp_dir = CreateTestDir();
   const auto image_path = temp_dir / "input_images";
@@ -80,6 +92,7 @@ TEST(COLMAPUndistorter, Integration) {
   // Expect dense reconstruction files to be written.
   EXPECT_TRUE(ExistsFile(output_path / "stereo/patch-match.cfg"));
   EXPECT_TRUE(ExistsFile(output_path / "stereo/fusion.cfg"));
+  ExpectCommandsTerminated(output_path / "run-colmap-geometric.sh");
 }
 
 TEST(COLMAPUndistorter, UndistortsZeroDistortionFisheyeCameras) {
@@ -279,6 +292,7 @@ TEST(PMVSUndistorter, Integration) {
     const std::string image_name = StringPrintf("%08zu.jpg", i);
     EXPECT_TRUE(ExistsFile(output_path / "pmvs" / "visualize" / image_name));
   }
+  ExpectCommandsTerminated(output_path / "run-cmvs-colmap-geometric.sh");
 }
 
 TEST(CMPMVSUndistorter, Integration) {
