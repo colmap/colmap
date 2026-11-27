@@ -181,7 +181,8 @@ TEST(Model, ComputeDepthRangesRanksAndTies) {
     std::vector<float> depths;
     for (int i = 0; i < num_points; ++i) {
       // Permute 0..100, then group adjacent values into tied depths.
-      const float depth = static_cast<float>(1 + ((i * 37) % 101) / 2);
+      const int bucket = ((i * 37) % 101) / 2;
+      const float depth = static_cast<float>(1 + bucket);
       depths.push_back(depth);
       model.points.push_back(Model::Point{0, 0, depth, {0}});
     }
