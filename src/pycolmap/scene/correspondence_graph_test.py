@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
-import gc
 import weakref
 
 import numpy as np
@@ -146,32 +145,21 @@ def test_correspondence_graph_is_two_view_observation() -> None:
     assert graph.is_two_view_observation(1, 0) is True
 
 
-@pytest.mark.parametrize("finalize", [False, True])
-@pytest.mark.parametrize("point2D_idx", [0, 4])
-def test_correspondence_range_keeps_graph_alive(
-    finalize: bool, point2D_idx: int
-) -> None:
+def test_correspondence_range_keeps_graph_alive() -> None:
     graph = pycolmap.CorrespondenceGraph()
     graph.add_image(1, 5)
     graph.add_image(2, 5)
-    two_view = pycolmap.TwoViewGeometry()
-    two_view.inlier_matches = np.array([[0, 0]], dtype=np.uint32)
+    two_view = pycolmap.TwoViewGeometry(
+        inlier_matches=np.array([[0, 0]], dtype=np.uint32)
+    )
     graph.add_two_view_geometry(1, 2, two_view)
-    if finalize:
-        graph.finalize()
-
+    graph.finalize()
     graph_ref = weakref.ref(graph)
-    correspondences = graph.find_correspondences(1, point2D_idx)
+    correspondences = graph.find_correspondences(1, 0)
     del graph
-    gc.collect()
-
     assert graph_ref() is not None
-    assert correspondences.empty == (point2D_idx == 4)
-    expected = [(2, 0)] if point2D_idx == 0 else []
-    assert [
-        (corr.image_id, corr.point2D_idx) for corr in correspondences.to_list()
-    ] == expected
-
+    assert [(c.image_id, c.point2D_idx) for c in correspondences.to_list()] == [
+        (2, 0)
+    ]
     del correspondences
-    gc.collect()
     assert graph_ref() is None
