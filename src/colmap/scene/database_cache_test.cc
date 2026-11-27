@@ -476,6 +476,24 @@ TEST(DatabaseCache, CreateFromCacheSkipsUndefinedGeometries) {
             0);
 }
 
+TEST(DatabaseCache, CreateFromCacheWithRigImageNames) {
+  auto database = CreateTestDatabase();
+  const auto source = DatabaseCache::Create(*database, {});
+  // Selecting an image must include its frame siblings before matching.
+  for (const FlatHashSet<std::string>& image_names :
+       std::vector<FlatHashSet<std::string>>{{"image1"},
+                                             {"image1", "image4"}}) {
+    DatabaseCache::Options options;
+    options.image_names = image_names;
+    const auto expected = DatabaseCache::Create(*database, options);
+    const auto filtered = DatabaseCache::CreateFromCache(*source, options);
+    EXPECT_EQ(filtered->NumFrames(), expected->NumFrames());
+    EXPECT_EQ(filtered->Images(), expected->Images());
+    EXPECT_EQ(filtered->CorrespondenceGraph()->NumMatchesBetweenAllImages(),
+              expected->CorrespondenceGraph()->NumMatchesBetweenAllImages());
+  }
+}
+
 TEST(DatabaseCache, ConvertMixedGravityAndGPSPosePriorsToENU) {
   auto database = Database::Open(kInMemorySqliteDatabasePath);
   const Camera camera = Camera::CreateFromModelId(
