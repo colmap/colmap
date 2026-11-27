@@ -442,6 +442,41 @@ TEST(BACovarianceMonteCarlo, PosesAndIntrinsics) {
   EXPECT_THAT(intrinsics_samples, SamplesFollowCov(variance * *intrinsics_cov));
 }
 
+// Fixes the remaining gauge minimally on `ceres_problem`: keeps the pose of
+// `ref_image_id` constant if `pin_ref_pose` is true, and keeps one translation
+// component of `scale_image_id` constant to fix the scale. Returns the index
+// of that translation component.
+int FixGaugeMinimally(Reconstruction& reconstruction,
+                      ceres::Problem& ceres_problem,
+                      image_t ref_image_id,
+                      image_t scale_image_id,
+                      bool pin_ref_pose) {
+  if (pin_ref_pose) {
+    Rigid3d& ref_from_world =
+        reconstruction.Frame(reconstruction.Image(ref_image_id).FrameId())
+            .RigFromWorld();
+    ceres_problem.SetParameterBlockConstant(ref_from_world.params.data());
+  }
+  const Rigid3d ref_from_world =
+      reconstruction.Image(ref_image_id).CamFromWorld();
+  Rigid3d& scale_from_world =
+      reconstruction.Frame(reconstruction.Image(scale_image_id).FrameId())
+          .RigFromWorld();
+  // Pick the largest component of the scale tangent direction
+  // t_scale - R_scale * R_ref^T * t_ref to ensure a transverse gauge cut.
+  const Eigen::Vector3d scale_dir =
+      scale_from_world.translation() -
+      (scale_from_world.rotation() * ref_from_world.rotation().inverse()) *
+          ref_from_world.translation();
+  int fixed_translation_idx = 0;
+  scale_dir.cwiseAbs().maxCoeff(&fixed_translation_idx);
+  SetManifold(
+      &ceres_problem,
+      scale_from_world.params.data(),
+      CreateProductManifold(CreateEigenQuaternionManifold(),
+                            CreateSubsetManifold(3, {fixed_translation_idx})));
+  return fixed_translation_idx;
+}
 TEST(EstimateBACovariance, IllConditionedAndDegeneratePoints) {
   const MonteCarloProblem problem =
       CreateMonteCarloProblem(/*num_constant_points=*/0);
@@ -540,13 +575,17 @@ TEST(EstimateBACovariance, IllConditionedAndDegeneratePoints) {
       add_point(ref_center + 2.0 * ref_z, {image_ids[0], colocated_image_id});
 
   BundleAdjustmentConfig config;
-  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
   for (const image_t image_id : image_ids) {
     config.AddImage(image_id);
   }
   auto ceres_ba = CreateDefaultCeresBundleAdjuster(
       BundleAdjustmentOptions(), config, reconstruction);
   ceres::Problem& ceres_problem = *ceres_ba->Problem();
+  FixGaugeMinimally(reconstruction,
+                    ceres_problem,
+                    image_ids[0],
+                    image_ids[1],
+                    /*pin_ref_pose=*/true);
   // Keep the single-residual point variable to test k < tangent_size SVD, and
   // add a zero-residual variable point to test the empty-rows path.
   ceres_problem.SetParameterBlockVariable(
