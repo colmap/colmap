@@ -173,7 +173,7 @@ bool InvertedFile<kEmbeddingDim>::EntriesSorted() const {
 
 template <int kEmbeddingDim>
 bool InvertedFile<kEmbeddingDim>::IsUsable() const {
-  return status_ & kUsable;
+  return (status_ & kUsable) == kUsable;
 }
 
 template <int kEmbeddingDim>
