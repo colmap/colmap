@@ -461,31 +461,23 @@ CreateAnalyticalReprojErrorConstantPoseCostFunction(Args&&... /*args*/) {
 template <template <typename> class CostFunctor, typename... Args>
 ceres::CostFunction* CreateCameraCostFunction(
     const CameraModelId camera_model_id, Args&&... args) {
-  // NOLINTBEGIN(bugprone-macro-parentheses)
-  switch (camera_model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)                                         \
-  case CameraModel::model_id:                                                  \
-    if constexpr (std::is_same<CostFunctor<CameraModel>,                       \
-                               ReprojErrorCostFunctor<CameraModel>>::value &&  \
-                  CameraModel::has_img_from_cam_with_jac) {                    \
-      return CreateAnalyticalReprojErrorCostFunction<CameraModel>(             \
-          std::forward<Args>(args)...);                                        \
-    } else if constexpr (std::is_same<CostFunctor<CameraModel>,                \
-                                      ReprojErrorConstantPoseCostFunctor<      \
-                                          CameraModel>>::value &&              \
-                         CameraModel::has_img_from_cam_with_jac) {             \
-      return CreateAnalyticalReprojErrorConstantPoseCostFunction<CameraModel>( \
-          std::forward<Args>(args)...);                                        \
-    } else {                                                                   \
-      return CostFunctor<CameraModel>::Create(std::forward<Args>(args)...);    \
-    }                                                                          \
-    break;
-
-    CAMERA_MODEL_SWITCH_CASES
-
-#undef CAMERA_MODEL_CASE
-  }
-  // NOLINTEND(bugprone-macro-parentheses)
+  return VisitCameraModelOrThrow(camera_model_id, [&](auto tag) {
+    using CameraModel = typename decltype(tag)::type;
+    if constexpr (std::is_same<CostFunctor<CameraModel>,
+                               ReprojErrorCostFunctor<CameraModel>>::value &&
+                  CameraModel::has_img_from_cam_with_jac) {
+      return CreateAnalyticalReprojErrorCostFunction<CameraModel>(
+          std::forward<Args>(args)...);
+    } else if constexpr (std::is_same<CostFunctor<CameraModel>,
+                                      ReprojErrorConstantPoseCostFunctor<
+                                          CameraModel>>::value &&
+                         CameraModel::has_img_from_cam_with_jac) {
+      return CreateAnalyticalReprojErrorConstantPoseCostFunction<CameraModel>(
+          std::forward<Args>(args)...);
+    } else {
+      return CostFunctor<CameraModel>::Create(std::forward<Args>(args)...);
+    }
+  });
 }
 
 // Same as CreateCameraCostFunction, but whitens the result. The weight is a
@@ -499,21 +491,13 @@ ceres::CostFunction* CreateCovarianceWeightedCameraCostFunction(
     const CameraModelId camera_model_id,
     const Covariance& covariance,
     Args&&... args) {
-  // NOLINTBEGIN(bugprone-macro-parentheses)
-  switch (camera_model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)                                       \
-  case CameraModel::model_id:                                                \
-    return CreateCovarianceWeightedCostFunction<CostFunctor<CameraModel>>(   \
-        covariance,                                                          \
-        CreateCameraCostFunction<CostFunctor>(camera_model_id,               \
-                                              std::forward<Args>(args)...)); \
-    break;
-
-    CAMERA_MODEL_SWITCH_CASES
-
-#undef CAMERA_MODEL_CASE
-  }
-  // NOLINTEND(bugprone-macro-parentheses)
+  return VisitCameraModelOrThrow(camera_model_id, [&](auto tag) {
+    using CameraModel = typename decltype(tag)::type;
+    return CreateCovarianceWeightedCostFunction<CostFunctor<CameraModel>>(
+        covariance,
+        CreateCameraCostFunction<CostFunctor>(camera_model_id,
+                                              std::forward<Args>(args)...));
+  });
 }
 
 template <template <typename> class CostFunctor,
@@ -521,21 +505,13 @@ template <template <typename> class CostFunctor,
           typename... Args>
 ceres::CostFunction* CreateScaleWeightedCameraCostFunction(
     const CameraModelId camera_model_id, const Stddev& stddev, Args&&... args) {
-  // NOLINTBEGIN(bugprone-macro-parentheses)
-  switch (camera_model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)                                       \
-  case CameraModel::model_id:                                                \
-    return CreateScaleWeightedCostFunction<CostFunctor<CameraModel>>(        \
-        stddev,                                                              \
-        CreateCameraCostFunction<CostFunctor>(camera_model_id,               \
-                                              std::forward<Args>(args)...)); \
-    break;
-
-    CAMERA_MODEL_SWITCH_CASES
-
-#undef CAMERA_MODEL_CASE
-  }
-  // NOLINTEND(bugprone-macro-parentheses)
+  return VisitCameraModelOrThrow(camera_model_id, [&](auto tag) {
+    using CameraModel = typename decltype(tag)::type;
+    return CreateScaleWeightedCostFunction<CostFunctor<CameraModel>>(
+        stddev,
+        CreateCameraCostFunction<CostFunctor>(camera_model_id,
+                                              std::forward<Args>(args)...));
+  });
 }
 
 }  // namespace colmap

@@ -89,28 +89,17 @@ bool TestCamFromImgCeresOptimization(const std::vector<double>& params,
 bool FisheyeCameraModelIsValidPixel(const CameraModelId model_id,
                                     const std::vector<double>& params,
                                     const Eigen::Vector2d& xy) {
-  switch (model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)                                    \
-  case CameraModel::model_id: {                                           \
-    double uu, vv;                                                        \
-    CameraModel::FisheyeFromImg(params.data(), xy.x(), xy.y(), &uu, &vv); \
-    const double theta = std::sqrt(uu * uu + vv * vv);                    \
-    if (theta < EIGEN_PI / 2.0) {                                         \
-      return true;                                                        \
-    } else {                                                              \
-      return false;                                                       \
-    }                                                                     \
+  if (!CameraModelIsPerspectiveFisheye(model_id)) {
+    throw std::domain_error(
+        "Camera model does not exist or is not a fisheye camera");
   }
-
-    PERSPECTIVE_FISHEYE_CAMERA_MODEL_CASES
-    default:
-      throw std::domain_error(
-          "Camera model does not exist or is not a fisheye camera");
-
-#undef CAMERA_MODEL_CASE
-  }
-
-  return false;
+  return VisitPerspectiveFisheyeCameraModel(model_id, [&](auto tag) {
+    using CameraModel = typename decltype(tag)::type;
+    double uu, vv;
+    CameraModel::FisheyeFromImg(params.data(), xy.x(), xy.y(), &uu, &vv);
+    const double theta = std::sqrt(uu * uu + vv * vv);
+    return theta < EIGEN_PI / 2.0;
+  });
 }
 
 template <typename CameraModel>
@@ -322,11 +311,11 @@ TEST(CameraModel, RejectsNonFiniteParams) {
       -std::numeric_limits<double>::infinity()};
   // Every camera model, generated from the model registry so that future
   // models are covered by construction.
-  const std::vector<CameraModelId> model_ids{
-#define CAMERA_MODEL_CASE(CameraModel) CameraModel::model_id,
-      CAMERA_MODEL_CASES
-#undef CAMERA_MODEL_CASE
-  };
+  std::vector<CameraModelId> model_ids;
+  ForEachCameraModel([&](auto tag) {
+    using CameraModel = typename decltype(tag)::type;
+    model_ids.push_back(CameraModel::model_id);
+  });
   for (const CameraModelId model_id : model_ids) {
     const std::vector<double> nominal_params =
         CameraModelInitializeParams(model_id, /*focal_length=*/100, 100, 100);
@@ -343,6 +332,56 @@ TEST(CameraModel, RejectsNonFiniteParams) {
       }
     }
   }
+}
+
+TEST(CameraModelDispatch, CoversAllModels) {
+  std::vector<CameraModelId> model_ids;
+  ForEachCameraModel([&](auto tag) {
+    using CameraModel = typename decltype(tag)::type;
+    model_ids.push_back(CameraModel::model_id);
+  });
+  ASSERT_EQ(model_ids.size(), 19);
+
+  for (const CameraModelId model_id : model_ids) {
+    EXPECT_TRUE(ExistsCameraModelWithId(model_id))
+        << static_cast<int>(model_id);
+    EXPECT_EQ(VisitCameraModelOrThrow(model_id,
+                                      [](auto tag) {
+                                        using CameraModel =
+                                            typename decltype(tag)::type;
+                                        return CameraModel::model_id;
+                                      }),
+              model_id);
+    EXPECT_EQ(CameraModelNameToId(CameraModelIdToName(model_id)), model_id);
+  }
+
+  size_t num_perspective = 0;
+  ForEachPerspectiveCameraModel([&](auto /*tag*/) { ++num_perspective; });
+  EXPECT_EQ(num_perspective, 18);
+
+  size_t num_spherical = 0;
+  ForEachSphericalCameraModel([&](auto /*tag*/) { ++num_spherical; });
+  EXPECT_EQ(num_spherical, 1);
+
+  size_t num_fisheye = 0;
+  ForEachPerspectiveFisheyeCameraModel([&](auto /*tag*/) { ++num_fisheye; });
+  EXPECT_EQ(num_fisheye, 7);
+
+  EXPECT_FALSE(ExistsCameraModelWithId(CameraModelId::kInvalid));
+  EXPECT_THROW(VisitCameraModelOrThrow(CameraModelId::kInvalid,
+                                       [](auto /*tag*/) { return true; }),
+               std::domain_error);
+  EXPECT_FALSE(VisitCameraModelOrValue(
+      CameraModelId::kInvalid, [](auto /*tag*/) { return true; }, false));
+  EXPECT_THROW(VisitPerspectiveCameraModel(EquirectangularCameraModel::model_id,
+                                           [](auto /*tag*/) { return true; }),
+               std::domain_error);
+  EXPECT_THROW(
+      VisitPerspectiveFisheyeCameraModel(PinholeCameraModel::model_id,
+                                         [](auto /*tag*/) { return true; }),
+      std::domain_error);
+  EXPECT_NO_THROW(VisitCameraModelOrThrow(SimplePinholeCameraModel::model_id,
+                                          [](auto /*tag*/) {}));
 }
 
 TEST(Spherical, Nominal) {
