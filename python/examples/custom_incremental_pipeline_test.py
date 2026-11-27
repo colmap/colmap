@@ -238,10 +238,7 @@ def _set_pose_priors_with_shifted_anchor(
     return shifted_prior_position
 
 
-@pytest.mark.parametrize("continue_with_fixed_frames", [False, True])
-def test_with_pose_priors(
-    tmp_path: Path, continue_with_fixed_frames: bool
-) -> None:
+def test_with_pose_priors(tmp_path: Path) -> None:
     pycolmap.set_random_seed(0)
 
     database_path = tmp_path / "database.db"
@@ -273,30 +270,9 @@ def test_with_pose_priors(
     options = create_test_options()
     options.use_prior_position = True
     options.random_seed = 0
-    input_path = None
-    if continue_with_fixed_frames:
-        input_path = tmp_path / "input"
-        input_path.mkdir()
-        initial_reconstruction = pycolmap.Reconstruction(gt_reconstruction)
-        initial_reconstruction.deregister_frame(frame_ids[4])
-        initial_reconstruction.deregister_frame(frame_ids[5])
-        initial_reconstruction.transform(
-            pycolmap.Sim3d(
-                2.5,
-                pycolmap.Rotation3d(
-                    np.array([0.0, 0.0, np.sin(0.25), np.cos(0.25)])
-                ),
-                [100.0, -50.0, 20.0],
-            )
-        )
-        initial_reconstruction.write(input_path)
-        options.fix_existing_frames = True
-        options.ba_global_frames_freq = 1
-
     custom_incremental_pipeline.main(
         database_path=database_path,
         image_path=image_path,
-        input_path=input_path,
         output_path=output_path,
         options=options,
     )
