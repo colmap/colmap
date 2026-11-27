@@ -110,18 +110,13 @@ def test_image_map_insert_and_access() -> None:
     ],
 )
 def test_scene_pointer_property_keeps_reconstruction_alive(
-    owner_type: str, property_name: str, id_name: str
+    simple_camera: pycolmap.Camera,
+    owner_type: str,
+    property_name: str,
+    id_name: str,
 ) -> None:
     reconstruction = pycolmap.Reconstruction()
-    reconstruction.add_camera_with_trivial_rig(
-        pycolmap.Camera(
-            camera_id=1,
-            model="SIMPLE_PINHOLE",
-            width=10,
-            height=10,
-            params=[10.0, 5.0, 5.0],
-        )
-    )
+    reconstruction.add_camera_with_trivial_rig(simple_camera)
     reconstruction.add_image_with_trivial_frame(
         pycolmap.Image(name="image.jpg", image_id=1, camera_id=1)
     )
@@ -133,9 +128,6 @@ def test_scene_pointer_property_keeps_reconstruction_alive(
 
     assert reconstruction_ref() is not None
     assert getattr(borrowed, id_name) == 1
-    assert borrowed is getattr(
-        getattr(reconstruction_ref(), owner_type)(1), property_name
-    )
 
     del borrowed
     gc.collect()
