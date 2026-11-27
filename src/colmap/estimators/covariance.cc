@@ -10,9 +10,13 @@
 namespace colmap {
 namespace {
 
+// Point Jacobian singular values below this fraction of the largest singular
+// value are truncated during Schur elimination so ill-conditioned or
+// rank-deficient points preserve the gauge invariance of the Schur complement.
+constexpr double kMinPointSingularValueRatio = 1e-7;
+
 bool ComputeSchurComplement(bool estimate_point_covs,
-                            bool estimate_pose_covs,
-                            bool estimate_other_covs,
+                            bool compute_schur,
                             double damping,
                             int point_num_params,
                             const std::vector<internal::PointParam>& points,
@@ -24,9 +28,9 @@ bool ComputeSchurComplement(bool estimate_point_covs,
   VLOG(2) << "Evaluating the Jacobian for Schur elimination";
 
   ceres::Problem::EvaluateOptions eval_options;
-  eval_options.parameter_blocks.reserve(2 * poses.size() + points.size() +
-                                        others.size());
-  if (estimate_pose_covs || estimate_other_covs) {
+  eval_options.parameter_blocks.reserve(
+      (compute_schur ? poses.size() + others.size() : 0) + points.size());
+  if (compute_schur) {
     for (const auto& pose : poses) {
       eval_options.parameter_blocks.push_back(
           const_cast<double*>(pose.cam_from_world));
@@ -66,43 +70,96 @@ bool ComputeSchurComplement(bool estimate_point_covs,
           << ")";
 
   // Notice that here "a" refers to pose/other and "p" to point parameters.
-  const Eigen::SparseMatrix<double> J_a =
-      J_full.block(0, 0, J_full.rows(), J_full.cols() - point_num_params);
-  const Eigen::SparseMatrix<double> J_p = J_full.block(
-      0, J_full.cols() - point_num_params, J_full.rows(), point_num_params);
-  const Eigen::SparseMatrix<double> H_aa = J_a.transpose() * J_a;
-  const Eigen::SparseMatrix<double> H_ap = J_a.transpose() * J_p;
-  const Eigen::SparseMatrix<double> H_pa = H_ap.transpose();
-  Eigen::SparseMatrix<double> H_pp = J_p.transpose() * J_p;
-  // In-place computation of H_pp_inv.
-  Eigen::SparseMatrix<double>& H_pp_inv = H_pp;
+  const int a_num_params = J_full.cols() - point_num_params;
+  const Eigen::SparseMatrix<double> J_p =
+      J_full.block(0, a_num_params, J_full.rows(), point_num_params);
+  // Orthogonal left singular vectors U_p of each point's Jacobian block,
+  // preserving the sparsity pattern of J_p. Forming S = J_a^T J_a - W^T W with
+  // W = U_p^T J_a avoids squaring cond(J_p) via normal equations.
+  std::vector<Eigen::Triplet<double>> U_p_triplets;
+  if (compute_schur) {
+    U_p_triplets.reserve(J_p.nonZeros());
+  }
+
+  std::vector<int> rows;
   int point_param_idx = 0;
   for (const internal::PointParam& point : points) {
     const int tangent_size = ParameterBlockTangentSize(problem, point.xyz);
-    const Eigen::MatrixXd H_pp_idx =
-        H_pp.block(
-            point_param_idx, point_param_idx, tangent_size, tangent_size) +
-        damping * Eigen::MatrixXd::Identity(tangent_size, tangent_size);
-    const Eigen::MatrixXd H_pp_idx_inv = H_pp_idx.inverse();
-    for (int i = 0; i < tangent_size; ++i) {
-      for (int j = 0; j < tangent_size; ++j) {
-        H_pp_inv.coeffRef(point_param_idx + i, point_param_idx + j) =
-            H_pp_idx_inv(i, j);
+    rows.clear();
+    for (Eigen::SparseMatrix<double>::InnerIterator it(J_p, point_param_idx);
+         it;
+         ++it) {
+      rows.push_back(it.row());
+    }
+
+    if (rows.empty()) {
+      if (estimate_point_covs) {
+        point_covs.emplace(point.point3D_id,
+                           (1.0 / damping) * Eigen::MatrixXd::Identity(
+                                                 tangent_size, tangent_size));
+      }
+      point_param_idx += tangent_size;
+      continue;
+    }
+
+    Eigen::MatrixXd J_pi(rows.size(), tangent_size);
+    for (int c = 0; c < tangent_size; ++c) {
+      size_t row_pos = 0;
+      for (Eigen::SparseMatrix<double>::InnerIterator it(J_p,
+                                                         point_param_idx + c);
+           it;
+           ++it, ++row_pos) {
+        THROW_CHECK_LT(row_pos, rows.size());
+        THROW_CHECK_EQ(it.row(), rows[row_pos]);
+        J_pi(row_pos, c) = it.value();
+      }
+      THROW_CHECK_EQ(row_pos, rows.size());
+    }
+
+    const unsigned int svd_options =
+        (compute_schur ? Eigen::ComputeThinU : 0) |
+        (estimate_point_covs ? Eigen::ComputeFullV : 0);
+    const Eigen::JacobiSVD<Eigen::MatrixXd> svd(J_pi, svd_options);
+    const Eigen::VectorXd& singular_values = svd.singularValues();
+
+    if (compute_schur && singular_values(0) > 0) {
+      const Eigen::MatrixXd& U = svd.matrixU();
+      const double min_singular_value =
+          kMinPointSingularValueRatio * singular_values(0);
+      for (int r = 0; r < singular_values.size(); ++r) {
+        if (singular_values(r) <= min_singular_value) {
+          break;
+        }
+        for (size_t j = 0; j < rows.size(); ++j) {
+          U_p_triplets.emplace_back(rows[j], point_param_idx + r, U(j, r));
+        }
       }
     }
+
     if (estimate_point_covs) {
       // Point covariance conditioned on fixed pose/other parameters.
-      point_covs.emplace(point.point3D_id, H_pp_idx_inv);
+      const Eigen::MatrixXd& V = svd.matrixV();
+      Eigen::VectorXd inv_eigs(tangent_size);
+      for (int r = 0; r < tangent_size; ++r) {
+        const double s = r < singular_values.size() ? singular_values(r) : 0.0;
+        inv_eigs(r) = 1.0 / (s * s + damping);
+      }
+      point_covs.emplace(point.point3D_id,
+                         V * inv_eigs.asDiagonal() * V.transpose());
     }
-    point_param_idx += 3;
+    point_param_idx += tangent_size;
   }
 
-  if (!estimate_pose_covs && !estimate_other_covs) {
+  if (!compute_schur) {
     return true;
   }
 
-  H_pp_inv.makeCompressed();
-  S = H_aa - H_ap * H_pp_inv * H_pa;
+  Eigen::SparseMatrix<double> U_p(J_full.rows(), point_num_params);
+  U_p.setFromTriplets(U_p_triplets.begin(), U_p_triplets.end());
+  const Eigen::SparseMatrix<double> J_a =
+      J_full.block(0, 0, J_full.rows(), a_num_params);
+  const Eigen::SparseMatrix<double> W = U_p.transpose() * J_a;
+  S = J_a.transpose() * J_a - W.transpose() * W;
 
   return true;
 }
@@ -328,11 +385,20 @@ std::optional<BACovariance> EstimateBACovarianceFromProblem(
     }
   }
 
+  const bool compute_pose_or_other_covs =
+      (estimate_pose_covs && pose_num_params > 0) ||
+      (estimate_other_covs && other_num_params > 0);
+  if (!compute_pose_or_other_covs && (!estimate_point_covs || points.empty())) {
+    return BACovariance(/*point_covs=*/{},
+                        /*pose_L_start_size=*/{},
+                        /*other_L_start_size=*/{},
+                        /*L_inv=*/Eigen::MatrixXd());
+  }
+
   FlatHashMap<point3D_t, Eigen::MatrixXd> point_covs;
   Eigen::SparseMatrix<double> S;
   if (!ComputeSchurComplement(estimate_point_covs,
-                              estimate_pose_covs,
-                              estimate_other_covs,
+                              compute_pose_or_other_covs,
                               options.damping,
                               point_num_params,
                               points,
@@ -344,14 +410,14 @@ std::optional<BACovariance> EstimateBACovarianceFromProblem(
     return std::nullopt;
   }
 
-  if (!estimate_pose_covs && !estimate_other_covs) {
+  if (!compute_pose_or_other_covs) {
     return BACovariance(std::move(point_covs),
                         /*pose_L_start_size=*/{},
                         /*other_L_start_size=*/{},
                         /*L_inv=*/Eigen::MatrixXd());
   }
 
-  if (!estimate_other_covs) {
+  if (!estimate_other_covs && other_num_params > 0) {
     if (!SchurEliminateOtherParams(
             options.damping, pose_num_params, other_num_params, S)) {
       return std::nullopt;

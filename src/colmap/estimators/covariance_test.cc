@@ -11,6 +11,7 @@
 
 #include <algorithm>
 
+#include <ceres/crs_matrix.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -282,6 +283,14 @@ INSTANTIATE_TEST_SUITE_P(
         }(),
         []() {
           BACovarianceOptions options;
+          options.params = BACovarianceOptions::Params::ALL;
+          BACovarianceTestOptions test_options;
+          test_options.fixed_cam_poses = true;
+          test_options.fixed_cam_intrinsics = true;
+          return std::make_pair(options, test_options);
+        }(),
+        []() {
+          BACovarianceOptions options;
           options.params = BACovarianceOptions::Params::POINTS;
           BACovarianceTestOptions test_options;
           return std::make_pair(options, test_options);
@@ -290,6 +299,13 @@ INSTANTIATE_TEST_SUITE_P(
           BACovarianceOptions options;
           options.params = BACovarianceOptions::Params::POSES;
           BACovarianceTestOptions test_options;
+          return std::make_pair(options, test_options);
+        }(),
+        []() {
+          BACovarianceOptions options;
+          options.params = BACovarianceOptions::Params::POSES;
+          BACovarianceTestOptions test_options;
+          test_options.fixed_cam_intrinsics = true;
           return std::make_pair(options, test_options);
         }(),
         []() {
@@ -424,6 +440,229 @@ TEST(BACovarianceMonteCarlo, PosesAndIntrinsics) {
 
   EXPECT_THAT(pose_samples, SamplesFollowCov(pose_cov));
   EXPECT_THAT(intrinsics_samples, SamplesFollowCov(variance * *intrinsics_cov));
+}
+
+// Fixes the remaining gauge minimally on `ceres_problem`: keeps the pose of
+// `ref_image_id` constant if `pin_ref_pose` is true, and keeps one translation
+// component of `scale_image_id` constant to fix the scale. Returns the index
+// of that translation component.
+int FixGaugeMinimally(Reconstruction& reconstruction,
+                      ceres::Problem& ceres_problem,
+                      image_t ref_image_id,
+                      image_t scale_image_id,
+                      bool pin_ref_pose) {
+  if (pin_ref_pose) {
+    Rigid3d& ref_from_world =
+        reconstruction.Frame(reconstruction.Image(ref_image_id).FrameId())
+            .RigFromWorld();
+    ceres_problem.SetParameterBlockConstant(ref_from_world.params.data());
+  }
+  const Rigid3d ref_from_world =
+      reconstruction.Image(ref_image_id).CamFromWorld();
+  Rigid3d& scale_from_world =
+      reconstruction.Frame(reconstruction.Image(scale_image_id).FrameId())
+          .RigFromWorld();
+  // Pick the largest component of the scale tangent direction
+  // t_scale - R_scale * R_ref^T * t_ref to ensure a transverse gauge cut.
+  const Eigen::Vector3d scale_dir =
+      scale_from_world.translation() -
+      (scale_from_world.rotation() * ref_from_world.rotation().inverse()) *
+          ref_from_world.translation();
+  int fixed_translation_idx = 0;
+  scale_dir.cwiseAbs().maxCoeff(&fixed_translation_idx);
+  SetManifold(
+      &ceres_problem,
+      scale_from_world.params.data(),
+      CreateProductManifold(CreateEigenQuaternionManifold(),
+                            CreateSubsetManifold(3, {fixed_translation_idx})));
+  return fixed_translation_idx;
+}
+TEST(EstimateBACovariance, IllConditionedAndDegeneratePoints) {
+  const MonteCarloProblem problem =
+      CreateMonteCarloProblem(/*num_constant_points=*/0);
+  Reconstruction reconstruction = problem.gt_reconstruction;
+  std::vector<image_t> image_ids = problem.image_ids;
+
+  // Add a 7th camera co-located with image_ids[0] (pure rotation) that observes
+  // all existing scene points so its pose is well-constrained while allowing a
+  // zero-baseline 2-view point.
+  const Image& ref_image = reconstruction.Image(image_ids[0]);
+  const Camera& camera = reconstruction.Camera(ref_image.CameraId());
+  const Rigid3d ref_from_world = ref_image.CamFromWorld();
+  const Eigen::Quaterniond small_rot(
+      Eigen::AngleAxisd(0.15, Eigen::Vector3d::UnitY()));
+  const Rigid3d colocated_from_world(small_rot * ref_from_world.rotation(),
+                                     small_rot * ref_from_world.translation());
+  const image_t colocated_image_id = image_ids.back() + 1;
+  Image colocated_image;
+  colocated_image.SetImageId(colocated_image_id);
+  colocated_image.SetCameraId(camera.camera_id);
+  colocated_image.SetName("colocated.png");
+  std::vector<Eigen::Vector2d> colocated_points2D;
+  std::vector<point3D_t> colocated_point3D_ids;
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+    const std::optional<Eigen::Vector2d> uv =
+        camera.ImgFromCam(colocated_from_world * point3D.xyz);
+    if (uv.has_value()) {
+      colocated_points2D.push_back(*uv);
+      colocated_point3D_ids.push_back(point3D_id);
+    }
+  }
+  colocated_image.SetPoints2D(colocated_points2D);
+  reconstruction.AddImageWithTrivialFrame(colocated_image,
+                                          colocated_from_world);
+  for (size_t i = 0; i < colocated_point3D_ids.size(); ++i) {
+    reconstruction.AddObservation(colocated_point3D_ids[i],
+                                  TrackElement(colocated_image_id, i));
+  }
+  // Add an unconfigured image that shares only one 2-view point with
+  // image_ids[0], so that point gets a single (2-row, k < 3) residual in Ceres
+  // while leaving all 60 original points variable.
+  const image_t unconfigured_image_id = colocated_image_id + 1;
+  Image unconfigured_image;
+  unconfigured_image.SetImageId(unconfigured_image_id);
+  unconfigured_image.SetCameraId(camera.camera_id);
+  unconfigured_image.SetName("unconfigured.png");
+  reconstruction.AddImageWithTrivialFrame(unconfigured_image,
+                                          colocated_from_world);
+  image_ids.push_back(colocated_image_id);
+
+  // Pick a second configured camera whose optical axis points in the same
+  // half-space as image_ids[0] so distant points stay in front of both cameras.
+  const Eigen::Vector3d ref_z =
+      ref_from_world.rotation().inverse() * Eigen::Vector3d::UnitZ();
+  image_t pair_image_id = image_ids[1];
+  double best_dot = -1.0;
+  for (size_t i = 1; i + 1 < image_ids.size(); ++i) {
+    const Eigen::Vector3d cand_z =
+        reconstruction.Image(image_ids[i]).CamFromWorld().rotation().inverse() *
+        Eigen::Vector3d::UnitZ();
+    if (ref_z.dot(cand_z) > best_dot) {
+      best_dot = ref_z.dot(cand_z);
+      pair_image_id = image_ids[i];
+    }
+  }
+  const Eigen::Vector3d avg_dir =
+      (ref_z +
+       reconstruction.Image(pair_image_id).CamFromWorld().rotation().inverse() *
+           Eigen::Vector3d::UnitZ())
+          .normalized();
+  const Eigen::Vector3d ref_center = ref_image.ProjectionCenter();
+
+  auto add_point = [&](const Eigen::Vector3d& xyz,
+                       const std::vector<image_t>& obs_ids) {
+    Track track;
+    for (const image_t obs_id : obs_ids) {
+      Image& img = reconstruction.Image(obs_id);
+      const std::optional<Eigen::Vector2d> uv =
+          camera.ImgFromCam(img.CamFromWorld() * xyz);
+      THROW_CHECK(uv.has_value());
+      const point2D_t pt_idx = img.NumPoints2D();
+      img.Points2D().push_back(Point2D{*uv});
+      track.AddElement(obs_id, pt_idx);
+    }
+    return reconstruction.AddPoint3D(xyz, track);
+  };
+
+  // Moderate low-parallax (dist=150), extreme low-parallax (dist=1e7),
+  // single-residual rank-2 (k=2 < 3), and zero-baseline co-located 2-view
+  // (k=4, rank-2) points.
+  add_point(ref_center + 150.0 * avg_dir, {image_ids[0], pair_image_id});
+  add_point(ref_center + 1e7 * avg_dir, {image_ids[0], pair_image_id});
+  const point3D_t single_residual_pt = add_point(
+      ref_center + 5.0 * ref_z, {image_ids[0], unconfigured_image_id});
+  const point3D_t zero_baseline_pt =
+      add_point(ref_center + 2.0 * ref_z, {image_ids[0], colocated_image_id});
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : image_ids) {
+    config.AddImage(image_id);
+  }
+  auto ceres_ba = CreateDefaultCeresBundleAdjuster(
+      BundleAdjustmentOptions(), config, reconstruction);
+  ceres::Problem& ceres_problem = *ceres_ba->Problem();
+  FixGaugeMinimally(reconstruction,
+                    ceres_problem,
+                    image_ids[0],
+                    image_ids[1],
+                    /*pin_ref_pose=*/true);
+  // Keep the single-residual point variable to test k < tangent_size SVD, and
+  // add a zero-residual variable point to test the empty-rows path.
+  ceres_problem.SetParameterBlockVariable(
+      reconstruction.Point3D(single_residual_pt).xyz.data());
+  const point3D_t zero_residual_pt =
+      reconstruction.AddPoint3D(Eigen::Vector3d(1.0, 2.0, 3.0), Track());
+  ceres_problem.AddParameterBlock(
+      reconstruction.Point3D(zero_residual_pt).xyz.data(), 3);
+
+  const BACovarianceOptions all_options;
+  BACovarianceOptions poses_options;
+  poses_options.params = BACovarianceOptions::Params::POSES;
+  const std::optional<BACovariance> all_cov = EstimateBACovarianceFromProblem(
+      all_options, reconstruction, ceres_problem);
+  const std::optional<BACovariance> poses_cov = EstimateBACovarianceFromProblem(
+      poses_options, reconstruction, ceres_problem);
+  ASSERT_TRUE(all_cov.has_value());
+  ASSERT_TRUE(poses_cov.has_value());
+
+  // Verify damped point covariances for zero-residual, single-residual
+  // (k=2 < 3), and zero-baseline rank-2 points.
+  const std::optional<Eigen::MatrixXd> zero_res_cov =
+      all_cov->GetPointCov(zero_residual_pt);
+  ASSERT_TRUE(zero_res_cov.has_value());
+  ExpectNearEigenMatrixXd(
+      *zero_res_cov,
+      (1.0 / all_options.damping) * Eigen::Matrix3d::Identity(),
+      /*tol=*/1e-8);
+  for (const point3D_t pt_id : {single_residual_pt, zero_baseline_pt}) {
+    const std::optional<Eigen::MatrixXd> pt_cov = all_cov->GetPointCov(pt_id);
+    ASSERT_TRUE(pt_cov.has_value());
+    ASSERT_EQ(pt_cov->rows(), 3);
+    ASSERT_EQ(pt_cov->cols(), 3);
+
+    ceres::Problem::EvaluateOptions eval_opts;
+    eval_opts.parameter_blocks = {reconstruction.Point3D(pt_id).xyz.data()};
+    ceres::CRSMatrix J_crs;
+    ASSERT_TRUE(
+        ceres_problem.Evaluate(eval_opts, nullptr, nullptr, nullptr, &J_crs));
+    Eigen::Matrix3d H_pp = Eigen::Matrix3d::Zero();
+    for (int r = 0; r < J_crs.num_rows; ++r) {
+      Eigen::Vector3d row = Eigen::Vector3d::Zero();
+      for (int idx = J_crs.rows[r]; idx < J_crs.rows[r + 1]; ++idx) {
+        row(J_crs.cols[idx]) = J_crs.values[idx];
+      }
+      H_pp.noalias() += row * row.transpose();
+    }
+    // Build an orthonormal basis [u1, u2, ref_z] so we invert only the
+    // well-conditioned 2x2 transverse Hessian block rather than the ~1e13
+    // conditioned 3x3 (H_pp + damping * I).
+    Eigen::Matrix3d basis;
+    basis.col(2) = ref_z;
+    basis.col(0) =
+        ref_z
+            .cross(std::abs(ref_z.x()) < 0.9 ? Eigen::Vector3d::UnitX()
+                                             : Eigen::Vector3d::UnitY())
+            .normalized();
+    basis.col(1) = ref_z.cross(basis.col(0));
+    const Eigen::Matrix2d H_transverse =
+        basis.leftCols<2>().transpose() * H_pp * basis.leftCols<2>();
+    const Eigen::Matrix2d expected_transverse_cov =
+        (H_transverse + all_options.damping * Eigen::Matrix2d::Identity())
+            .inverse();
+    const Eigen::Matrix3d pt_cov_in_basis =
+        basis.transpose() * (*pt_cov) * basis;
+    // pt_cov has norm 1 / damping = 1e8, so storing it in world coordinates
+    // limits transverse accuracy to O(eps_mach / damping) ~ 2e-8.
+    EXPECT_LT((pt_cov_in_basis.topLeftCorner<2, 2>() - expected_transverse_cov)
+                  .norm(),
+              1e-6 * expected_transverse_cov.norm() + 1e-15 * pt_cov->norm());
+    EXPECT_NEAR(pt_cov_in_basis(2, 2),
+                1.0 / all_options.damping,
+                1e-6 / all_options.damping);
+    EXPECT_LT(
+        pt_cov_in_basis.col(2).head<2>().norm(),
+        1e-6 * std::sqrt(expected_transverse_cov.norm() / all_options.damping));
+  }
 }
 
 }  // namespace
