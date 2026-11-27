@@ -437,18 +437,6 @@ bool HasVariableRigFromWorldPose(const BundleAdjustmentOptions& options,
                      });
 }
 
-bool HasVariableCameraPose(const Image& image,
-                           const BundleAdjustmentConfig& config,
-                           const BundleAdjustmentOptions& options) {
-  const bool constant_sensor_from_rig =
-      image.IsRefInFrame() || !options.refine_sensor_from_rig ||
-      config.HasConstantSensorFromRigPose(image.CameraPtr()->SensorId());
-  const bool constant_rig_from_world =
-      !options.refine_rig_from_world ||
-      config.HasConstantRigFromWorldPose(image.FrameId());
-  return !constant_sensor_from_rig || !constant_rig_from_world;
-}
-
 std::vector<PosePrior> FilterPosePriorsInProblem(
     std::vector<PosePrior> pose_priors,
     const BundleAdjustmentConfig& config,
@@ -825,49 +813,30 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
       return {};
     }
 
-    const bool has_variable_rig_from_world =
-        options_.refine_rig_from_world &&
-        !options_.constant_rig_from_world_rotation &&
-        std::any_of(config_.Images().begin(),
-                    config_.Images().end(),
-                    [this](const image_t image_id) {
-                      return !config_.HasConstantRigFromWorldPose(
-                          reconstruction_.Image(image_id).FrameId());
-                    });
-    if (!has_variable_rig_from_world) {
-      LOG_IF(WARNING, options_.constant_rig_from_world_rotation)
-          << "Position priors require variable rig_from_world rotations; "
-             "ignoring position priors.";
-      return {};
-    }
-
     std::vector<PosePrior> pose_priors = FilterPosePriorsInProblem(
         input_pose_priors,
         config_,
         options_.pose_prior.position_stddev,
         options_.pose_prior.overwrite_position_covariance);
-
-    const auto variable_priors_end = std::stable_partition(
-        pose_priors.begin(),
-        pose_priors.end(),
-        [this](const PosePrior& pose_prior) {
-          return HasVariableCameraPose(
-              reconstruction_.Image(pose_prior.corr_data_id.id),
-              config_,
-              options_);
-        });
-    if (variable_priors_end == pose_priors.begin()) {
+    if (pose_priors.size() < 3) {
       return {};
     }
 
-    if (pose_priors.size() < 3 ||
-        !AlignReconstruction(options_.pose_prior.position_alignment_ransac,
+    if (!HasVariableRigFromWorldPose(options_, config_, reconstruction_)) {
+      LOG_IF(WARNING,
+             options_.refine_rig_from_world &&
+                 options_.constant_rig_from_world_rotation)
+          << "Position priors require variable rig_from_world rotations; "
+             "ignoring position priors.";
+      return {};
+    }
+
+    if (!AlignReconstruction(options_.pose_prior.position_alignment_ransac,
                              pose_priors,
                              reconstruction_)) {
       return {};
     }
 
-    pose_priors.erase(variable_priors_end, pose_priors.end());
     return pose_priors;
   }
 
@@ -879,6 +848,16 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
 
     for (const auto& pose_prior : active_pose_priors) {
       Image& image = reconstruction_.Image(pose_prior.corr_data_id.id);
+      const bool constant_sensor_from_rig =
+          image.IsRefInFrame() || !options_.refine_sensor_from_rig ||
+          config_.HasConstantSensorFromRigPose(image.CameraPtr()->SensorId());
+      const bool constant_rig_from_world =
+          !options_.refine_rig_from_world ||
+          config_.HasConstantRigFromWorldPose(image.FrameId());
+      if (constant_sensor_from_rig && constant_rig_from_world) {
+        continue;
+      }
+
       Frame& frame = *image.FramePtr();
       Rigid3d& rig_from_world = frame.RigFromWorld();
 

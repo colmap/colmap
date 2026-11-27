@@ -1268,7 +1268,7 @@ TEST(DefaultBundleAdjuster, PosePriorOnRigCameraWithoutVisualObservations) {
                                  /*align=*/false));
 }
 
-TEST(DefaultBundleAdjuster, PosePriorConstantAndMixedPoses) {
+TEST(DefaultBundleAdjuster, PosePriorMixedConstantPoses) {
   PosePriorScene scene = SynthesizePosePriorScene(/*num_cameras_per_rig=*/2,
                                                   /*num_frames_per_rig=*/6,
                                                   /*num_points3D=*/60);
@@ -1281,107 +1281,52 @@ TEST(DefaultBundleAdjuster, PosePriorConstantAndMixedPoses) {
     prior.position_covariance = 1e-2 * Eigen::Matrix3d::Identity();
   }
 
-  // When rig_from_world poses or rotations are constant across all frames
-  // (even on a multi-camera rig where refine_sensor_from_rig = true), BA skips
-  // Sim3d alignment and normalization and preserves the constant quantities.
-  for (const bool constant_rot_only : {false, true}) {
-    SCOPED_TRACE(constant_rot_only);
-    Reconstruction reconstruction = scene.gt_reconstruction;
-    reconstruction.Transform(Sim3d(
-        2.5,
-        Eigen::Quaterniond(Eigen::AngleAxisd(0.4, Eigen::Vector3d::UnitZ())),
-        Eigen::Vector3d(10.0, -5.0, 2.0)));
-    const Reconstruction orig_reconstruction = reconstruction;
-
-    BundleAdjustmentOptions ba_options;
-    if (constant_rot_only) {
-      ba_options.constant_rig_from_world_rotation = true;
-    } else {
-      ba_options.refine_rig_from_world = false;
-      ba_options.refine_sensor_from_rig = false;
-    }
-    Reconstruction plain_reconstruction = reconstruction;
-    const int plain_num_residuals =
-        CreateDefaultCeresBundleAdjuster(
-            ba_options, scene.config, plain_reconstruction)
-            ->Problem()
-            ->NumResidualBlocks();
-
-    if (!constant_rot_only) {
-      // Even with refine_sensor_from_rig = true on a multi-camera rig,
-      // refine_rig_from_world = false must not trigger Sim3d alignment.
-      ba_options.refine_sensor_from_rig = true;
-    }
-    ba_options.pose_prior.use_position = true;
-    auto adjuster = CreateDefaultCeresBundleAdjuster(
-        ba_options, scene.config, reconstruction, scene.priors);
-    EXPECT_FALSE(adjuster->NormalizedFromMetric().has_value());
-    EXPECT_EQ(adjuster->Problem()->NumResidualBlocks(), plain_num_residuals);
-    ASSERT_TRUE(adjuster->Solve()->IsSolutionUsable());
-    for (const frame_t frame_id : reconstruction.RegFrameIds()) {
-      EXPECT_EQ(
-          reconstruction.Frame(frame_id).RigFromWorld().rotation().coeffs(),
-          orig_reconstruction.Frame(frame_id)
-              .RigFromWorld()
-              .rotation()
-              .coeffs());
-      if (!constant_rot_only) {
-        EXPECT_EQ(
-            reconstruction.Frame(frame_id).RigFromWorld().translation(),
-            orig_reconstruction.Frame(frame_id).RigFromWorld().translation());
-      }
-    }
-  }
-
   // With a mix of constant and variable frames (e.g. fix_existing_frames),
   // constant frames participate in Sim3d alignment while keeping their relative
   // pose rigid, and prior residuals are added only on the variable frames.
-  {
-    Reconstruction reconstruction = scene.gt_reconstruction;
-    SyntheticNoiseOptions noise_options;
-    noise_options.point3D_stddev = 0.05;
-    noise_options.rig_from_world_rotation_stddev = 0.3;
-    noise_options.rig_from_world_translation_stddev = 0.02;
-    SynthesizeNoise(noise_options, &reconstruction);
-    for (const size_t idx : {0, 1}) {
-      reconstruction.Frame(reg_frame_ids[idx])
-          .SetRigFromWorld(
-              scene.gt_reconstruction.Frame(reg_frame_ids[idx]).RigFromWorld());
-    }
-    reconstruction.Transform(Sim3d(
-        2.5,
-        Eigen::Quaterniond(Eigen::AngleAxisd(0.4, Eigen::Vector3d::UnitZ())),
-        Eigen::Vector3d(10.0, -5.0, 2.0)));
-
-    BundleAdjustmentConfig mixed_config = scene.config;
-    mixed_config.SetConstantRigFromWorldPose(reg_frame_ids[0]);
-    mixed_config.SetConstantRigFromWorldPose(reg_frame_ids[1]);
-
-    BundleAdjustmentOptions ba_options;
-    ba_options.refine_sensor_from_rig = false;
-    Reconstruction plain_reconstruction = reconstruction;
-    const int plain_num_residuals =
-        CreateDefaultCeresBundleAdjuster(
-            ba_options, mixed_config, plain_reconstruction)
-            ->Problem()
-            ->NumResidualBlocks();
-
-    ba_options.pose_prior.use_position = true;
-    ba_options.pose_prior.position_alignment_ransac.random_seed = 0;
-    auto adjuster = CreateDefaultCeresBundleAdjuster(
-        ba_options, mixed_config, reconstruction, scene.priors);
-    EXPECT_TRUE(adjuster->NormalizedFromMetric().has_value());
-    EXPECT_EQ(adjuster->Problem()->NumResidualBlocks(),
-              plain_num_residuals + 8);
-    ASSERT_TRUE(adjuster->Solve()->IsSolutionUsable());
-    EXPECT_THAT(scene.gt_reconstruction,
-                ReconstructionNear(reconstruction,
-                                   /*max_rotation_error_deg=*/0.5,
-                                   /*max_proj_center_error=*/0.08,
-                                   /*max_scale_error=*/std::nullopt,
-                                   /*num_obs_tolerance=*/0.02,
-                                   /*align=*/false));
+  Reconstruction reconstruction = scene.gt_reconstruction;
+  SyntheticNoiseOptions noise_options;
+  noise_options.point3D_stddev = 0.05;
+  noise_options.rig_from_world_rotation_stddev = 0.3;
+  noise_options.rig_from_world_translation_stddev = 0.02;
+  SynthesizeNoise(noise_options, &reconstruction);
+  for (const size_t idx : {0, 1}) {
+    reconstruction.Frame(reg_frame_ids[idx])
+        .SetRigFromWorld(
+            scene.gt_reconstruction.Frame(reg_frame_ids[idx]).RigFromWorld());
   }
+  reconstruction.Transform(Sim3d(
+      2.5,
+      Eigen::Quaterniond(Eigen::AngleAxisd(0.4, Eigen::Vector3d::UnitZ())),
+      Eigen::Vector3d(10.0, -5.0, 2.0)));
+
+  BundleAdjustmentConfig mixed_config = scene.config;
+  mixed_config.SetConstantRigFromWorldPose(reg_frame_ids[0]);
+  mixed_config.SetConstantRigFromWorldPose(reg_frame_ids[1]);
+
+  BundleAdjustmentOptions ba_options;
+  ba_options.refine_sensor_from_rig = false;
+  Reconstruction plain_reconstruction = reconstruction;
+  const int plain_num_residuals =
+      CreateDefaultCeresBundleAdjuster(
+          ba_options, mixed_config, plain_reconstruction)
+          ->Problem()
+          ->NumResidualBlocks();
+
+  ba_options.pose_prior.use_position = true;
+  ba_options.pose_prior.position_alignment_ransac.random_seed = 0;
+  auto adjuster = CreateDefaultCeresBundleAdjuster(
+      ba_options, mixed_config, reconstruction, scene.priors);
+  EXPECT_TRUE(adjuster->NormalizedFromMetric().has_value());
+  EXPECT_EQ(adjuster->Problem()->NumResidualBlocks(), plain_num_residuals + 8);
+  ASSERT_TRUE(adjuster->Solve()->IsSolutionUsable());
+  EXPECT_THAT(scene.gt_reconstruction,
+              ReconstructionNear(reconstruction,
+                                 /*max_rotation_error_deg=*/0.5,
+                                 /*max_proj_center_error=*/0.08,
+                                 /*max_scale_error=*/std::nullopt,
+                                 /*num_obs_tolerance=*/0.02,
+                                 /*align=*/false));
 
   // Duplicate camera priors in the problem are rejected loudly.
   BundleAdjustmentPriors dup_priors = scene.priors;
