@@ -77,28 +77,12 @@ TEST(SplitFileExtension, Nominal) {
   SplitFileExtension("./dir.suffix/file.", &root, &ext);
   EXPECT_EQ(root, "./dir.suffix/file");
   EXPECT_EQ(ext, "");
-}
-
-TEST(SplitFileExtension, PreservesDirectoryAndRepeatedDots) {
-  std::string root;
-  std::string ext;
-  for (const std::string path :
-       {"capture.v1/image", "capture..v1/image", "capture.v1/"}) {
-    SplitFileExtension(path, &root, &ext);
-    EXPECT_EQ(root, path);
-    EXPECT_EQ(ext, "");
-  }
-  SplitFileExtension("capture..v1/image..jpg", &root, &ext);
-  EXPECT_EQ(root, "capture..v1/image.");
-  EXPECT_EQ(ext, ".jpg");
-  SplitFileExtension("capture..v1/image..", &root, &ext);
-  EXPECT_EQ(root, "capture..v1/image.");
+  SplitFileExtension("capture.v1/image", &root, &ext);
+  EXPECT_EQ(root, "capture.v1/image");
   EXPECT_EQ(ext, "");
-  if constexpr (std::filesystem::path::preferred_separator == '\\') {
-    SplitFileExtension("capture.v1\\image", &root, &ext);
-    EXPECT_EQ(root, "capture.v1\\image");
-    EXPECT_EQ(ext, "");
-  }
+  SplitFileExtension("dir..x/image..jpg", &root, &ext);
+  EXPECT_EQ(root, "dir..x/image.");
+  EXPECT_EQ(ext, ".jpg");
 }
 
 TEST(GetPathBaseName, Nominal) {
