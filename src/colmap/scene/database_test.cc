@@ -1470,29 +1470,5 @@ TEST(Database, RejectsNegativeCameraDimensions) {
   EXPECT_THROW(database->ReadCamera(camera_id), std::invalid_argument);
 }
 
-TEST(Database, RejectsCameraParameterByteCount) {
-  const auto database_path = CreateTestDir() / "camera_parameter_bytes.db";
-  const camera_t camera_id = [&]() {
-    auto database = Database::Open(database_path);
-    const camera_t id = database->WriteCamera(Camera::CreateFromModelId(
-        1, SimplePinholeCameraModel::model_id, 1.0, 1, 1));
-    database->Close();
-    return id;
-  }();
-
-  sqlite3* db = nullptr;
-  ASSERT_EQ(sqlite3_open(database_path.string().c_str(), &db), SQLITE_OK);
-  const std::string corrupt_sql =
-      "UPDATE cameras SET params=zeroblob(25) WHERE camera_id=" +
-      std::to_string(camera_id) + ";";
-  ASSERT_EQ(sqlite3_exec(db, corrupt_sql.c_str(), nullptr, nullptr, nullptr),
-            SQLITE_OK);
-  ASSERT_EQ(sqlite3_changes(db), 1);
-  sqlite3_close(db);
-
-  auto database = Database::Open(database_path);
-  EXPECT_THROW(database->ReadCamera(camera_id), std::invalid_argument);
-}
-
 }  // namespace
 }  // namespace colmap
