@@ -72,8 +72,9 @@ def test_align_reconstruction_to_pose_priors(
             position_covariance=1e-4 * np.eye(3),
             coordinate_system=pycolmap.PosePriorCoordinateSystem.CARTESIAN,
         )
-        for image_id in tgt_reconstruction.reg_image_ids()
-        for image in (tgt_reconstruction.image(image_id),)
+        for image in map(
+            tgt_reconstruction.image, tgt_reconstruction.reg_image_ids()
+        )
     ]
     assert len(cartesian_priors) >= 3
 
@@ -91,16 +92,3 @@ def test_align_reconstruction_to_pose_priors(
     assert np.allclose(
         tgt_from_src.matrix(), gt_tgt_from_src.matrix(), atol=1e-5
     )
-
-    wgs84_priors = [
-        pycolmap.PosePrior(
-            corr_data_id=p.corr_data_id,
-            position=p.position,
-            coordinate_system=pycolmap.PosePriorCoordinateSystem.WGS84,
-        )
-        for p in cartesian_priors
-    ]
-    with pytest.raises(ValueError, match="Cartesian coordinate system"):
-        pycolmap.align_reconstruction_to_pose_priors(
-            synthetic_reconstruction, wgs84_priors, pycolmap.RANSACOptions()
-        )

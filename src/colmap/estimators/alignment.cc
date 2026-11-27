@@ -243,11 +243,9 @@ bool AlignReconstructionToPosePriors(
       const auto& image = src_reconstruction.Image(image_id);
       src.push_back(image.ProjectionCenter());
       tgt.push_back(pose_prior_it->second.position);
-      if (pose_prior_it->second.HasPositionCov()) {
-        const double trace = pose_prior_it->second.position_covariance.trace();
-        if (trace > 0.0) {
-          rms_vars.push_back(trace / 3.0);
-        }
+      const double trace = pose_prior_it->second.position_covariance.trace();
+      if (trace > 0.0) {
+        rms_vars.push_back(trace / 3.0);
       }
     }
   }
@@ -257,7 +255,7 @@ bool AlignReconstructionToPosePriors(
     return false;
   }
 
-  if (ransac_options.max_error <= 0.0) {
+  if (ransac_options.max_error <= 0) {
     THROW_CHECK(!rms_vars.empty())
         << "Either set ransac_options.max_error > 0 or provide pose prior "
            "position covariances";
