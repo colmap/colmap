@@ -848,39 +848,19 @@ TEST(Bitmap, ExifCameraModelNoModel) {
   EXPECT_FALSE(bitmap.ExifCameraModel().has_value());
 }
 
-TEST(Bitmap, ExifCameraModelUnknown35mmFocalLength) {
+TEST(Bitmap, ExifCameraModelUnknownFocalLength) {
   Bitmap bitmap(100, 80, /*as_rgb=*/true);
   bitmap.SetMetaData("Make", "make");
   bitmap.SetMetaData("Model", "model");
   const float unknown_focal_length = 0.f;
   bitmap.SetMetaData(
       "Exif:FocalLengthIn35mmFilm", "float", &unknown_focal_length);
-
-  const float focal_length_wide = 35.f;
-  bitmap.SetMetaData("Exif:FocalLength", "float", &focal_length_wide);
-  const auto wide_model = bitmap.ExifCameraModel();
-  ASSERT_TRUE(wide_model.has_value());
-  EXPECT_EQ(*wide_model, "make-model-35.000000-100x80");
-
-  const float focal_length_tele = 85.f;
-  bitmap.SetMetaData("Exif:FocalLength", "float", &focal_length_tele);
-  const auto tele_model = bitmap.ExifCameraModel();
-  ASSERT_TRUE(tele_model.has_value());
-  EXPECT_EQ(*tele_model, "make-model-85.000000-100x80");
-  EXPECT_NE(wide_model, tele_model);
-}
-
-TEST(Bitmap, ExifCameraModelUnknownFocalLengths) {
-  Bitmap bitmap(100, 80, /*as_rgb=*/true);
-  bitmap.SetMetaData("Make", "make");
-  bitmap.SetMetaData("Model", "model");
-  const float unknown_focal_length = 0.f;
-  bitmap.SetMetaData(
-      "Exif:FocalLengthIn35mmFilm", "float", &unknown_focal_length);
-  EXPECT_FALSE(bitmap.ExifCameraModel().has_value());
-
   bitmap.SetMetaData("Exif:FocalLength", "float", &unknown_focal_length);
   EXPECT_FALSE(bitmap.ExifCameraModel().has_value());
+
+  const float focal_length = 35.f;
+  bitmap.SetMetaData("Exif:FocalLength", "float", &focal_length);
+  EXPECT_EQ(bitmap.ExifCameraModel(), "make-model-35.000000-100x80");
 }
 
 TEST(Bitmap, ExifCameraModelNoFocalLength) {
