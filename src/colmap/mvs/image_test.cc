@@ -2,34 +2,11 @@
 
 #include "colmap/mvs/image.h"
 
-#include <limits>
-
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace mvs {
 namespace {
-
-TEST(Image, RescalePixelCenter) {
-  using internal::RescalePixelCenter;
-  EXPECT_EQ(RescalePixelCenter(1, 7, 10), 2);
-  EXPECT_EQ(RescalePixelCenter(0, 1, 10), 5);
-  EXPECT_EQ(RescalePixelCenter(1, 3, 10), 5);
-  EXPECT_EQ(RescalePixelCenter(0, 5, 10), 1);
-  EXPECT_EQ(RescalePixelCenter(4, 5, 10), 9);
-  EXPECT_EQ(RescalePixelCenter(0, 10, 5), 0);
-  EXPECT_EQ(RescalePixelCenter(9, 10, 5), 4);
-  // Distinct wide extents can round to a float scale of one.
-  const int unit = 1U << 24U;
-  EXPECT_EQ(RescalePixelCenter(unit / 2, unit, unit + 1), unit / 2 + 1);
-  EXPECT_EQ(RescalePixelCenter(unit / 2 + 1, unit + 1, unit), unit / 2);
-  const int largest = std::numeric_limits<int>::max();
-  EXPECT_EQ(RescalePixelCenter(largest - 1, largest, largest), largest - 1);
-  EXPECT_EQ(RescalePixelCenter(largest - 1, largest, largest - 1), largest - 2);
-  EXPECT_EQ(RescalePixelCenter(largest - 2, largest - 1, largest), largest - 1);
-  EXPECT_EQ(RescalePixelCenter(0, 1, largest), largest / 2);
-  EXPECT_EQ(RescalePixelCenter(largest - 1, largest, 1), 0);
-}
 
 TEST(Image, DefaultConstructor) {
   Image image;

@@ -167,6 +167,7 @@ void StereoFusion::Run() {
   fused_images_.resize(model.images.size(), false);
   fused_pixel_masks_.resize(model.images.size());
   depth_map_sizes_.resize(model.images.size());
+  bitmap_scales_.resize(model.images.size());
   P_.resize(model.images.size());
   inv_P_.resize(model.images.size());
   inv_R_.resize(model.images.size());
@@ -193,18 +194,17 @@ void StereoFusion::Run() {
     depth_map_sizes_.at(image_idx) =
         std::make_pair(depth_map.GetWidth(), depth_map.GetHeight());
 
-    const float scale_x =
-        static_cast<float>(depth_map.GetWidth()) / image.GetWidth();
-    const float scale_y =
-        static_cast<float>(depth_map.GetHeight()) / image.GetHeight();
+    bitmap_scales_.at(image_idx) = std::make_pair(
+        static_cast<float>(depth_map.GetWidth()) / image.GetWidth(),
+        static_cast<float>(depth_map.GetHeight()) / image.GetHeight());
 
     Eigen::Matrix<float, 3, 3, Eigen::RowMajor> K =
         Eigen::Map<const Eigen::Matrix<float, 3, 3, Eigen::RowMajor>>(
             image.GetK());
-    K(0, 0) *= scale_x;
-    K(0, 2) *= scale_x;
-    K(1, 1) *= scale_y;
-    K(1, 2) *= scale_y;
+    K(0, 0) *= bitmap_scales_.at(image_idx).first;
+    K(0, 2) *= bitmap_scales_.at(image_idx).first;
+    K(1, 1) *= bitmap_scales_.at(image_idx).second;
+    K(1, 2) *= bitmap_scales_.at(image_idx).second;
     K(0, 2) -= 0.5f;
     K(1, 2) -= 0.5f;
 
@@ -429,18 +429,12 @@ void StereoFusion::Fuse(const int thread_id,
         Eigen::Vector4f(col * depth, row * depth, depth, 1.0f);
 
     // Read the color of the pixel.
-    const auto& bitmap = workspace_->GetBitmap(image_idx);
-    const auto color =
-        bitmap
-            .GetPixel(internal::RescalePixelCenter(
-                          col,
-                          static_cast<int>(fused_pixel_mask.GetWidth()),
-                          bitmap.Width()),
-                      internal::RescalePixelCenter(
-                          row,
-                          static_cast<int>(fused_pixel_mask.GetHeight()),
-                          bitmap.Height()))
-            .value_or(BitmapColor<uint8_t>(0));
+    const auto& bitmap_scale = bitmap_scales_.at(image_idx);
+    const auto color = workspace_->GetBitmap(image_idx)
+                           .InterpolateNearestNeighbor(
+                               (col + 0.5f) / bitmap_scale.first - 0.5f,
+                               (row + 0.5f) / bitmap_scale.second - 0.5f)
+                           .value_or(BitmapColor<uint8_t>(0));
 
     // Set the current pixel as visited.
     fused_pixel_mask.Set(row, col, 1);

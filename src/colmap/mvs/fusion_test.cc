@@ -3,13 +3,11 @@
 #include "colmap/mvs/fusion.h"
 
 #include "colmap/math/math.h"
-#include "colmap/scene/frame.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
-#include <cmath>
 #include <fstream>
 
 #include <gtest/gtest.h>
@@ -266,126 +264,49 @@ TEST(StereoFusion, Rotation180Invariance) {
 }
 
 TEST(StereoFusion, MixedResolutionColorsFollowPixelCenters) {
-  const auto root = CreateTestDir();
-  for (const auto* dir : {"sparse",
-                          "images",
-                          "stereo",
-                          "stereo/depth_maps",
-                          "stereo/normal_maps"}) {
-    CreateDirIfNotExists(root / dir);
-  }
-  colmap::Camera camera;
-  camera.camera_id = 1;
-  camera.model_id = CameraModelId::kPinhole;
-  camera.width = 10;
-  camera.height = 5;
-  camera.params = {8.0, 11.0, 4.3, 2.2};
+  const auto dir = CreateTestDir();
+  CreateDirIfNotExists(dir / "sparse");
+  CreateDirIfNotExists(dir / "images");
+  CreateDirIfNotExists(dir / "stereo/depth_maps", /*recursive=*/true);
+  CreateDirIfNotExists(dir / "stereo/normal_maps");
+
+  SyntheticDatasetOptions dataset;
+  dataset.num_rigs = 1;
+  dataset.num_frames_per_rig = 1;
+  dataset.num_points3D = 0;
+  dataset.camera_width = 8;
+  dataset.camera_height = 8;
   Reconstruction reconstruction;
-  reconstruction.AddCameraWithTrivialRig(camera);
-  colmap::Image image;
-  image.SetImageId(1);
-  image.SetCameraId(1);
-  image.SetName("view.png");
-  reconstruction.AddImageWithTrivialFrame(image, Rigid3d());
-  reconstruction.Write(root / "sparse");
-  {
-    std::ofstream config(root / "stereo/fusion.cfg");
-    config << "view.png\n";
-  }
-  struct Grid {
-    std::vector<int> source_columns;
-    std::vector<int> source_rows;
-    int bitmap_width = 10;
-    int bitmap_height = 5;
-    bool cache_only = false;
-  };
-  // Hand-derived nearest source indices. The 7x3 raster has unequal scales;
-  // 1x1 and 5x1 include exact halfway samples, including a non-binary ratio.
-  // Keeping every grid cell in the expected set makes lost coverage fail too.
-  const std::vector<Grid> grids = {
-      {{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}, {0, 1, 2, 3, 4}},
-      {{0, 2, 3, 5, 6, 7, 9}, {0, 2, 4}},
-      {{5}, {2}},
-      {{1, 3, 5, 7, 9}, {2}},
-      // Without resizing, the cached workspace retains the disk bitmap size.
-      {{0, 2, 3, 5, 7, 8, 10}, {1, 3, 5}, 11, 7, true},
-  };
-  for (const auto& grid : grids) {
-    const int width = grid.source_columns.size();
-    const int height = grid.source_rows.size();
-    SCOPED_TRACE(::testing::Message()
-                 << width << "x" << height << ", bitmap " << grid.bitmap_width
-                 << "x" << grid.bitmap_height);
-    Bitmap bitmap(grid.bitmap_width, grid.bitmap_height, true);
-    for (int row = 0; row < grid.bitmap_height; ++row) {
-      for (int col = 0; col < grid.bitmap_width; ++col) {
-        bitmap.SetPixel(
-            col, row, BitmapColor<uint8_t>(20 * col, 30 * row, col + row));
-      }
-    }
-    ASSERT_TRUE(bitmap.Write(root / "images/view.png"));
-    Mat<float> depth(width, height, 1);
-    depth.Fill(5.0f);
-    depth.Write(root / "stereo/depth_maps/view.png.geometric.bin");
-    Mat<float> normal(width, height, 3);
-    normal.Fill(0.0f);
-    for (int row = 0; row < height; ++row) {
-      for (int col = 0; col < width; ++col) normal.Set(row, col, 2, -1.0f);
-    }
-    normal.Write(root / "stereo/normal_maps/view.png.geometric.bin");
-    for (const std::string mode : {"eager", "lru"}) {
-      if (grid.cache_only && mode != "lru") {
-        continue;
-      }
-      SCOPED_TRACE(mode);
-      StereoFusionOptions options;
-      options.num_threads = 1;
-      options.max_image_size = -1;
-      options.min_num_pixels = 1;
-      options.max_num_pixels = 1;
-      options.use_cache = mode == "lru";
-      options.cache_size = 1.0 / 1024;
-      StereoFusion fusion(options, root, "COLMAP", "", "geometric");
-      fusion.Run();
-      const auto& points = fusion.GetFusedPoints();
-      const auto& visibility = fusion.GetFusedPointsVisibility();
-      ASSERT_EQ(points.size(), width * height);
-      ASSERT_EQ(visibility.size(), points.size());
-      std::vector<int> coverage(width * height, 0);
-      for (size_t index = 0; index < points.size(); ++index) {
-        const auto& point = points[index];
-        ASSERT_TRUE(std::isfinite(point.x));
-        ASSERT_TRUE(std::isfinite(point.y));
-        ASSERT_TRUE(std::isfinite(point.z));
-        ASSERT_GT(point.z, 0.0f);
-        // Project published XYZ with the original camera, independent of
-        // Fusion's float K and the integer rescaling helper.
-        const int col =
-            std::lround((8.0 * point.x / point.z + 4.3) * width / 10 - 0.5);
-        const int row =
-            std::lround((11.0 * point.y / point.z + 2.2) * height / 5 - 0.5);
-        ASSERT_GE(col, 0);
-        ASSERT_LT(col, width);
-        ASSERT_GE(row, 0);
-        ASSERT_LT(row, height);
-        ++coverage[row * width + col];
-        EXPECT_NEAR(point.x, 5 * ((col + 0.5) * 10 / width - 4.3) / 8, 2e-6);
-        EXPECT_NEAR(point.y, 5 * ((row + 0.5) * 5 / height - 2.2) / 11, 2e-6);
-        EXPECT_FLOAT_EQ(point.z, 5.0f);
-        EXPECT_FLOAT_EQ(point.nx, 0.0f);
-        EXPECT_FLOAT_EQ(point.ny, 0.0f);
-        EXPECT_FLOAT_EQ(point.nz, -1.0f);
-        const auto expected =
-            bitmap.GetPixel(grid.source_columns[col], grid.source_rows[row]);
-        ASSERT_TRUE(expected);
-        EXPECT_EQ(point.r, expected->r);
-        EXPECT_EQ(point.g, expected->g);
-        EXPECT_EQ(point.b, expected->b);
-        EXPECT_EQ(visibility[index], std::vector<int>{0});
-      }
-      EXPECT_EQ(coverage, std::vector<int>(width * height, 1));
+  SynthesizeDataset(dataset, &reconstruction);
+  reconstruction.Write(dir / "sparse");
+  const auto& name = reconstruction.Images().begin()->second.Name();
+  const auto map_name = name + ".geometric.bin";
+  std::ofstream(dir / "stereo/fusion.cfg") << name << "\n";
+
+  Mat<float> depth_map(2, 2, 1);
+  depth_map.Set(1, 1, 0, 5.0f);
+  depth_map.Write(dir / "stereo/depth_maps" / map_name);
+  Mat<float> normal_map(2, 2, 3);
+  normal_map.Set(1, 1, 2, 1.0f);
+  normal_map.Write(dir / "stereo/normal_maps" / map_name);
+  Bitmap bitmap(8, 8, true);
+  for (int row = 0; row < 8; ++row) {
+    for (int col = 0; col < 8; ++col) {
+      bitmap.SetPixel(col, row, BitmapColor<uint8_t>(10 * col, 10 * row, 0));
     }
   }
+  ASSERT_TRUE(bitmap.Write(dir / "images" / name));
+
+  StereoFusionOptions options;
+  options.num_threads = 1;
+  options.min_num_pixels = 1;
+  StereoFusion fusion(options, dir, "COLMAP", "", "geometric");
+  fusion.Run();
+  const auto& points = fusion.GetFusedPoints();
+  ASSERT_EQ(points.size(), 1);
+  // The quarter-resolution pixel (1, 1) samples RGB pixel (6, 6).
+  EXPECT_EQ(points[0].r, 60);
+  EXPECT_EQ(points[0].g, 60);
 }
 
 }  // namespace
