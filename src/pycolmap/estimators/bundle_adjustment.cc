@@ -429,12 +429,10 @@ void BindBundleAdjuster(py::module& m) {
           .def_readwrite(
               "prior_position_fallback_stddev",
               &PosePriorBAOpts::prior_position_fallback_stddev,
-              "Fallback standard deviation used when a prior position "
-              "covariance is unset.")
+              "Fallback if no prior position covariance is provided.")
           .def_readwrite("alignment_ransac",
                          &PosePriorBAOpts::alignment_ransac_options,
-                         "RANSAC options for Sim3 alignment to position "
-                         "priors.")
+                         "RANSAC options for Sim3 alignment.")
           .def_readwrite("ceres",
                          &PosePriorBAOpts::ceres,
                          "Ceres-specific pose prior bundle adjustment options.")
@@ -495,59 +493,41 @@ void BindBundleAdjuster(py::module& m) {
       py::arg_v("priors", BundleAdjustmentPriors(), "BundleAdjustmentPriors()"),
       py::keep_alive<0, 3>());
 
-  auto warn_deprecated = [](const char* message) {
-    if (PyErr_WarnEx(PyExc_DeprecationWarning, message, 1) == -1) {
-      throw py::error_already_set();
-    }
-  };
-
-  m.def(
-      "create_pose_prior_bundle_adjuster",
-      [warn_deprecated](const BundleAdjustmentOptions& options,
-                        const PosePriorBundleAdjustmentOptions& prior_options,
-                        const BundleAdjustmentConfig& config,
-                        std::vector<PosePrior> pose_priors,
-                        Reconstruction& reconstruction) {
-        warn_deprecated(
-            "create_pose_prior_bundle_adjuster is deprecated; use "
-            "create_default_bundle_adjuster with "
-            "options.pose_prior.use_position and BundleAdjustmentPriors "
-            "instead.");
-        return CreatePosePriorBundleAdjuster(options,
-                                             prior_options,
-                                             config,
-                                             std::move(pose_priors),
-                                             reconstruction);
-      },
-      "options"_a,
-      "prior_options"_a,
-      "config"_a,
-      "pose_priors"_a,
-      "reconstruction"_a,
-      py::keep_alive<0, 5>());
-
-  m.def(
-      "create_pose_prior_ceres_bundle_adjuster",
-      [warn_deprecated](const BundleAdjustmentOptions& options,
-                        const PosePriorBundleAdjustmentOptions& prior_options,
-                        const BundleAdjustmentConfig& config,
-                        std::vector<PosePrior> pose_priors,
-                        Reconstruction& reconstruction) {
-        warn_deprecated(
-            "create_pose_prior_ceres_bundle_adjuster is deprecated; use "
-            "create_default_ceres_bundle_adjuster with "
-            "options.pose_prior.use_position and BundleAdjustmentPriors "
-            "instead.");
-        return CreatePosePriorCeresBundleAdjuster(options,
-                                                  prior_options,
-                                                  config,
-                                                  std::move(pose_priors),
-                                                  reconstruction);
-      },
-      "options"_a,
-      "prior_options"_a,
-      "config"_a,
-      "pose_priors"_a,
-      "reconstruction"_a,
-      py::keep_alive<0, 5>());
+  const auto def_deprecated_factory =
+      [&m](const char* name, const char* replacement, auto factory) {
+        const std::string warning =
+            std::string(name) + " is deprecated; use " + replacement +
+            " with options.pose_prior.use_position and BundleAdjustmentPriors "
+            "instead.";
+        m.def(
+            name,
+            [warning, factory](
+                const BundleAdjustmentOptions& options,
+                const PosePriorBundleAdjustmentOptions& prior_options,
+                const BundleAdjustmentConfig& config,
+                std::vector<PosePrior> pose_priors,
+                Reconstruction& reconstruction) {
+              if (PyErr_WarnEx(PyExc_DeprecationWarning, warning.c_str(), 1) ==
+                  -1) {
+                throw py::error_already_set();
+              }
+              return factory(options,
+                             prior_options,
+                             config,
+                             std::move(pose_priors),
+                             reconstruction);
+            },
+            "options"_a,
+            "prior_options"_a,
+            "config"_a,
+            "pose_priors"_a,
+            "reconstruction"_a,
+            py::keep_alive<0, 5>());
+      };
+  def_deprecated_factory("create_pose_prior_bundle_adjuster",
+                         "create_default_bundle_adjuster",
+                         &CreatePosePriorBundleAdjuster);
+  def_deprecated_factory("create_pose_prior_ceres_bundle_adjuster",
+                         "create_default_ceres_bundle_adjuster",
+                         &CreatePosePriorCeresBundleAdjuster);
 }

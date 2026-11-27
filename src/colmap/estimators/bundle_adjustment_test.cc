@@ -4,17 +4,14 @@
 
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/geometry/rigid3_matchers.h"
-#include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/models.h"
-#include "colmap/util/testing.h"
 
 #ifdef CASPAR_ENABLED
 #include "colmap/util/cuda.h"
 #endif
 
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {

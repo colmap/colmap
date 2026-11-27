@@ -353,7 +353,14 @@ std::unique_ptr<BundleAdjuster> CreatePosePriorBundleAdjuster(
                                                 std::move(pose_priors),
                                                 reconstruction);
     case BundleAdjustmentBackend::CASPAR:
-      LOG(FATAL_THROW) << "Caspar BA backend does not support priors";
+#ifdef CASPAR_ENABLED
+      LOG(FATAL_THROW) << "Caspar BA backend does not support pose priors";
+#else
+      LOG(FATAL_THROW)
+          << "Caspar BA backend selected but COLMAP was built without "
+             "CASPAR_ENABLED; rebuild with -DCASPAR_ENABLED=ON to use it";
+#endif
+      return nullptr;
   }
   LOG(FATAL_THROW) << "Unknown bundle adjustment backend: "
                    << static_cast<int>(options.backend);

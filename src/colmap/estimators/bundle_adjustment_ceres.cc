@@ -935,7 +935,6 @@ std::unique_ptr<CeresBundleAdjuster> CreatePosePriorCeresBundleAdjuster(
   merged_options.pose_prior.use_position = true;
   merged_options.pose_prior.position_stddev =
       Eigen::Vector3d::Constant(prior_options.prior_position_fallback_stddev);
-  merged_options.pose_prior.overwrite_position_covariance = false;
   merged_options.pose_prior.position_alignment_ransac =
       prior_options.alignment_ransac_options;
   THROW_CHECK_NOTNULL(merged_options.ceres)->prior_position_loss_function_type =

@@ -260,10 +260,10 @@ struct PosePriorBundleAdjustmentBackendOptions {
 // BundleAdjustmentOptions::pose_prior and CeresBundleAdjustmentOptions instead.
 struct PosePriorBundleAdjustmentOptions
     : public PosePriorBundleAdjustmentBackendOptions {
-  // Fallback standard deviation used when a prior position covariance is unset.
+  // Fallback if no prior position covariance is provided.
   double prior_position_fallback_stddev = 1.0;
 
-  // Sim3 RANSAC options for AlignReconstructionToPosePriors.
+  // Sim3 alignment options.
   RANSACOptions alignment_ransac_options;
 
   bool Check() const;

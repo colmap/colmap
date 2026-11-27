@@ -352,24 +352,16 @@ def test_bundle_adjustment_with_pose_priors(tmp_path: Path) -> None:
         )
 
     # Deprecated factory shims emit DeprecationWarning and still solve.
-    prior_options = pycolmap.PosePriorBundleAdjustmentOptions()
-    with pytest.warns(DeprecationWarning):
-        deprecated_adjuster = pycolmap.create_pose_prior_bundle_adjuster(
-            pycolmap.BundleAdjustmentOptions(),
-            prior_options,
-            config,
-            pose_priors,
-            pycolmap.Reconstruction(gt_reconstruction),
-        )
-    assert deprecated_adjuster.solve().is_solution_usable()
-    with pytest.warns(DeprecationWarning):
-        deprecated_ceres_adjuster = (
-            pycolmap.create_pose_prior_ceres_bundle_adjuster(
+    for create_deprecated_adjuster in (
+        pycolmap.create_pose_prior_bundle_adjuster,
+        pycolmap.create_pose_prior_ceres_bundle_adjuster,
+    ):
+        with pytest.warns(DeprecationWarning):
+            deprecated_adjuster = create_deprecated_adjuster(
                 pycolmap.BundleAdjustmentOptions(),
-                prior_options,
+                pycolmap.PosePriorBundleAdjustmentOptions(),
                 config,
                 pose_priors,
                 pycolmap.Reconstruction(gt_reconstruction),
             )
-        )
-    assert deprecated_ceres_adjuster.solve().is_solution_usable()
+        assert deprecated_adjuster.solve().is_solution_usable()
