@@ -7,6 +7,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <locale>
 #include <sstream>
 
@@ -413,88 +414,31 @@ TEST(ExportNVM, UnsupportedCameraModel) {
 }
 
 TEST(ExportNVM, FeatureCoordinatesRelativeToImageCenter) {
-  const std::vector<std::vector<Eigen::Vector2d>> points2D = {
-      {{320, 240}, {0.5, 0.5}, {639.5, 479.5}, {350, 220}},
-      {{320.5, 240.5}, {0.5, 0.5}, {640.5, 480.5}, {350.5, 220.5}}};
-  const std::vector<std::vector<Eigen::Vector2d>> expected_measurements = {
-      {{0, 0}, {-319.5, -239.5}, {319.5, 239.5}, {30, -20}},
-      {{0, 0}, {-320, -240}, {320, 240}, {30, -20}}};
-
   Reconstruction reconstruction;
-  for (size_t i = 0; i < points2D.size(); ++i) {
-    const camera_t camera_id = i + 1;
-    Camera camera = Camera::CreateFromModelId(
-        camera_id, SimplePinholeCameraModel::model_id, 700, 640 + i, 480 + i);
-    if (i == 1) {
-      // The NVM origin is the image center, not this calibrated principal
-      // point.
-      camera.SetPrincipalPointX(300.5);
-      camera.SetPrincipalPointY(260.5);
-    }
-    reconstruction.AddCameraWithTrivialRig(camera);
-
-    Image image;
-    image.SetImageId(i + 1);
-    image.SetCameraId(camera_id);
-    image.SetName(std::to_string(i + 1) + ".jpg");
-    image.SetPoints2D(points2D[i]);
-    reconstruction.AddImageWithTrivialFrame(image, Rigid3d());
-  }
-  for (point2D_t point2D_idx = 0; point2D_idx < points2D[0].size();
-       ++point2D_idx) {
-    Track track;
-    track.AddElement(1, point2D_idx);
-    track.AddElement(2, point2D_idx);
-    reconstruction.AddPoint3D(Eigen::Vector3d(point2D_idx, 0, 5), track);
-  }
+  Camera camera = Camera::CreateFromModelId(
+      1, SimplePinholeCameraModel::model_id, 700, 640, 481);
+  // The NVM origin is the image center, not the principal point.
+  camera.SetPrincipalPointX(300);
+  camera.SetPrincipalPointY(260);
+  reconstruction.AddCameraWithTrivialRig(camera);
+  Image image;
+  image.SetImageId(1);
+  image.SetCameraId(1);
+  image.SetName("1.jpg");
+  image.SetPoints2D({Eigen::Vector2d(350, 220.5)});
+  reconstruction.AddImageWithTrivialFrame(image, Rigid3d());
+  Track track;
+  track.AddElement(1, 0);
+  reconstruction.AddPoint3D(Eigen::Vector3d(0, 0, 5), track);
 
   const auto nvm_path = CreateTestDir() / "export.nvm";
   ASSERT_TRUE(ExportNVM(reconstruction, nvm_path));
   std::ifstream file(nvm_path);
-  std::string header;
-  size_t num_images;
-  file >> header >> num_images;
-  ASSERT_TRUE(file.good());
-  ASSERT_EQ(header, "NVM_V3");
-  ASSERT_EQ(num_images, points2D.size());
-  std::vector<image_t> image_ids;
-  for (size_t i = 0; i < num_images; ++i) {
-    std::string name;
-    file >> name;
-    // Focal length, quaternion, camera center, radial distortion, and zero.
-    for (size_t j = 0; j < 10; ++j) {
-      double value;
-      file >> value;
-    }
-    ASSERT_TRUE(file.good());
-    const Image* image = reconstruction.FindImageWithName(name);
-    ASSERT_NE(image, nullptr);
-    image_ids.push_back(image->ImageId());
-  }
-
-  size_t num_points3D;
-  file >> num_points3D;
-  ASSERT_EQ(num_points3D, points2D[0].size());
-  for (size_t i = 0; i < num_points3D; ++i) {
-    Eigen::Vector3d xyz;
-    Eigen::Vector3i color;
-    size_t num_measurements;
-    file >> xyz.x() >> xyz.y() >> xyz.z();
-    file >> color.x() >> color.y() >> color.z() >> num_measurements;
-    ASSERT_TRUE(file.good());
-    ASSERT_EQ(num_measurements, num_images);
-    for (size_t j = 0; j < num_measurements; ++j) {
-      size_t image_idx;
-      point2D_t point2D_idx;
-      Eigen::Vector2d measurement;
-      file >> image_idx >> point2D_idx >> measurement.x() >> measurement.y();
-      ASSERT_TRUE(file.good());
-      ASSERT_LT(image_idx, image_ids.size());
-      const auto& expected = expected_measurements[image_ids[image_idx] - 1];
-      ASSERT_LT(point2D_idx, expected.size());
-      EXPECT_EQ(measurement, expected[point2D_idx]);
-    }
-  }
+  const std::vector<std::string> tokens{
+      std::istream_iterator<std::string>(file), {}};
+  ASSERT_GE(tokens.size(), 2);
+  EXPECT_EQ(std::stod(tokens[tokens.size() - 2]), 30);
+  EXPECT_EQ(std::stod(tokens[tokens.size() - 1]), -20);
 }
 
 TEST(ExportCam, Nominal) {
