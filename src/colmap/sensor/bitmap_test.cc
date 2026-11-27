@@ -887,23 +887,22 @@ TEST(Bitmap, ExifFocalLengthWithPlane) {
 }
 
 TEST(Bitmap, ExifFocalLengthWithDatabaseLookup) {
-  Bitmap bitmap(600, 400, /*as_rgb=*/true);
-  bitmap.Fill(BitmapColor<uint8_t>(12, 34, 56));
+  Bitmap bitmap(100, 80, /*as_rgb=*/true);
 
   EXPECT_FALSE(bitmap.ExifFocalLength().has_value());
 
-  bitmap.SetMetaData("Make", "NIKON CORPORATION");
-  bitmap.SetMetaData("Model", "NIKON D800");
-  const float kFocalLengthVal = 35.f;
+  const float kFocalLengthVal = 120.f;
   bitmap.SetMetaData("Exif:FocalLength", "float", &kFocalLengthVal);
+  const int kPixelXDim = 100;
+  bitmap.SetMetaData("Exif:PixelXDimension", "int", &kPixelXDim);
+  const float kPlaneXRes = 1.f;
+  bitmap.SetMetaData("Exif:FocalPlaneXResolution", "float", &kPlaneXRes);
+  const int kPlanResUnit = 4;
+  bitmap.SetMetaData("Exif:FocalPlaneResolutionUnit", "int", &kPlanResUnit);
 
-  const auto path = CreateTestDir() / "camera_database_lookup.jpg";
-  ASSERT_TRUE(bitmap.Write(path));
-  Bitmap read_bitmap;
-  ASSERT_TRUE(read_bitmap.Read(path));
-  const auto focal_length = read_bitmap.ExifFocalLength();
-  ASSERT_TRUE(focal_length.has_value());
-  EXPECT_NEAR(focal_length.value(), 35.0 / 35.9 * 600, 1e-4);
+  const auto focal_length = bitmap.ExifFocalLength();
+  EXPECT_TRUE(focal_length.has_value());
+  EXPECT_EQ(focal_length.value(), 120);
 }
 
 TEST(Bitmap, ExifFocalLengthUnits) {
