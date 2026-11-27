@@ -249,36 +249,26 @@ TEST(BundleAdjusterExe, WithDatabasePositionPriors) {
   CreateDirIfNotExists(output_path);
   unaligned.Write(input_path);
 
-  std::vector<std::string> missing_db_args = {
-      "bundle_adjuster",
-      "--input_path=" + input_path.string(),
-      "--output_path=" + output_path.string(),
-      "--BundleAdjustment.use_prior_position=1",
+  const auto run_bundle_adjuster = [&](std::vector<std::string> args) {
+    args.insert(args.begin(),
+                {"bundle_adjuster",
+                 "--input_path=" + input_path.string(),
+                 "--output_path=" + output_path.string(),
+                 "--BundleAdjustment.use_prior_position=1"});
+    std::vector<char*> argv;
+    for (std::string& arg : args) {
+      argv.push_back(arg.data());
+    }
+    return RunBundleAdjuster(argv.size(), argv.data());
   };
-  std::vector<char*> missing_db_argv;
-  for (std::string& arg : missing_db_args) {
-    missing_db_argv.push_back(arg.data());
-  }
-  EXPECT_EQ(RunBundleAdjuster(missing_db_argv.size(), missing_db_argv.data()),
-            EXIT_FAILURE);
-
-  std::vector<std::string> args = {
-      "bundle_adjuster",
-      "--input_path=" + input_path.string(),
-      "--output_path=" + output_path.string(),
-      "--database_path=" + database_path.string(),
-      "--BundleAdjustment.use_prior_position=1",
-      "--BundleAdjustment.overwrite_prior_position_covariance=1",
-      "--BundleAdjustment.prior_position_stddev_x=0.1",
-      "--BundleAdjustment.prior_position_stddev_y=0.1",
-      "--BundleAdjustment.prior_position_stddev_z=0.1",
-  };
-  std::vector<char*> argv;
-  argv.reserve(args.size());
-  for (std::string& arg : args) {
-    argv.push_back(arg.data());
-  }
-  ASSERT_EQ(RunBundleAdjuster(argv.size(), argv.data()), EXIT_SUCCESS);
+  EXPECT_EQ(run_bundle_adjuster({}), EXIT_FAILURE);
+  ASSERT_EQ(run_bundle_adjuster(
+                {"--database_path=" + database_path.string(),
+                 "--BundleAdjustment.overwrite_prior_position_covariance=1",
+                 "--BundleAdjustment.prior_position_stddev_x=0.1",
+                 "--BundleAdjustment.prior_position_stddev_y=0.1",
+                 "--BundleAdjustment.prior_position_stddev_z=0.1"}),
+            EXIT_SUCCESS);
 
   Reconstruction refined;
   refined.Read(output_path);

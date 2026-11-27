@@ -422,7 +422,9 @@ TEST(OptionManager, PriorOptionsRoundTripAndReset) {
       "--database_path=" + db_path,
       "--image_path=" + img_path,
       "--BundleAdjustment.use_prior_position=1",
+      "--BundleAdjustment.prior_position_stddev_x=0.5",
       "--BundleAdjustment.prior_position_stddev_y=1.5",
+      "--BundleAdjustment.prior_position_stddev_z=2.5",
       "--BundleAdjustmentCeres.prior_position_loss_function_type=CAUCHY",
   };
   std::vector<char*> argv;
@@ -435,11 +437,13 @@ TEST(OptionManager, PriorOptionsRoundTripAndReset) {
 
   OptionManager options_read;
   options_read.AddAllOptions();
+  // ResetOptions() reallocates bundle_adjustment->ceres, so stale enum option
+  // registrations would write through dangling pointers.
   options_read.ResetOptions(/*reset_paths=*/true);
   ASSERT_TRUE(options_read.Read(config_path));
   EXPECT_TRUE(options_read.bundle_adjustment->pose_prior.use_position);
   EXPECT_EQ(options_read.bundle_adjustment->pose_prior.position_stddev,
-            Eigen::Vector3d(1.0, 1.5, 1.0));
+            Eigen::Vector3d(0.5, 1.5, 2.5));
   EXPECT_EQ(
       options_read.bundle_adjustment->ceres->prior_position_loss_function_type,
       CeresLossFunctionType::CAUCHY);
