@@ -61,6 +61,27 @@ def test_pose_prior_has_gravity() -> None:
     assert isinstance(pose_prior.has_gravity(), bool)
 
 
+def test_pose_prior_heading() -> None:
+    prior = pycolmap.PosePrior()
+    assert np.isnan(prior.heading)
+    assert np.isnan(prior.heading_stddev)
+    assert not prior.has_heading()
+    assert not prior.has_heading_stddev()
+
+    prior = pycolmap.PosePrior(heading=0.0, heading_stddev=0.1)
+    assert prior.has_heading()
+    assert not prior.has_position()
+    assert prior.has_heading_stddev()
+    assert prior.todict()["heading"] == 0.0
+    assert prior.todict()["heading_stddev"] == 0.1
+
+    prior.heading = float("inf")
+    assert not prior.has_heading()
+    for invalid_stddev in (0.0, -0.1, float("inf")):
+        prior.heading_stddev = invalid_stddev
+        assert not prior.has_heading_stddev()
+
+
 def test_pose_prior_pose_prior_id_readwrite() -> None:
     pose_prior = pycolmap.PosePrior()
     pose_prior.pose_prior_id = 42

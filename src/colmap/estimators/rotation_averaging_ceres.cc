@@ -2,6 +2,7 @@
 
 #include "colmap/estimators/rotation_averaging_ceres.h"
 
+#include "colmap/estimators/cost_functions/heading.h"
 #include "colmap/estimators/cost_functions/manifold.h"
 #include "colmap/estimators/cost_functions/motion_averaging.h"
 #include "colmap/estimators/cost_functions/utils.h"
@@ -27,6 +28,22 @@ double* MaybeGetSensorRotationBlock(const Image& image) {
       image.FramePtr()->RigPtr()->SensorFromRig(sensor_id);
   return sensor_from_rig.rotation().coeffs().data();
 }
+
+// Chordal distance between the measured and predicted unit down vectors.
+struct GravityErrorCostFunctor {
+  Eigen::Vector3d down_in_rig;
+  double inv_stddev;
+
+  template <typename T>
+  bool operator()(const T* const rotation, T* residuals) const {
+    const Eigen::Map<const Eigen::Quaternion<T>> rig_from_world(rotation);
+    Eigen::Map<Eigen::Matrix<T, 3, 1>> error(residuals);
+    error =
+        T(inv_stddev) * (-(rig_from_world * Eigen::Matrix<T, 3, 1>::UnitZ()) -
+                         down_in_rig.cast<T>());
+    return true;
+  }
+};
 
 std::optional<PoseGraph> MaybeFilterPoseGraphToActiveImages(
     const PoseGraph& pose_graph, const FlatHashSet<image_t>& active_image_ids) {
@@ -301,6 +318,165 @@ void CeresRotationAverager::SetupParameterBlocks(
       root_frame.RigFromWorld().rotation().coeffs().data());
 }
 
+void CeresRotationAverager::AddOrientationPriors(
+    const RotationEstimatorOptions& options,
+    const PoseGraphInfo& graph_info,
+    const std::vector<PosePrior>& pose_priors) {
+  struct HeadingPrior {
+    Eigen::Vector3d forward_in_rig;
+    double heading;
+    double stddev;
+  };
+  FlatHashMap<frame_t, Eigen::Vector3d> gravity_priors;
+  FlatHashMap<frame_t, HeadingPrior> heading_priors;
+  for (const PosePrior& prior : pose_priors) {
+    if (prior.corr_data_id.sensor_id.type != SensorType::CAMERA ||
+        !graph_info.component_image_ids.count(prior.corr_data_id.id)) {
+      continue;
+    }
+    const Image& image = reconstruction_.Image(prior.corr_data_id.id);
+    if (image.CameraPtr()->SensorId() != prior.corr_data_id.sensor_id) continue;
+    const Frame& frame = *image.FramePtr();
+    if (!frame.HasPose() ||
+        !problem_->HasParameterBlock(
+            frame.RigFromWorld().rotation().coeffs().data())) {
+      continue;
+    }
+    Eigen::Quaterniond rig_from_sensor = Eigen::Quaterniond::Identity();
+    if (!image.IsRefInFrame()) {
+      const auto& sensor_from_rig =
+          frame.RigPtr()->MaybeSensorFromRig(prior.corr_data_id.sensor_id);
+      if (!sensor_from_rig.has_value() ||
+          !sensor_from_rig->rotation().coeffs().allFinite()) {
+        continue;
+      }
+      const double* sensor_rotation =
+          sensor_from_rig->rotation().coeffs().data();
+      if (problem_->HasParameterBlock(sensor_rotation) &&
+          !problem_->IsParameterBlockConstant(sensor_rotation)) {
+        continue;  // The measurement assumes a calibrated sensor rotation.
+      }
+      rig_from_sensor = sensor_from_rig->rotation().conjugate();
+    }
+    if (prior.HasGravity() && prior.gravity.squaredNorm() > 1e-12) {
+      gravity_priors.try_emplace(frame.FrameId(),
+                                 rig_from_sensor * prior.gravity.normalized());
+    }
+    if (prior.HasHeading()) {
+      heading_priors.try_emplace(
+          frame.FrameId(),
+          HeadingPrior{rig_from_sensor * Eigen::Vector3d::UnitZ(),
+                       prior.heading,
+                       prior.HasHeadingStddev() ? prior.heading_stddev
+                                                : kDefaultHeadingStddev});
+    }
+  }
+  // Estimate the common change of world frame after the visual warm-start. It
+  // leaves all relative rotations unchanged and starts the prior losses near
+  // their basin rather than relying on the robust losses to fix a global flip.
+  Eigen::Vector3d down_in_visual = Eigen::Vector3d::Zero();
+  for (const auto& [frame_id, down_in_rig] : gravity_priors) {
+    down_in_visual +=
+        reconstruction_.Frame(frame_id).RigFromWorld().rotation().conjugate() *
+        down_in_rig;
+  }
+  if (down_in_visual.squaredNorm() < 1e-12) {
+    LOG(WARNING) << "No usable gravity direction for ENU rotation averaging; "
+                    "using visual rotations only";
+    return;
+  }
+  Eigen::Quaterniond visual_from_enu = Eigen::Quaterniond::FromTwoVectors(
+      -Eigen::Vector3d::UnitZ(), down_in_visual);
+  Eigen::Vector2d yaw_offset = Eigen::Vector2d::Zero();
+  for (const auto& [frame_id, prior] : heading_priors) {
+    const Eigen::Vector3d forward_in_enu =
+        visual_from_enu.conjugate() *
+        (reconstruction_.Frame(frame_id).RigFromWorld().rotation().conjugate() *
+         prior.forward_in_rig);
+    if (forward_in_enu.head<2>().norm() < kMinHeadingProjection) continue;
+    const double offset =
+        prior.heading - std::atan2(forward_in_enu.x(), forward_in_enu.y());
+    yaw_offset += Eigen::Vector2d(std::cos(offset), std::sin(offset));
+  }
+  if (yaw_offset.squaredNorm() > 1e-12) {
+    visual_from_enu =
+        visual_from_enu *
+        Eigen::AngleAxisd(std::atan2(yaw_offset.y(), yaw_offset.x()),
+                          Eigen::Vector3d::UnitZ());
+  }
+  FlatHashSet<frame_t> updated_frames;
+  for (const image_t image_id : graph_info.component_image_ids) {
+    Frame& frame = *reconstruction_.Image(image_id).FramePtr();
+    if (!frame.HasPose()) continue;
+    // Several images can refer to the same rig frame.
+    if (updated_frames.insert(frame.FrameId()).second) {
+      frame.RigFromWorld().rotation() =
+          frame.RigFromWorld().rotation() * visual_from_enu;
+    }
+  }
+
+  // Unwhitened relative residuals are in radians. Put sensor priors on that
+  // scale assuming 1 degree of relative-rotation noise. Whitened relative
+  // residuals already use standard deviations as units.
+  const double scale =
+      options.reweighting == RotationAveragingReweighting::COVARIANCE
+          ? 1.0
+          : DegToRad(1.0);
+  auto prior_loss = std::make_shared<ceres::HuberLoss>(3 * scale);
+  losses_.try_emplace(prior_loss.get(), prior_loss);
+  const auto rotation_block = [&](const frame_t frame_id) {
+    return reconstruction_.Frame(frame_id)
+        .RigFromWorld()
+        .rotation()
+        .coeffs()
+        .data();
+  };
+  for (const auto& [frame_id, down_in_rig] : gravity_priors) {
+    problem_->AddResidualBlock(
+        new ceres::AutoDiffCostFunction<GravityErrorCostFunctor, 3, 4>(
+            new GravityErrorCostFunctor{down_in_rig,
+                                        scale / kDefaultHeadingStddev}),
+        prior_loss.get(),
+        rotation_block(frame_id));
+  }
+  size_t num_headings = 0;
+  for (const auto& [frame_id, prior] : heading_priors) {
+    const Eigen::Map<const Eigen::Quaterniond> rig_from_world(
+        rotation_block(frame_id));
+    if ((rig_from_world.conjugate() * prior.forward_in_rig).head<2>().norm() <
+        kMinHeadingProjection) {
+      continue;
+    }
+    problem_->AddResidualBlock(
+        new ceres::AutoDiffCostFunction<HeadingErrorCostFunctor, 2, 4>(
+            new HeadingErrorCostFunctor(
+                prior.heading, prior.stddev / scale, prior.forward_in_rig)),
+        prior_loss.get(),
+        rotation_block(frame_id));
+    ++num_headings;
+  }
+
+  const image_t root = *std::min_element(graph_info.edge_image_ids.begin(),
+                                         graph_info.edge_image_ids.end());
+  double* root_rotation = rotation_block(reconstruction_.Image(root).FrameId());
+  problem_->SetParameterBlockVariable(root_rotation);
+  if (num_headings == 0) {
+    // Gravity constrains tilt but not yaw. Fix only the visual yaw gauge, not
+    // the root tilt: a common world yaw can always set this azimuth to east.
+    const Eigen::Map<const Eigen::Quaterniond> rig_from_world(root_rotation);
+    problem_->AddResidualBlock(
+        new ceres::AutoDiffCostFunction<HeadingErrorCostFunctor, 2, 4>(
+            new HeadingErrorCostFunctor(
+                DegToRad(90.0),
+                kDefaultHeadingStddev / scale,
+                rig_from_world * Eigen::Vector3d::UnitX())),
+        nullptr,
+        root_rotation);
+  }
+  LOG(INFO) << "ENU rotation averaging: " << gravity_priors.size()
+            << " gravity priors, " << num_headings << " heading priors";
+}
+
 ceres::Solver::Summary CeresRotationAverager::Solve() {
   ceres::Solver::Summary summary;
   ceres::Solve(solver_options, problem_.get(), &summary);
@@ -429,6 +605,7 @@ std::unique_ptr<CeresRotationAverager> CreateDefaultCeresRotationAverager(
 
 bool RotationEstimator::SolveRotationAveragingWithCeres(
     const PoseGraph& pose_graph,
+    const std::vector<PosePrior>& pose_priors,
     const FlatHashSet<image_t>& active_image_ids,
     Reconstruction& reconstruction) {
   THROW_CHECK_NOTNULL(options_.ceres);
@@ -446,6 +623,9 @@ bool RotationEstimator::SolveRotationAveragingWithCeres(
                                    graph_info,
                                    std::move(weights),
                                    reconstruction);
+    if (options.use_heading) {
+      averager.AddOrientationPriors(options, graph_info, pose_priors);
+    }
     const ceres::Solver::Summary summary = averager.Solve();
     if (VLOG_IS_ON(2)) {
       LOG(INFO) << summary.FullReport();
@@ -463,6 +643,7 @@ bool RotationEstimator::SolveRotationAveragingWithCeres(
   std::optional<CeresRotationAverager::PreparedWeights> warm_start_weights;
   if (options_.ceres->max_num_warm_start_iterations > 0) {
     warm_start_options = options_;
+    warm_start_options->use_heading = false;
     warm_start_options->ceres->loss_function_type =
         CeresLossFunctionType::HUBER;
     warm_start_options->ceres->solver_options.max_num_iterations =

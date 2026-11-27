@@ -547,17 +547,26 @@ TEST_P(ParameterizedDatabaseTests, PosePrior) {
   pose_prior.position_covariance = RandomEigenMatrixd<3, 3>();
   pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
   pose_prior.gravity = RandomEigenVectord<3>();
+  pose_prior.heading = 0.0;
+  pose_prior.heading_stddev = 0.05;
   pose_prior.pose_prior_id = database->WritePosePrior(pose_prior);
   EXPECT_ANY_THROW(database->WritePosePrior(pose_prior));
   EXPECT_EQ(database->NumPosePriors(), 1);
   EXPECT_EQ(database->ReadPosePrior(pose_prior.pose_prior_id,
                                     /*is_deprecated_image_prior=*/false),
             pose_prior);
+  EXPECT_THAT(database->ReadAllPosePriors(), testing::ElementsAre(pose_prior));
+
   pose_prior.position_covariance = Eigen::Matrix3d::Identity();
+  pose_prior.heading = -0.75;
+  pose_prior.heading_stddev = PosePrior::kNaN;
   database->UpdatePosePrior(pose_prior);
   EXPECT_EQ(database->ReadPosePrior(pose_prior.pose_prior_id,
                                     /*is_deprecated_image_prior=*/false),
             pose_prior);
+
+  pose_prior.heading = PosePrior::kNaN;
+  database->UpdatePosePrior(pose_prior);
   EXPECT_THAT(database->ReadAllPosePriors(), testing::ElementsAre(pose_prior));
   database->ClearPosePriors();
   EXPECT_EQ(database->NumPosePriors(), 0);
@@ -1178,6 +1187,49 @@ TEST(LoadRandomDatabaseDescriptorsTest, LoadExactTotal) {
   const auto result = LoadRandomDatabaseDescriptors(*database, 20);
   EXPECT_EQ(result.data.rows(), 20);
   EXPECT_EQ(result.data.cols(), 128);
+}
+
+TEST(DatabaseMigrationTest, PosePriorsWithoutHeading) {
+  const auto database_path = CreateTestDir() / "pose_priors_without_heading.db";
+  sqlite3* db = nullptr;
+  ASSERT_EQ(sqlite3_open(database_path.string().c_str(), &db), SQLITE_OK);
+  // Use the sensor-associated schema before the heading columns were added.
+  ASSERT_EQ(sqlite3_exec(db,
+                         "PRAGMA user_version = 4030000;"
+                         "CREATE TABLE pose_priors ("
+                         "  pose_prior_id INTEGER PRIMARY KEY NOT NULL,"
+                         "  corr_data_id INTEGER NOT NULL,"
+                         "  corr_sensor_id INTEGER NOT NULL,"
+                         "  corr_sensor_type INTEGER NOT NULL,"
+                         "  position BLOB,"
+                         "  position_covariance BLOB,"
+                         "  gravity BLOB,"
+                         "  coordinate_system INTEGER NOT NULL);"
+                         "INSERT INTO pose_priors VALUES "
+                         "(1, 2, 3, 0, zeroblob(24), NULL, NULL, 1);",
+                         nullptr,
+                         nullptr,
+                         nullptr),
+            SQLITE_OK);
+  ASSERT_EQ(sqlite3_close(db), SQLITE_OK);
+
+  auto database = Database::Open(database_path);
+  const auto priors = database->ReadAllPosePriors();
+  ASSERT_EQ(priors.size(), 1);
+  PosePrior prior = priors.front();
+  EXPECT_EQ(prior.pose_prior_id, 1);
+  EXPECT_EQ(prior.corr_data_id, data_t(sensor_t(SensorType::CAMERA, 3), 2));
+  EXPECT_EQ(prior.position, Eigen::Vector3d::Zero());
+  EXPECT_EQ(prior.coordinate_system, PosePrior::CoordinateSystem::CARTESIAN);
+  EXPECT_TRUE(std::isnan(prior.heading));
+  EXPECT_TRUE(std::isnan(prior.heading_stddev));
+
+  prior.heading = 1.5;
+  prior.heading_stddev = 0.125;
+  database->UpdatePosePrior(prior);
+  database->Close();
+  database = Database::Open(database_path);
+  EXPECT_THAT(database->ReadAllPosePriors(), testing::ElementsAre(prior));
 }
 
 TEST(DatabaseMigrationTest, LegacyCameraTableMigration) {

@@ -73,9 +73,8 @@ struct RotationEstimatorOptions : public RotationEstimatorBackendOptions {
   int random_seed = -1;
 
   // Solver backend to use for rotation averaging. Backend-specific options are
-  // in the corresponding member of RotationEstimatorBackendOptions. The CERES
-  // backend does not support gravity priors and falls back to L1_IRLS when
-  // use_gravity is true and gravity priors are given.
+  // in the corresponding member of RotationEstimatorBackendOptions. CERES
+  // falls back to L1_IRLS for gravity priors unless use_heading is enabled.
   RotationAveragingBackend backend = RotationAveragingBackend::L1_IRLS;
 
   // Gravity direction.
@@ -86,6 +85,12 @@ struct RotationEstimatorOptions : public RotationEstimatorBackendOptions {
 
   // Flag to use gravity priors for rotation averaging.
   bool use_gravity = false;
+
+  // With CERES and use_gravity, use soft gravity and heading constraints in
+  // East-North-Up coordinates instead of the legacy gravity-aligned solver.
+  // A component without usable gravity cannot establish the horizontal plane
+  // and is solved without absolute orientation constraints.
+  bool use_heading = false;
 
   // Flag to use stratified solving for mixed gravity systems.
   // If true and use_gravity is true, first solves the 1-DOF system with
@@ -146,6 +151,7 @@ class RotationEstimator {
 
   bool SolveRotationAveragingWithCeres(
       const PoseGraph& pose_graph,
+      const std::vector<PosePrior>& pose_priors,
       const FlatHashSet<image_t>& active_image_ids,
       Reconstruction& reconstruction);
 

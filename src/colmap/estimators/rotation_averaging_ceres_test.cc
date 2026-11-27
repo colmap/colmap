@@ -138,6 +138,92 @@ TEST(CeresRotationAverager, RecoversNominalRotations) {
   ExpectRelativeRotations(reconstruction, pose_graph, 1e-10);
 }
 
+TEST(CeresRotationAverager, RecoversAbsoluteOrientationFromGravityAndHeading) {
+  Reconstruction reconstruction = MakeTrivialReconstruction({1, 2, 3});
+  Eigen::Matrix3d north_facing_camera_in_enu;
+  north_facing_camera_in_enu.col(0) = Eigen::Vector3d::UnitX();
+  north_facing_camera_in_enu.col(1) = -Eigen::Vector3d::UnitZ();
+  north_facing_camera_in_enu.col(2) = Eigen::Vector3d::UnitY();
+  std::vector<Eigen::Quaterniond> expected;
+  for (const double heading : {179.0, -179.0, 120.0}) {
+    const Eigen::Quaterniond world_from_camera =
+        ZRotation(-DegToRad(heading)) *
+        Eigen::Quaterniond(north_facing_camera_in_enu) *
+        Eigen::Quaterniond(Eigen::AngleAxisd(0.2, Eigen::Vector3d::UnitX()));
+    expected.push_back(world_from_camera.conjugate());
+  }
+  PoseGraph graph;
+  graph.AddEdge(1, 2, Edge(expected[1] * expected[0].conjugate()));
+  graph.AddEdge(2, 3, Edge(expected[2] * expected[1].conjugate()));
+  std::vector<PosePrior> priors(2);
+  for (image_t image_id : {1, 2}) {
+    PosePrior& prior = priors.at(image_id - 1);
+    prior.corr_data_id = {
+        reconstruction.Image(image_id).CameraPtr()->SensorId(), image_id};
+    prior.gravity = expected[image_id - 1] * (-Eigen::Vector3d::UnitZ());
+    // Store headings across the branch cut and leave frame 3 without priors.
+    prior.heading = DegToRad(image_id == 1 ? 179.0 : 181.0);
+  }
+  RotationEstimatorOptions options;
+  options.backend = RotationAveragingBackend::CERES;
+  options.use_gravity = true;
+  options.use_heading = true;
+  ASSERT_TRUE(RunRotationAveraging(options, graph, reconstruction, priors));
+  for (image_t image_id : {1, 2, 3}) {
+    EXPECT_NEAR(reconstruction.Image(image_id)
+                    .CamFromWorld()
+                    .rotation()
+                    .angularDistance(expected[image_id - 1]),
+                0.0,
+                1e-8);
+  }
+
+  for (PosePrior& prior : priors) prior.heading = PosePrior::kNaN;
+  ASSERT_TRUE(RunRotationAveraging(options, graph, reconstruction, priors));
+  ExpectRelativeRotations(reconstruction, graph, 1e-8);
+  for (image_t image_id : {1, 2, 3}) {
+    const Eigen::Quaterniond rotation =
+        reconstruction.Image(image_id).CamFromWorld().rotation();
+    EXPECT_NEAR((rotation * (-Eigen::Vector3d::UnitZ()) -
+                 expected[image_id - 1] * (-Eigen::Vector3d::UnitZ()))
+                    .norm(),
+                0.0,
+                1e-8);
+  }
+}
+
+TEST(CeresRotationAverager, SoftHeadingPriorsRespectUncertainty) {
+  Reconstruction reconstruction = MakeTrivialReconstruction({1, 2});
+  PoseGraph graph;
+  graph.AddEdge(1, 2, Edge(Eigen::Quaterniond::Identity()));
+  std::vector<PosePrior> priors(2);
+  for (image_t image_id : {1, 2}) {
+    PosePrior& prior = priors.at(image_id - 1);
+    prior.corr_data_id = {
+        reconstruction.Image(image_id).CameraPtr()->SensorId(), image_id};
+    prior.gravity = Eigen::Vector3d::UnitY();
+    prior.heading = DegToRad(image_id == 1 ? 0.0 : 4.0);
+    prior.heading_stddev = DegToRad(image_id == 1 ? 1.0 : 3.0);
+  }
+  RotationEstimatorOptions options;
+  options.backend = RotationAveragingBackend::CERES;
+  options.use_gravity = true;
+  options.use_heading = true;
+  options.ceres->loss_function_type = CeresLossFunctionType::HUBER;
+  options.ceres->loss_function_scale = 10.0;
+  ASSERT_TRUE(RunRotationAveraging(options, graph, reconstruction, priors));
+  const auto heading = [&](image_t image_id) {
+    const Eigen::Vector3d forward =
+        reconstruction.Image(image_id).CamFromWorld().rotation().conjugate() *
+        Eigen::Vector3d::UnitZ();
+    return RadToDeg(std::atan2(forward.x(), forward.y()));
+  };
+  EXPECT_GT(heading(1), 0.1);
+  EXPECT_LT(heading(1), 0.8);
+  EXPECT_GT(heading(2), heading(1));
+  EXPECT_LT(heading(2), 2.0);
+}
+
 TEST(CeresRotationAverager, MatchCountReweighting) {
   Reconstruction reconstruction = MakeTrivialReconstruction({1, 2, 3});
   RotationEstimatorOptions options;

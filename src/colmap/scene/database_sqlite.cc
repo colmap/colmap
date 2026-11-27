@@ -466,6 +466,12 @@ PosePrior ReadPosePriorRow(sqlite3_stmt* sql_stmt) {
       sqlite3_column_int64(sql_stmt, 6));
   pose_prior.gravity =
       ReadStaticMatrixBlob<Eigen::Vector3d>(sql_stmt, SQLITE_ROW, 7);
+  if (sqlite3_column_type(sql_stmt, 8) != SQLITE_NULL) {
+    pose_prior.heading = sqlite3_column_double(sql_stmt, 8);
+  }
+  if (sqlite3_column_type(sql_stmt, 9) != SQLITE_NULL) {
+    pose_prior.heading_stddev = sqlite3_column_double(sql_stmt, 9);
+  }
   return pose_prior;
 }
 
@@ -1398,6 +1404,11 @@ class SqliteDatabase : public Database {
         7,
         static_cast<sqlite3_int64>(pose_prior.coordinate_system)));
     WriteStaticMatrixBlob(sql_stmt_write_pose_prior_, pose_prior.gravity, 8);
+    // SQLite stores a bound NaN as NULL.
+    SQLITE3_CALL(
+        sqlite3_bind_double(sql_stmt_write_pose_prior_, 9, pose_prior.heading));
+    SQLITE3_CALL(sqlite3_bind_double(
+        sql_stmt_write_pose_prior_, 10, pose_prior.heading_stddev));
     SQLITE3_CALL(sqlite3_step(sql_stmt_write_pose_prior_));
 
     return static_cast<image_t>(
@@ -1702,8 +1713,12 @@ class SqliteDatabase : public Database {
         6,
         static_cast<sqlite3_int64>(pose_prior.coordinate_system)));
     WriteStaticMatrixBlob(sql_stmt_update_pose_prior_, pose_prior.gravity, 7);
+    SQLITE3_CALL(sqlite3_bind_double(
+        sql_stmt_update_pose_prior_, 8, pose_prior.heading));
+    SQLITE3_CALL(sqlite3_bind_double(
+        sql_stmt_update_pose_prior_, 9, pose_prior.heading_stddev));
     SQLITE3_CALL(sqlite3_bind_int64(
-        sql_stmt_update_pose_prior_, 8, pose_prior.pose_prior_id));
+        sql_stmt_update_pose_prior_, 10, pose_prior.pose_prior_id));
 
     SQLITE3_CALL(sqlite3_step(sql_stmt_update_pose_prior_));
   }
@@ -1907,7 +1922,8 @@ class SqliteDatabase : public Database {
     prepare_sql_stmt(
         "UPDATE pose_priors SET corr_data_id=?, corr_sensor_id=?, "
         "corr_sensor_type=?, position=?, position_covariance=?, "
-        "coordinate_system=?, gravity=? WHERE pose_prior_id=?;",
+        "coordinate_system=?, gravity=?, heading=?, heading_stddev=? WHERE "
+        "pose_prior_id=?;",
         &sql_stmt_update_pose_prior_);
     prepare_sql_stmt(
         "UPDATE keypoints SET rows=?, cols=?, data=? WHERE image_id=?;",
@@ -2018,12 +2034,14 @@ class SqliteDatabase : public Database {
         &sql_stmt_read_images_);
     prepare_sql_stmt(
         "SELECT pose_prior_id, corr_data_id, corr_sensor_id, corr_sensor_type, "
-        "position, position_covariance, coordinate_system, gravity FROM "
+        "position, position_covariance, coordinate_system, gravity, heading, "
+        "heading_stddev FROM "
         "pose_priors WHERE pose_prior_id = ?;",
         &sql_stmt_read_pose_prior_);
     prepare_sql_stmt(
         "SELECT pose_prior_id, corr_data_id, corr_sensor_id, corr_sensor_type, "
-        "position, position_covariance, coordinate_system, gravity FROM "
+        "position, position_covariance, coordinate_system, gravity, heading, "
+        "heading_stddev FROM "
         "pose_priors;",
         &sql_stmt_read_pose_priors_);
     prepare_sql_stmt(
@@ -2081,7 +2099,8 @@ class SqliteDatabase : public Database {
     prepare_sql_stmt(
         "INSERT INTO pose_priors(pose_prior_id, corr_data_id, corr_sensor_id, "
         "corr_sensor_type, position, position_covariance, coordinate_system, "
-        "gravity) VALUES(?, ?, ?, ?, ?, ?, ?, ?);",
+        "gravity, heading, heading_stddev) "
+        "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
         &sql_stmt_write_pose_prior_);
     prepare_sql_stmt(
         "INSERT INTO keypoints(image_id, rows, cols, data) VALUES(?, ?, ?, ?);",
@@ -2243,7 +2262,9 @@ class SqliteDatabase : public Database {
         "    position                   BLOB,"
         "    position_covariance        BLOB,"
         "    gravity                    BLOB,"
-        "    coordinate_system          INTEGER               NOT NULL);"
+        "    coordinate_system          INTEGER               NOT NULL,"
+        "    heading                    REAL,"
+        "    heading_stddev             REAL);"
         "CREATE UNIQUE INDEX IF NOT EXISTS pose_prior_data_assignment ON "
         "   pose_priors(corr_data_id, corr_sensor_id, corr_sensor_type);";
 
@@ -2323,6 +2344,17 @@ class SqliteDatabase : public Database {
   }
 
   void PostMigrateTables() {
+    if (!ExistsColumn("pose_priors", "heading")) {
+      SQLITE3_EXEC(database_,
+                   "ALTER TABLE pose_priors ADD COLUMN heading REAL;",
+                   nullptr);
+    }
+    if (!ExistsColumn("pose_priors", "heading_stddev")) {
+      SQLITE3_EXEC(database_,
+                   "ALTER TABLE pose_priors ADD COLUMN heading_stddev REAL;",
+                   nullptr);
+    }
+
     auto maybe_add_two_view_geometries_blob_column =
         [this](const std::string& column_name) {
           if (!ExistsColumn("two_view_geometries", column_name)) {

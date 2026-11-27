@@ -11,14 +11,17 @@ namespace {
 
 // Handle NaNs explicitly and consider them equal, whereas the default C++
 // comparison operator returns false for a NaN == NaN comparison.
+bool IsNaNEqual(double left, double right) {
+  return left == right || (std::isnan(left) && std::isnan(right));
+}
+
 template <typename T>
 bool IsNaNEqual(const T& left, const T& right) {
   THROW_CHECK_EQ(left.rows(), right.rows());
   THROW_CHECK_EQ(left.cols(), right.cols());
   for (int i = 0; i < left.rows(); ++i) {
     for (int j = 0; j < left.cols(); ++j) {
-      if ((std::isnan(left(i, j)) != std::isnan(right(i, j)) ||
-           (!std::isnan(left(i, j)) && left(i, j) != right(i, j)))) {
+      if (!IsNaNEqual(left(i, j), right(i, j))) {
         return false;
       }
     }
@@ -34,7 +37,9 @@ bool PosePrior::operator==(const PosePrior& other) const {
          coordinate_system == other.coordinate_system &&
          IsNaNEqual(position, other.position) &&
          IsNaNEqual(position_covariance, other.position_covariance) &&
-         IsNaNEqual(gravity, other.gravity);
+         IsNaNEqual(gravity, other.gravity) &&
+         IsNaNEqual(heading, other.heading) &&
+         IsNaNEqual(heading_stddev, other.heading_stddev);
 }
 
 bool PosePrior::operator!=(const PosePrior& other) const {
@@ -51,7 +56,9 @@ std::ostream& operator<<(std::ostream& stream, const PosePrior& prior) {
          << "], position_covariance=["
          << prior.position_covariance.format(kVecFmt) << "], coordinate_system="
          << PosePrior::CoordinateSystemToString(prior.coordinate_system)
-         << ", gravity=[" << prior.gravity.format(kVecFmt) << "])";
+         << ", gravity=[" << prior.gravity.format(kVecFmt)
+         << "], heading=" << prior.heading
+         << ", heading_stddev=" << prior.heading_stddev << ")";
   return stream;
 }
 

@@ -1027,6 +1027,8 @@ void OptionManager::AddGlobalMapperOptions() {
                         ->solver_options.max_num_iterations);
   AddDefaultOption("GlobalMapper.ra_use_gravity",
                    &global_mapper->mapper.rotation_averaging.use_gravity);
+  AddDefaultOption("GlobalMapper.ra_use_heading",
+                   &global_mapper->mapper.rotation_averaging.use_heading);
   AddDefaultOption("GlobalMapper.ra_use_stratified",
                    &global_mapper->mapper.rotation_averaging.use_stratified);
   AddDefaultOption(
