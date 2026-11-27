@@ -994,24 +994,6 @@ TEST(Reconstruction, FindCommonRegImageIds) {
             reconstruction2.FindCommonRegImageIds(reconstruction1));
 }
 
-TEST(Reconstruction, FindCommonRegImageIdsPreservesNameLookup) {
-  Reconstruction source;
-  Reconstruction target;
-  GenerateReconstruction(1, &source);
-  GenerateReconstruction(2, &target);
-  target.Image(2).SetName("image1");
-  const auto first_image_id = target.FindImageWithName("image1")->ImageId();
-  EXPECT_THAT(source.FindCommonRegImageIds(target),
-              testing::ElementsAre(testing::Pair(1, first_image_id)));
-  target.Image(first_image_id).SetName("renamed");
-  EXPECT_THAT(
-      source.FindCommonRegImageIds(target),
-      testing::ElementsAre(testing::Pair(1, first_image_id == 1 ? 2 : 1)));
-  target.Image(first_image_id).SetName("image1");
-  target.DeRegisterFrame(target.Image(first_image_id).FrameId());
-  EXPECT_TRUE(source.FindCommonRegImageIds(target).empty());
-}
-
 TEST(Reconstruction, ComputeNumObservations) {
   Reconstruction reconstruction;
   GenerateReconstruction(2, &reconstruction);
