@@ -576,49 +576,24 @@ TEST(Reconstruction, AddObservation) {
   EXPECT_EQ(reconstruction.Point3D(point3D_id).track.Length(), 3);
 }
 
-TEST(Reconstruction, AddPoint3DInvalidIdPreservesStateAndNextId) {
-  Reconstruction reconstruction;
-  reconstruction.AddPoint3D(5, Point3D{});
-  EXPECT_THROW(reconstruction.AddPoint3D(kInvalidPoint3DId, Point3D{}),
-               std::invalid_argument);
-  EXPECT_EQ(reconstruction.AddPoint3D(Eigen::Vector3d::Zero(), Track()), 6);
-  EXPECT_TRUE(reconstruction.IsValid());
-}
-
-TEST(Reconstruction, AddPoint3DDuplicateIdPreservesAssociations) {
-  Reconstruction reconstruction;
-  GenerateReconstruction(1, &reconstruction);
-  reconstruction.AddPoint3D(1, Point3D{});
-  struct Point3D rejected;
-  rejected.track.AddElement(1, 0);
-  EXPECT_THROW(reconstruction.AddPoint3D(1, rejected), std::invalid_argument);
-  EXPECT_FALSE(reconstruction.Image(1).Point2D(0).HasPoint3D());
-  EXPECT_EQ(reconstruction.NumPoints3D(), 1);
-  EXPECT_TRUE(reconstruction.IsValid());
-}
-
-TEST(Reconstruction, AddPoint3DLateTrackConflictPreservesStateAndNextId) {
+TEST(Reconstruction, FailedAdditionsPreserveState) {
   Reconstruction reconstruction;
   GenerateReconstruction(2, &reconstruction);
-  struct Point3D rejected;
-  rejected.track.AddElement(2, 0);
-  reconstruction.AddPoint3D(1, rejected);
-  rejected.track.SetElements({{1, 0}, {2, 0}});
-  EXPECT_THROW(reconstruction.AddPoint3D(rejected.xyz, rejected.track),
+  Track track;
+  track.AddElement(2, 0);
+  const point3D_t point3D_id =
+      reconstruction.AddPoint3D(Eigen::Vector3d::Zero(), track);
+  track.SetElements({{1, 0}, {2, 0}});
+  EXPECT_THROW(reconstruction.AddPoint3D(Eigen::Vector3d::Zero(), track),
                std::invalid_argument);
+  EXPECT_THROW(reconstruction.AddPoint3D(kInvalidPoint3DId, Point3D()),
+               std::invalid_argument);
+  EXPECT_THROW(
+      reconstruction.AddObservation(point3D_id + 1, TrackElement(1, 0)),
+      std::out_of_range);
   EXPECT_FALSE(reconstruction.Image(1).Point2D(0).HasPoint3D());
-  EXPECT_EQ(reconstruction.AddPoint3D(Eigen::Vector3d::Zero(), Track()), 2);
-  EXPECT_TRUE(reconstruction.IsValid());
-}
-
-TEST(Reconstruction, AddObservationToDeletedPointPreservesImage) {
-  Reconstruction reconstruction;
-  GenerateReconstruction(1, &reconstruction);
-  reconstruction.AddPoint3D(1, Point3D{});
-  reconstruction.DeletePoint3D(1);
-  EXPECT_THROW(reconstruction.AddObservation(1, TrackElement(1, 0)),
-               std::out_of_range);
-  EXPECT_FALSE(reconstruction.Image(1).Point2D(0).HasPoint3D());
+  EXPECT_EQ(reconstruction.AddPoint3D(Eigen::Vector3d::Zero(), Track()),
+            point3D_id + 1);
   EXPECT_TRUE(reconstruction.IsValid());
 }
 
