@@ -80,6 +80,13 @@ class Reconstruction {
   // Check whether the reconstruction object is internally consistent.
   bool IsValid() const;
 
+  // Whether the reconstruction is expressed in metric scale (e.g. aligned to
+  // metric pose priors). Preserved across rigid transforms (`scale == 1`) and
+  // `Normalize(/*fixed_scale=*/true)`, and cleared on non-unit scaling or
+  // `Normalize(/*fixed_scale=*/false)`.
+  inline bool HasMetricScale() const;
+  inline void SetHasMetricScale(bool has_metric_scale);
+
   // Load data from given `DatabaseCache`.
   void Load(const DatabaseCache& database_cache);
 
@@ -281,6 +288,8 @@ class Reconstruction {
 
   // Total number of added 3D points, used to generate unique identifiers.
   point3D_t max_point3D_id_;
+
+  bool has_metric_scale_ = false;
 };
 
 std::ostream& operator<<(std::ostream& stream,
@@ -435,6 +444,12 @@ bool Reconstruction::ExistsImage(const image_t image_id) const {
 
 bool Reconstruction::ExistsPoint3D(const point3D_t point3D_id) const {
   return points3D_.find(point3D_id) != points3D_.end();
+}
+
+bool Reconstruction::HasMetricScale() const { return has_metric_scale_; }
+
+void Reconstruction::SetHasMetricScale(const bool has_metric_scale) {
+  has_metric_scale_ = has_metric_scale;
 }
 
 }  // namespace colmap

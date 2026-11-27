@@ -1631,5 +1631,41 @@ TEST(Reconstruction, ExtractColorsForAllImages) {
   }
 }
 
+TEST(Reconstruction, HasMetricScaleLifecycle) {
+  Reconstruction reconstruction;
+  GenerateReconstruction(4, &reconstruction);
+  EXPECT_FALSE(reconstruction.HasMetricScale());
+
+  reconstruction.SetHasMetricScale(true);
+  EXPECT_TRUE(reconstruction.HasMetricScale());
+
+  // Copy construction, copy assignment, and Crop preserve metric scale.
+  const Reconstruction copy_constructed(reconstruction);
+  EXPECT_TRUE(copy_constructed.HasMetricScale());
+  Reconstruction copy_assigned;
+  copy_assigned = reconstruction;
+  EXPECT_TRUE(copy_assigned.HasMetricScale());
+  const Reconstruction cropped =
+      reconstruction.Crop(reconstruction.ComputeBoundingBox());
+  EXPECT_TRUE(cropped.HasMetricScale());
+
+  // Rigid transforms (scale == 1) and Normalize(fixed_scale=true) preserve
+  // metric scale.
+  reconstruction.Normalize(/*fixed_scale=*/true);
+  EXPECT_TRUE(reconstruction.HasMetricScale());
+  reconstruction.Transform(
+      Sim3d(1.0, Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 2, 3)));
+  EXPECT_TRUE(reconstruction.HasMetricScale());
+
+  // Non-unit scaling and Normalize(fixed_scale=false) clear metric scale.
+  reconstruction.Transform(
+      Sim3d(2.0, Eigen::Quaterniond::Identity(), Eigen::Vector3d::Zero()));
+  EXPECT_FALSE(reconstruction.HasMetricScale());
+
+  reconstruction.SetHasMetricScale(true);
+  reconstruction.Normalize(/*fixed_scale=*/false);
+  EXPECT_FALSE(reconstruction.HasMetricScale());
+}
+
 }  // namespace
 }  // namespace colmap

@@ -168,7 +168,8 @@ void BundleAdjustmentWidget::Run() {
   thread->AddCallback(Thread::FINISHED_CALLBACK,
                       [this]() { render_action_->trigger(); });
 
-  if (!options_->bundle_adjustment->pose_prior.use_position) {
+  if (!options_->bundle_adjustment->pose_prior.use_position &&
+      !reconstruction_->HasMetricScale()) {
     // Normalize scene for numerical stability and
     // to avoid large scale changes in viewer.
     reconstruction_->Normalize();

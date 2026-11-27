@@ -28,7 +28,8 @@ Reconstruction::Reconstruction(const Reconstruction& other)
       points3D_(other.points3D_),
       reg_frame_ids_(other.reg_frame_ids_),
       num_reg_images_(other.num_reg_images_),
-      max_point3D_id_(other.max_point3D_id_) {
+      max_point3D_id_(other.max_point3D_id_),
+      has_metric_scale_(other.has_metric_scale_) {
   for (auto& [_, frame] : frames_) {
     frame.ResetRigPtr();
     frame.SetRigPtr(&Rig(frame.RigId()));
@@ -52,6 +53,7 @@ Reconstruction& Reconstruction::operator=(const Reconstruction& other) {
     reg_frame_ids_ = other.reg_frame_ids_;
     num_reg_images_ = other.num_reg_images_;
     max_point3D_id_ = other.max_point3D_id_;
+    has_metric_scale_ = other.has_metric_scale_;
     for (auto& [_, frame] : frames_) {
       frame.ResetRigPtr();
       frame.SetRigPtr(&Rig(frame.RigId()));
@@ -693,6 +695,9 @@ Sim3d Reconstruction::Normalize(const bool fixed_scale,
                                 const double max_percentile,
                                 const bool use_images) {
   THROW_CHECK_GT(extent, 0);
+  if (!fixed_scale) {
+    has_metric_scale_ = false;
+  }
 
   if ((use_images && NumRegFrames() < 2) ||
       (!use_images && points3D_.size() < 2)) {
@@ -778,6 +783,9 @@ Reconstruction::ComputeBBBoxAndCentroid(const double min_percentile,
 }
 
 void Reconstruction::Transform(const Sim3d& new_from_old_world) {
+  if (new_from_old_world.scale() != 1.0) {
+    has_metric_scale_ = false;
+  }
   for (auto& [_, rig] : rigs_) {
     for (auto& [_, sensor_from_rig] : rig.NonRefSensors()) {
       if (sensor_from_rig.has_value()) {
@@ -798,6 +806,7 @@ void Reconstruction::Transform(const Sim3d& new_from_old_world) {
 
 Reconstruction Reconstruction::Crop(const Eigen::AlignedBox3d& bbox) const {
   Reconstruction cropped_reconstruction;
+  cropped_reconstruction.SetHasMetricScale(has_metric_scale_);
   for (const auto& [_, camera] : cameras_) {
     cropped_reconstruction.AddCamera(camera);
   }
@@ -995,6 +1004,7 @@ void Reconstruction::Clear() {
   reg_frame_ids_.clear();
   num_reg_images_ = 0;
   max_point3D_id_ = 0;
+  has_metric_scale_ = false;
 }
 
 void Reconstruction::ReadText(const std::filesystem::path& path) {
