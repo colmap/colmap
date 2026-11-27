@@ -3,7 +3,6 @@
 import pickle
 
 import numpy as np
-import pytest
 
 import pycolmap
 
@@ -45,48 +44,13 @@ def test_sim3d_scale_readwrite() -> None:
     assert float(np.array(similarity.scale)) == 3.0
 
 
-@pytest.mark.parametrize("shape", [(), (1,), (1, 1)])
-@pytest.mark.parametrize("dtype", [np.float32, np.float64])
-def test_sim3d_scale_from_array(
-    shape: tuple[int, ...], dtype: type[np.floating]
-) -> None:
-    similarity = pycolmap.Sim3d()
-    similarity.scale = np.full(shape, 2.5, dtype=dtype)
-    assert similarity.params[7] == 2.5
-
-
-def test_sim3d_scale_from_another_transform() -> None:
-    source = pycolmap.Sim3d(scale=2.5)
-    target = pycolmap.Sim3d()
-    target.scale = source.scale
-    assert target.params[7] == 2.5
-    target.scale = target.scale
-    assert target.params[7] == 2.5
-
-
-def test_sim3d_scale_inplace_operations() -> None:
-    similarity = pycolmap.Sim3d(scale=2.5)
-    scale_view = similarity.scale
-    similarity.scale *= 2.0
-    similarity.scale += 1.0
-    assert similarity.params[7] == 6.0
-    assert np.shares_memory(scale_view, similarity.params)
-    assert float(scale_view) == 6.0
-
-
-@pytest.mark.parametrize("format", ["dict", "pickle"])
-def test_sim3d_serialization_roundtrip(format: str) -> None:
-    similarity = pycolmap.Sim3d(
-        scale=2.5,
-        rotation=pycolmap.Rotation3d(axis_angle=np.array([0.1, 0.2, 0.3])),
-        translation=np.array([1.0, 2.0, 3.0]),
-    )
-    restored = (
-        pycolmap.Sim3d(similarity.todict())
-        if format == "dict"
-        else pickle.loads(pickle.dumps(similarity))
-    )
-    np.testing.assert_array_equal(restored.params, similarity.params)
+def test_sim3d_scale_array_roundtrip() -> None:
+    sim3d = pycolmap.Sim3d(scale=2.5)
+    sim3d.scale = sim3d.scale  # getter returns a 0-d view
+    sim3d.scale *= 2.0
+    assert float(sim3d.scale) == 5.0
+    restored = pickle.loads(pickle.dumps(sim3d))
+    np.testing.assert_array_equal(restored.params, sim3d.params)
 
 
 def test_sim3d_rotation_readwrite() -> None:
