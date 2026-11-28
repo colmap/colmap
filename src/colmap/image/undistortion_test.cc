@@ -66,8 +66,11 @@ TEST(UndistortCamera, Nominal) {
 
   distorted_camera =
       Camera::CreateFromModelId(1, CameraModelId::kSimpleRadial, 1, 1, 1);
+  distorted_camera.source = CameraSource::USER;
   undistorted_camera = UndistortCamera(options, distorted_camera);
   EXPECT_EQ(undistorted_camera.ModelName(), "PINHOLE");
+  EXPECT_EQ(undistorted_camera.camera_id, distorted_camera.camera_id);
+  EXPECT_EQ(undistorted_camera.source, CameraSource::USER);
   EXPECT_EQ(undistorted_camera.FocalLengthX(), 1);
   EXPECT_EQ(undistorted_camera.FocalLengthY(), 1);
   EXPECT_EQ(undistorted_camera.width, 1);
@@ -387,7 +390,10 @@ TEST(UndistortReconstruction, Nominal) {
   UndistortReconstruction(options, &reconstruction);
   for (const auto& camera : reconstruction.Cameras()) {
     EXPECT_EQ(camera.second.ModelName(), "PINHOLE");
+    EXPECT_EQ(camera.second.camera_id, camera.first);
   }
+  // Copying requires valid camera IDs to reconnect images to cameras.
+  const Reconstruction copy = reconstruction;
 
   for (const auto& image : reconstruction.Images()) {
     for (const auto& point2D : image.second.Points2D()) {

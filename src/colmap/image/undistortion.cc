@@ -63,7 +63,7 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
     return undistorted_camera;
   }
 
-  Camera undistorted_camera;
+  Camera undistorted_camera = camera;
   undistorted_camera.model_id = PinholeCameraModel::model_id;
   undistorted_camera.width = camera.width;
   undistorted_camera.height = camera.height;
