@@ -565,6 +565,27 @@ TEST(Reconstruction, AddObservation) {
   EXPECT_EQ(reconstruction.Point3D(point3D_id).track.Length(), 3);
 }
 
+TEST(Reconstruction, FailedAdditionsPreserveState) {
+  Reconstruction reconstruction;
+  GenerateReconstruction(2, &reconstruction);
+  Track track;
+  track.AddElement(2, 0);
+  const point3D_t point3D_id =
+      reconstruction.AddPoint3D(Eigen::Vector3d::Zero(), track);
+  track.SetElements({{1, 0}, {2, 0}});
+  EXPECT_THROW(reconstruction.AddPoint3D(Eigen::Vector3d::Zero(), track),
+               std::invalid_argument);
+  EXPECT_THROW(reconstruction.AddPoint3D(kInvalidPoint3DId, Point3D()),
+               std::invalid_argument);
+  EXPECT_THROW(
+      reconstruction.AddObservation(point3D_id + 1, TrackElement(1, 0)),
+      std::out_of_range);
+  EXPECT_FALSE(reconstruction.Image(1).Point2D(0).HasPoint3D());
+  EXPECT_EQ(reconstruction.AddPoint3D(Eigen::Vector3d::Zero(), Track()),
+            point3D_id + 1);
+  EXPECT_TRUE(reconstruction.IsValid());
+}
+
 TEST(Reconstruction, MergePoints3D) {
   Reconstruction reconstruction;
   GenerateReconstruction(2, &reconstruction);
