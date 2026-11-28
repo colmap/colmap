@@ -214,7 +214,7 @@ def test_run_perspective_can_rerender_with_nested_output(
     class ReachedFeatureExtraction(Exception):
         pass
 
-    def stop_after_rendering(*args, **kwargs) -> None:
+    def stop_after_rendering(*args: object, **kwargs: object) -> None:
         raise ReachedFeatureExtraction
 
     monkeypatch.setattr(

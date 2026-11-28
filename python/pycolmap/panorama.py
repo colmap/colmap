@@ -677,7 +677,7 @@ def run_perspective(
     # Don't traverse generated views and masks when output is inside input.
     pano_image_dir = input_image_path.resolve()
     resolved_output_path = output_path.resolve()
-    pano_image_names = []
+    pano_image_names: list[str] = []
     for root, dirs, files in os.walk(pano_image_dir):
         directory = Path(root)
         dirs[:] = [
