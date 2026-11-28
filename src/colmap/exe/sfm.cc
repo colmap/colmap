@@ -767,6 +767,16 @@ int RunViewGraphCalibrator(int argc, char** argv) {
   options.AddDefaultOption("max_calibration_error",
                            &calibration_options.max_calibration_error,
                            "Maximum calibration error for an image pair");
+  options.AddDefaultOption(
+      "min_num_inliers",
+      &calibration_options.min_num_inliers,
+      "Minimum number of inliers for an image pair to be optimized");
+  options.AddDefaultOption("warmup_loss_function_scale",
+                           &calibration_options.warmup_loss_function_scale,
+                           "Scale of the Cauchy loss in the warm-up stage");
+  options.AddDefaultOption("loss_function_scale",
+                           &calibration_options.loss_function_scale,
+                           "Scale of the Tukey loss in the final stage");
   options.AddDefaultOption("relpose_max_error",
                            &calibration_options.relpose_max_error,
                            "Maximum error for relative pose re-estimation");

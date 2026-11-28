@@ -202,6 +202,9 @@ void BindSfM(py::module& m) {
                            &Opts::max_focal_length_ratio)
             .def_readwrite("max_calibration_error",
                            &Opts::max_calibration_error)
+            .def_readwrite("min_num_inliers", &Opts::min_num_inliers)
+            .def_readwrite("warmup_loss_function_scale",
+                           &Opts::warmup_loss_function_scale)
             .def_readwrite("loss_function_scale", &Opts::loss_function_scale)
             .def_readwrite("relpose_max_error", &Opts::relpose_max_error)
             .def_readwrite("relpose_min_num_inliers",

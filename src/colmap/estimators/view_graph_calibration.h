@@ -4,8 +4,6 @@
 
 #include "colmap/scene/database.h"
 
-#include <memory>
-
 #include <ceres/ceres.h>
 
 namespace colmap {
@@ -30,11 +28,24 @@ struct ViewGraphCalibrationOptions {
   // The maximum ratio of the estimated focal length to the prior focal length.
   double max_focal_length_ratio = 10;
 
-  // The maximum calibration error for an image pair.
-  double max_calibration_error = 2.;
+  // The maximum calibration error for an image pair, measured as the
+  // normalized distance of its calibrated fundamental matrix to the essential
+  // manifold (in [0, 1/sqrt(2)]). Pairs with larger error are tagged as
+  // DEGENERATE. The default only rejects grossly non-essential pairs (singular
+  // value ratio below ~0.5), since stricter thresholds remove pairs that are
+  // still useful for reconstruction.
+  double max_calibration_error = 0.3;
 
-  // Scaling factor for the loss function.
-  double loss_function_scale = 0.01;
+  // Minimum number of inlier matches for an image pair to be used in the focal
+  // length optimization. The calibration error is still evaluated for all
+  // image pairs.
+  int min_num_inliers = 50;
+
+  // The focal lengths are optimized in two stages: a Cauchy loss warm-up,
+  // which converges from inaccurate initializations, followed by a Tukey loss,
+  // which ignores outlier pairs with calibration error beyond its scale.
+  double warmup_loss_function_scale = 1e-3;
+  double loss_function_scale = 1e-2;
 
   // The options for the solver.
   ceres::Solver::Options solver_options;
@@ -46,12 +57,11 @@ struct ViewGraphCalibrationOptions {
 
   ViewGraphCalibrationOptions() {
     solver_options.num_threads = -1;
-    solver_options.max_num_iterations = 100;
-    solver_options.function_tolerance = 1e-5;
+    solver_options.max_num_iterations = 500;
+    solver_options.function_tolerance = 1e-10;
+    solver_options.gradient_tolerance = 1e-10;
+    solver_options.parameter_tolerance = 1e-10;
   }
-
-  // Create loss function for given options.
-  std::unique_ptr<ceres::LossFunction> CreateLossFunction() const;
 };
 
 // Calibrate the view graph by estimating focal lengths from fundamental
@@ -61,6 +71,11 @@ struct ViewGraphCalibrationOptions {
 // database. Image pairs with low calibration error have their essential
 // matrices computed and relative poses re-estimated, then are upgraded to
 // CALIBRATED. Pairs with high calibration error are tagged as DEGENERATE.
+//
+// The focal lengths are initialized from a consensus of closed-form two-view
+// estimates and then refined by minimizing the robustified distances of the
+// calibrated fundamental matrices to the essential manifold. See:
+// "Smooth Essential-Manifold Residuals for View-Graph Calibration".
 bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
                         Database* database);
 

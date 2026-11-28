@@ -9,57 +9,65 @@
 #include "colmap/sensor/models.h"
 #include "colmap/util/hash_containers.h"
 
+#include <limits>
+
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace {
 
-TEST(CalibrateViewGraph, Nominal) {
-  auto database = Database::Open(kInMemorySqliteDatabasePath);
-
+// By default, the synthetic frames all look at the world origin, so the optical
+// axes of the cameras intersect in a common point. This is a degenerate
+// configuration, in which focal lengths cannot be recovered from fundamental
+// matrices. Offsetting the non-reference sensors of each rig breaks it.
+SyntheticDatasetOptions CalibrationDatasetOptions() {
   SyntheticDatasetOptions options;
-  options.num_rigs = 10;
-  options.num_cameras_per_rig = 1;
+  options.num_rigs = 5;
+  options.num_cameras_per_rig = 2;
   options.num_frames_per_rig = 1;
+  options.sensor_from_rig_translation_stddev = 0.5;
   options.num_points3D = 200;
   options.camera_model_id = SimplePinholeCameraModel::model_id;
   options.camera_params = {1280, 512, 384};
   options.camera_has_prior_focal_length = false;
+  return options;
+}
+
+// Randomly perturbs the focal lengths of all cameras by up to 25%.
+void PerturbFocalLengths(Database& database) {
+  for (Camera camera : database.ReadAllCameras()) {
+    camera.SetFocalLength(camera.MeanFocalLength() *
+                          RandomUniformReal(0.8, 1.25));
+    camera.source = CameraSource::GUESS;
+    database.UpdateCamera(camera);
+  }
+}
+
+// Expects all cameras to be calibrated by view graph calibration to their
+// ground truth focal lengths.
+void ExpectCalibratedFocalLengths(const Reconstruction& gt_reconstruction,
+                                  const Database& database) {
+  for (const auto& [camera_id, gt_camera] : gt_reconstruction.Cameras()) {
+    const Camera camera = database.ReadCamera(camera_id);
+    EXPECT_TRUE(camera.HasPriorFocalLength());
+    EXPECT_EQ(camera.source, CameraSource::VIEW_GRAPH);
+    EXPECT_NEAR(camera.MeanFocalLength(), gt_camera.MeanFocalLength(), 1.0);
+  }
+}
+
+TEST(CalibrateViewGraph, Nominal) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
 
   Reconstruction reconstruction;
-  SynthesizeDataset(options, &reconstruction, database.get());
+  SynthesizeDataset(
+      CalibrationDatasetOptions(), &reconstruction, database.get());
 
-  // Store ground truth focal lengths.
-  NodeHashMap<camera_t, double> gt_focals;
-  for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
-    gt_focals[camera_id] = camera.MeanFocalLength();
-  }
-
-  // Add noise to focal lengths of the first two cameras.
-  // TODO: investigate view graph calibration cost functor and use more
-  // challenging test setup.
-  for (const auto& [camera_id, _] : reconstruction.Cameras()) {
-    if (camera_id >= 2) continue;
-    Camera camera = database->ReadCamera(camera_id);
-    const double noise = RandomUniformReal(-50.0, 50.0);
-    for (const size_t idx : camera.FocalLengthIdxs()) {
-      camera.params[idx] += noise;
-    }
-    camera.source = CameraSource::GUESS;
-    database->UpdateCamera(camera);
-  }
+  PerturbFocalLengths(*database);
 
   ViewGraphCalibrationOptions calib_options;
   EXPECT_TRUE(CalibrateViewGraph(calib_options, database.get()));
 
-  // Verify focal lengths are calibrated close to ground truth and source is
-  // VIEW_GRAPH.
-  for (const auto& [camera_id, gt_focal] : gt_focals) {
-    const Camera camera = database->ReadCamera(camera_id);
-    EXPECT_TRUE(camera.HasPriorFocalLength());
-    EXPECT_EQ(camera.source, CameraSource::VIEW_GRAPH);
-    EXPECT_NEAR(camera.MeanFocalLength(), gt_focal, 1.0);
-  }
+  ExpectCalibratedFocalLengths(reconstruction, *database);
 
   // Verify pairs are now CALIBRATED with valid E matrices and relative poses.
   for (const auto& [pair_id, tvg] : database->ReadTwoViewGeometries()) {
@@ -72,12 +80,7 @@ TEST(CalibrateViewGraph, Nominal) {
   // non-VIEW_GRAPH calibrations as input rather than compounding on previous
   // output or rebuilding F from the GUESS cameras.
   EXPECT_TRUE(CalibrateViewGraph(calib_options, database.get()));
-  for (const auto& [camera_id, gt_focal] : gt_focals) {
-    const Camera camera = database->ReadCamera(camera_id);
-    EXPECT_TRUE(camera.HasPriorFocalLength());
-    EXPECT_EQ(camera.source, CameraSource::VIEW_GRAPH);
-    EXPECT_NEAR(camera.MeanFocalLength(), gt_focal, 1.0);
-  }
+  ExpectCalibratedFocalLengths(reconstruction, *database);
 }
 
 TEST(CalibrateViewGraph, PriorFocalLength) {
@@ -118,17 +121,10 @@ TEST(CalibrateViewGraph, PriorFocalLength) {
 TEST(CalibrateViewGraph, ConfigTagging) {
   auto database = Database::Open(kInMemorySqliteDatabasePath);
 
-  SyntheticDatasetOptions options;
-  options.num_rigs = 10;
-  options.num_cameras_per_rig = 1;
-  options.num_frames_per_rig = 1;
-  options.num_points3D = 200;
-  options.camera_model_id = SimplePinholeCameraModel::model_id;
-  options.camera_params = {1280, 512, 384};
-  options.camera_has_prior_focal_length = false;
-
   Reconstruction reconstruction;
-  SynthesizeDataset(options, &reconstruction, database.get());
+  SynthesizeDataset(
+      CalibrationDatasetOptions(), &reconstruction, database.get());
+  PerturbFocalLengths(*database);
 
   // Add large noise to F matrices for 3 pairs to ensure they become degenerate.
   FlatHashSet<image_pair_t> perturbed_pairs;
@@ -143,7 +139,6 @@ TEST(CalibrateViewGraph, ConfigTagging) {
 
   ViewGraphCalibrationOptions calib_options;
   calib_options.reestimate_relative_pose = false;
-  calib_options.max_calibration_error = 0.01;
   EXPECT_TRUE(CalibrateViewGraph(calib_options, database.get()));
 
   // Verify perturbed pairs became DEGENERATE, others became CALIBRATED.
@@ -154,22 +149,59 @@ TEST(CalibrateViewGraph, ConfigTagging) {
       EXPECT_EQ(tvg.config, TwoViewGeometry::CALIBRATED);
     }
   }
+
+  // Verify the outlier pairs do not affect the calibrated focal lengths.
+  ExpectCalibratedFocalLengths(reconstruction, *database);
+}
+
+TEST(CalibrateViewGraph, SharedCameras) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+
+  // Multiple frames per rig, so that image pairs share the same camera.
+  SyntheticDatasetOptions options = CalibrationDatasetOptions();
+  options.num_rigs = 2;
+  options.num_frames_per_rig = 5;
+  Reconstruction reconstruction;
+  SynthesizeDataset(options, &reconstruction, database.get());
+  PerturbFocalLengths(*database);
+
+  ViewGraphCalibrationOptions calib_options;
+  calib_options.reestimate_relative_pose = false;
+  EXPECT_TRUE(CalibrateViewGraph(calib_options, database.get()));
+
+  EXPECT_EQ(reconstruction.NumCameras(), 4);
+  ExpectCalibratedFocalLengths(reconstruction, *database);
+}
+
+TEST(CalibrateViewGraph, MinNumInliers) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+
+  Reconstruction reconstruction;
+  SynthesizeDataset(
+      CalibrationDatasetOptions(), &reconstruction, database.get());
+  PerturbFocalLengths(*database);
+  const std::vector<Camera> perturbed_cameras = database->ReadAllCameras();
+
+  // No pair has enough inliers to be optimized, so all cameras remain
+  // uncalibrated.
+  ViewGraphCalibrationOptions calib_options;
+  calib_options.reestimate_relative_pose = false;
+  calib_options.min_num_inliers = std::numeric_limits<int>::max();
+  EXPECT_TRUE(CalibrateViewGraph(calib_options, database.get()));
+
+  for (const Camera& perturbed_camera : perturbed_cameras) {
+    const Camera camera = database->ReadCamera(perturbed_camera.camera_id);
+    EXPECT_EQ(camera.source, CameraSource::GUESS);
+    EXPECT_EQ(camera.params, perturbed_camera.params);
+  }
 }
 
 TEST(CalibrateViewGraph, RelativePoseReestimation) {
   auto database = Database::Open(kInMemorySqliteDatabasePath);
 
-  SyntheticDatasetOptions options;
-  options.num_rigs = 10;
-  options.num_cameras_per_rig = 1;
-  options.num_frames_per_rig = 1;
-  options.num_points3D = 200;
-  options.camera_model_id = SimplePinholeCameraModel::model_id;
-  options.camera_params = {1280, 512, 384};
-  options.camera_has_prior_focal_length = false;
-
   Reconstruction reconstruction;
-  SynthesizeDataset(options, &reconstruction, database.get());
+  SynthesizeDataset(
+      CalibrationDatasetOptions(), &reconstruction, database.get());
 
   // Store ground truth relative poses and perturb them in the database.
   // The perturbation must exceed test thresholds (0.1 rad rotation, 0.1
@@ -308,17 +340,9 @@ TEST(CalibrateViewGraph, FisheyeCamerasAreIgnored) {
 TEST(CalibrateViewGraph, RejectedAndUnconnectedCamerasRemainGuess) {
   auto database = Database::Open(kInMemorySqliteDatabasePath);
 
-  SyntheticDatasetOptions options;
-  options.num_rigs = 10;
-  options.num_cameras_per_rig = 1;
-  options.num_frames_per_rig = 1;
-  options.num_points3D = 200;
-  options.camera_model_id = SimplePinholeCameraModel::model_id;
-  options.camera_params = {1280, 512, 384};
-  options.camera_has_prior_focal_length = false;
-
   Reconstruction reconstruction;
-  SynthesizeDataset(options, &reconstruction, database.get());
+  SynthesizeDataset(
+      CalibrationDatasetOptions(), &reconstruction, database.get());
 
   // Perturb camera 1's initial GUESS focal length so that the optimized/initial
   // ratio exceeds max_focal_length_ratio and camera 1 gets rejected, while
