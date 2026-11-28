@@ -4,7 +4,10 @@
 
 #include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/estimators/ceres_loss_function.h"
+#include "colmap/geometry/sim3.h"
 #include "colmap/math/math.h"
+
+#include <optional>
 
 #include <ceres/ceres.h>
 
@@ -88,7 +91,20 @@ class CeresBundleAdjuster : public BundleAdjuster {
  public:
   using BundleAdjuster::BundleAdjuster;
 
+  // Note: when NormalizedFromMetric() has a value, residuals in Problem() are
+  // constructed in that internally normalized coordinate frame while
+  // `reconstruction` holds metric parameter values outside `Solve()`; custom
+  // residuals added to Problem() must transform metric constants by
+  // NormalizedFromMetric(), and Problem() must not be evaluated directly on
+  // metric parameters or passed to EstimateBACovarianceFromProblem.
   virtual std::shared_ptr<ceres::Problem>& Problem() = 0;
+
+  // Internal similarity transform applied to `reconstruction` while
+  // constructing and solving Problem() when metric priors are active, or
+  // std::nullopt when Problem() operates directly in `reconstruction`'s frame.
+  virtual std::optional<Sim3d> NormalizedFromMetric() const {
+    return std::nullopt;
+  }
 };
 
 std::unique_ptr<CeresBundleAdjuster> CreateDefaultCeresBundleAdjuster(

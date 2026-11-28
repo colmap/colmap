@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
+import pytest
+
 import pycolmap
 
 
@@ -248,6 +250,38 @@ def test_create_default_ceres_bundle_adjuster(
         options, config, synthetic_reconstruction
     )
     assert adjuster is not None
+    assert adjuster.normalized_from_metric is None
+
+
+def test_pose_prior_ceres_bundle_adjuster_normalized_from_metric() -> None:
+    pycolmap.set_random_seed(0)
+    with pycolmap.Database.open(":memory:") as database:
+        synth_options = pycolmap.SyntheticDatasetOptions()
+        synth_options.num_rigs = 1
+        synth_options.num_cameras_per_rig = 1
+        synth_options.num_frames_per_rig = 5
+        synth_options.num_points3D = 50
+        synth_options.prior_position = True
+        reconstruction = pycolmap.synthesize_dataset(synth_options, database)
+        pose_priors = database.read_all_pose_priors()
+
+    config = pycolmap.BundleAdjustmentConfig()
+    for image_id in reconstruction.reg_image_ids():
+        config.add_image(image_id)
+
+    options = pycolmap.BundleAdjustmentOptions()
+    options.print_summary = False
+    prior_options = pycolmap.PosePriorBundleAdjustmentOptions()
+    prior_options.alignment_ransac.random_seed = 0
+    ceres_adjuster = pycolmap.create_pose_prior_ceres_bundle_adjuster(
+        options, prior_options, config, pose_priors, reconstruction
+    )
+    assert isinstance(ceres_adjuster.normalized_from_metric, pycolmap.Sim3d)
+    assert ceres_adjuster.solve().is_solution_usable()
+    with pytest.raises(ValueError, match="metric-scale priors"):
+        pycolmap.estimate_ba_covariance(
+            pycolmap.BACovarianceOptions(), reconstruction, ceres_adjuster
+        )
 
 
 def test_bundle_adjustment_pipeline(

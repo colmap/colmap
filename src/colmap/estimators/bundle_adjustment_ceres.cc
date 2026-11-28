@@ -497,6 +497,16 @@ ceres::CostFunction* CreatePositionPriorCostFunction(
       normalized_position);
 }
 
+struct RestoreMetricGuard {
+  Reconstruction& reconstruction;
+  const std::optional<Sim3d>& normalized_from_metric;
+  ~RestoreMetricGuard() {
+    if (normalized_from_metric.has_value()) {
+      reconstruction.Transform(Inverse(*normalized_from_metric));
+    }
+  }
+};
+
 class DefaultBundleAdjuster : public CeresBundleAdjuster {
  public:
   DefaultBundleAdjuster(const BundleAdjustmentOptions& options,
@@ -812,11 +822,13 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
     }
 
     if (use_prior_position) {
-      // Normalize the reconstruction to avoid any numerical instability but
-      // do not transform priors as they will be transformed when added to
-      // ceres::Problem.
+      // Center the reconstruction while constructing residuals to avoid
+      // numerical instability at large metric coordinate offsets (e.g. UTM);
+      // RestoreMetricGuard restores metric coordinates before returning.
       normalized_from_metric_ = reconstruction_.Normalize(/*fixed_scale=*/true);
     }
+    const RestoreMetricGuard restore_guard{reconstruction_,
+                                           normalized_from_metric_};
 
     // WARNING: Do not move this above the reconstruction normalization.
     default_bundle_adjuster_ = std::make_unique<DefaultBundleAdjuster>(
@@ -848,10 +860,14 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
       return std::make_shared<BundleAdjustmentSummary>();
     }
 
+    if (normalized_from_metric_.has_value()) {
+      reconstruction_.Transform(*normalized_from_metric_);
+    }
+    const RestoreMetricGuard restore_guard{reconstruction_,
+                                           normalized_from_metric_};
+
     ceres::Solver::Summary ceres_summary =
         SolveWithGpuFallback(options_, config_, problem.get());
-
-    reconstruction_.Transform(Inverse(normalized_from_metric_));
 
     if (options_.print_summary || VLOG_IS_ON(1)) {
       PrintSolverSummary(ceres_summary, "Pose Prior Bundle adjustment report");
@@ -863,6 +879,10 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
 
   std::shared_ptr<ceres::Problem>& Problem() override {
     return default_bundle_adjuster_->Problem();
+  }
+
+  std::optional<Sim3d> NormalizedFromMetric() const override {
+    return normalized_from_metric_;
   }
 
   void AddImagePosePriorToProblem(image_t image_id,
@@ -888,7 +908,7 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
     if (image.IsRefInFrame()) {
       problem.AddResidualBlock(
           CreatePositionPriorCostFunction<AbsolutePosePositionPriorCostFunctor>(
-              pose_prior, normalized_from_metric_),
+              pose_prior, *normalized_from_metric_),
           prior_loss_function_.get(),
           rig_from_world.params.data());
     } else {
@@ -896,7 +916,7 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
           frame.RigPtr()->SensorFromRig(image.CameraPtr()->SensorId());
       problem.AddResidualBlock(CreatePositionPriorCostFunction<
                                    AbsoluteRigPosePositionPriorCostFunctor>(
-                                   pose_prior, normalized_from_metric_),
+                                   pose_prior, *normalized_from_metric_),
                                prior_loss_function_.get(),
                                cam_from_rig.params.data(),
                                rig_from_world.params.data());
@@ -917,7 +937,7 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
   std::unique_ptr<DefaultBundleAdjuster> default_bundle_adjuster_;
   std::unique_ptr<ceres::LossFunction> prior_loss_function_;
 
-  Sim3d normalized_from_metric_;
+  std::optional<Sim3d> normalized_from_metric_;
 };
 
 }  // namespace

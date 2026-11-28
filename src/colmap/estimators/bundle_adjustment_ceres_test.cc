@@ -3,6 +3,8 @@
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 
 #include "colmap/geometry/rigid3_matchers.h"
+#include "colmap/geometry/sim3_matchers.h"
+#include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/models.h"
@@ -11,6 +13,7 @@
 
 #include <limits>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 // Due to pose normalization operations, constant variables may not be perfectly
@@ -1165,6 +1168,124 @@ TEST(CeresPosePriorBundleAdjustmentOptions, CheckGemanMcClure) {
     options.prior_position_loss_scale = bad_scale;
     EXPECT_FALSE(options.Check());
   }
+}
+
+TEST(PosePriorBundleAdjuster,
+     MetricNormalizationPreservesMetricFrameOutsideSolve) {
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 5;
+  synthetic_options.num_points3D = 60;
+  synthetic_options.prior_position = true;
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
+  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
+
+  BundleAdjustmentConfig ba_config;
+  for (const image_t image_id : gt_reconstruction.RegImageIds()) {
+    ba_config.AddImage(image_id);
+  }
+
+  // Offset and scale ground-truth metric scene away from the origin so leaving
+  // the reconstruction centered would fail non-aligned metric comparisons.
+  const Sim3d metric_from_synth(50.0,
+                                Eigen::Quaterniond::Identity(),
+                                Eigen::Vector3d(100.0, -200.0, 30.0));
+  gt_reconstruction.Transform(metric_from_synth);
+
+  for (PosePrior& prior : pose_priors) {
+    prior.position = metric_from_synth * prior.position;
+    prior.position_covariance =
+        (metric_from_synth.scale() * metric_from_synth.scale() * 1e-4) *
+        Eigen::Matrix3d::Identity();
+  }
+
+  BundleAdjustmentOptions ba_options;
+  ba_options.refine_focal_length = false;
+  ba_options.refine_extra_params = false;
+  PosePriorBundleAdjustmentOptions prior_options;
+  prior_options.prior_position_fallback_stddev =
+      metric_from_synth.scale() * 1e-2;
+  prior_options.alignment_ransac_options.random_seed = 0;
+
+  Reconstruction reconstruction = gt_reconstruction;
+  SyntheticNoiseOptions noise_options;
+  noise_options.point3D_stddev = 0.005 * metric_from_synth.scale();
+  noise_options.rig_from_world_rotation_stddev = 0.3;
+  noise_options.rig_from_world_translation_stddev =
+      0.005 * metric_from_synth.scale();
+  SynthesizeNoise(noise_options, &reconstruction);
+  reconstruction.Transform(Sim3d(
+      0.2,
+      Eigen::Quaterniond(Eigen::AngleAxisd(0.4, Eigen::Vector3d::UnitZ())),
+      Eigen::Vector3d(-10.0, 20.0, 5.0)));
+
+  auto adjuster = CreatePosePriorCeresBundleAdjuster(
+      ba_options, prior_options, ba_config, pose_priors, reconstruction);
+  // Immediately after construction (before Solve()), `reconstruction` is
+  // already in the aligned metric frame rather than the internal normalized
+  // frame, and NormalizedFromMetric() exposes the centering transform.
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(reconstruction,
+                                 /*max_rotation_error_deg=*/10.0,
+                                 /*max_proj_center_error=*/50.0,
+                                 /*max_scale_error=*/std::nullopt,
+                                 /*num_obs_tolerance=*/0.0,
+                                 /*align=*/false));
+  const Eigen::Vector3d centroid = reconstruction.ComputeCentroid(
+      /*min_percentile=*/0.1, /*max_percentile=*/0.9, /*use_images=*/true);
+  ASSERT_GT(centroid.norm(), 50.0);
+  ASSERT_TRUE(adjuster->NormalizedFromMetric().has_value());
+  EXPECT_THAT(*adjuster->NormalizedFromMetric(),
+              Sim3dNear(Sim3d(1.0, Eigen::Quaterniond::Identity(), -centroid),
+                        1e-6,
+                        1e-6,
+                        1e-6));
+
+  ASSERT_TRUE(adjuster->Solve()->IsSolutionUsable());
+  const Reconstruction after_first_solve = reconstruction;
+
+  // Calling Solve() multiple times re-normalizes and restores cleanly without
+  // drifting out of the metric frame.
+  ASSERT_TRUE(adjuster->Solve()->IsSolutionUsable());
+  EXPECT_THAT(after_first_solve,
+              ReconstructionNear(reconstruction,
+                                 /*max_rotation_error_deg=*/1e-3,
+                                 /*max_proj_center_error=*/1e-3,
+                                 /*max_scale_error=*/std::nullopt,
+                                 /*num_obs_tolerance=*/0.0,
+                                 /*align=*/false));
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(reconstruction,
+                                 /*max_rotation_error_deg=*/1e-2,
+                                 /*max_proj_center_error=*/1e-2,
+                                 /*max_scale_error=*/std::nullopt,
+                                 /*num_obs_tolerance=*/0.0,
+                                 /*align=*/false));
+
+  // Non-SPD covariances fail loudly while RestoreMetricGuard restores the
+  // metric frame during stack unwinding.
+  std::vector<PosePrior> bad_priors = pose_priors;
+  bad_priors.front().position_covariance = Eigen::Matrix3d::Zero();
+  EXPECT_THAT(
+      [&]() {
+        CreatePosePriorBundleAdjuster(ba_options,
+                                      prior_options,
+                                      ba_config,
+                                      std::move(bad_priors),
+                                      reconstruction);
+      },
+      testing::ThrowsMessage<std::invalid_argument>(testing::HasSubstr(
+          "Covariance matrix is not symmetric positive definite")));
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(reconstruction,
+                                 /*max_rotation_error_deg=*/1e-2,
+                                 /*max_proj_center_error=*/1e-2,
+                                 /*max_scale_error=*/std::nullopt,
+                                 /*num_obs_tolerance=*/0.0,
+                                 /*align=*/false));
 }
 
 }  // namespace
