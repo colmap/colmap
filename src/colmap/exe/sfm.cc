@@ -170,6 +170,7 @@ int RunBundleAdjuster(int argc, char** argv) {
   std::filesystem::path output_path;
 
   OptionManager options;
+  options.AddDefaultOption("database_path", options.database_path.get());
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
   options.AddBundleAdjustmentOptions();
@@ -184,6 +185,13 @@ int RunBundleAdjuster(int argc, char** argv) {
 
   if (!ExistsDir(output_path)) {
     LOG(ERROR) << "`output_path` is not a directory";
+    return EXIT_FAILURE;
+  }
+
+  if (options.bundle_adjustment->pose_prior.use_position &&
+      (options.database_path->empty() || !ExistsFile(*options.database_path))) {
+    LOG(ERROR) << "`database_path` must be an existing file when "
+                  "`BundleAdjustment.use_prior_position` is enabled";
     return EXIT_FAILURE;
   }
 

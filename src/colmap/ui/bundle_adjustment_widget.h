@@ -28,6 +28,7 @@ class BundleAdjustmentWidget : public OptionsWidget {
   OptionManager* options_;
   std::shared_ptr<Reconstruction> reconstruction_;
   ThreadControlWidget* thread_control_widget_;
+  QComboBox* prior_position_loss_combo_ = nullptr;
   QAction* render_action_;
 };
 

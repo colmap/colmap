@@ -162,11 +162,15 @@ std::map<size_t, std::shared_ptr<Reconstruction>> HierarchicalMapping(
 void BundleAdjustment(
     const std::shared_ptr<Reconstruction>& reconstruction,
     const BundleAdjustmentOptions& options,
-    const std::shared_ptr<CancellationToken>& cancellation_token) {
+    const std::shared_ptr<CancellationToken>& cancellation_token,
+    const std::optional<std::filesystem::path>& database_path) {
   py::gil_scoped_release release;
   OptionManager option_manager;
   option_manager.bundle_adjustment =
       std::make_shared<BundleAdjustmentOptions>(options);
+  if (database_path.has_value()) {
+    *option_manager.database_path = *database_path;
+  }
   PyInterruptChecker interrupt_checker(cancellation_token);
   BundleAdjustmentController controller(option_manager, reconstruction);
   controller.SetCheckIfStoppedFunc(interrupt_checker.Callback());
@@ -277,5 +281,6 @@ void BindSfM(py::module& m) {
         py::arg_v(
             "options", BundleAdjustmentOptions(), "BundleAdjustmentOptions()"),
         "cancellation_token"_a = py::none(),
+        "database_path"_a = py::none(),
         "Jointly refine 3D points and camera poses");
 }

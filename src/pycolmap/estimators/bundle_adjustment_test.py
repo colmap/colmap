@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -304,9 +306,10 @@ def test_bundle_adjustment_pipeline(
     pycolmap.bundle_adjustment(reconstruction, options)
 
 
-def test_bundle_adjustment_with_pose_priors() -> None:
+def test_bundle_adjustment_with_pose_priors(tmp_path: Path) -> None:
     pycolmap.set_random_seed(0)
-    with pycolmap.Database.open(":memory:") as database:
+    database_path = tmp_path / "database.db"
+    with pycolmap.Database.open(database_path) as database:
         synth_options = pycolmap.SyntheticDatasetOptions()
         synth_options.num_rigs = 1
         synth_options.num_cameras_per_rig = 1
@@ -338,6 +341,30 @@ def test_bundle_adjustment_with_pose_priors() -> None:
     )
     summary = adjuster.solve()
     assert summary.is_solution_usable()
+
+    # Pipeline entry point reading the priors from the database.
+    rec_from_db = pycolmap.Reconstruction(gt_reconstruction)
+    rec_from_db.transform(
+        pycolmap.Sim3d(
+            2.5,
+            pycolmap.Rotation3d(np.array([0.0, 0.0, np.sin(0.2), np.cos(0.2)])),
+            [10.0, -20.0, 5.0],
+        )
+    )
+    pycolmap.bundle_adjustment(
+        rec_from_db, options, database_path=database_path
+    )
+    for image_id, gt_image in gt_reconstruction.images.items():
+        assert np.allclose(
+            rec_from_db.image(image_id).projection_center(),
+            gt_image.projection_center(),
+            atol=1e-2,
+        )
+
+    with pytest.raises(ValueError, match="database_path must be specified"):
+        pycolmap.bundle_adjustment(
+            pycolmap.Reconstruction(gt_reconstruction), options
+        )
 
     ceres_adjuster = pycolmap.create_default_ceres_bundle_adjuster(
         options, config, reconstruction, priors
