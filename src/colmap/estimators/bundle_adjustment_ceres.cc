@@ -419,6 +419,23 @@ ceres::Solver::Summary SolveWithGpuFallback(
   return ceres_summary;
 }
 
+// Returns the 3D point observed by the 2D point if it is part of the problem.
+Point3D* FindPoint3DInProblem(const Point2D& point2D,
+                              Reconstruction& reconstruction,
+                              const BundleAdjustmentConfig& config,
+                              const BundleAdjustmentOptions& options) {
+  if (!point2D.HasPoint3D() || config.IsIgnoredPoint(point2D.point3D_id)) {
+    return nullptr;
+  }
+  Point3D& point3D = reconstruction.Point3D(point2D.point3D_id);
+  THROW_CHECK_GT(point3D.track.Length(), 1);
+  if (options.min_track_length > 0 &&
+      static_cast<int>(point3D.track.Length()) < options.min_track_length) {
+    return nullptr;
+  }
+  return &point3D;
+}
+
 class DefaultBundleAdjuster : public CeresBundleAdjuster {
  public:
   DefaultBundleAdjuster(const BundleAdjustmentOptions& options,
@@ -511,17 +528,9 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
     // Add residuals to bundle adjustment problem.
     size_t num_observations = 0;
     for (const Point2D& point2D : image.Points2D()) {
-      if (!point2D.HasPoint3D() || config_.IsIgnoredPoint(point2D.point3D_id)) {
-        continue;
-      }
-
-      Point3D& point3D = reconstruction.Point3D(point2D.point3D_id);
-      THROW_CHECK_GT(point3D.track.Length(), 1);
-
-      // Skip points with track length below minimum.
-      if (options_.min_track_length > 0 &&
-          static_cast<int>(point3D.track.Length()) <
-              options_.min_track_length) {
+      Point3D* point3D =
+          FindPoint3DInProblem(point2D, reconstruction, config_, options_);
+      if (point3D == nullptr) {
         continue;
       }
 
@@ -533,14 +542,14 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
             CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
                 camera.model_id, point2D.xy, rig_from_world),
             loss_function_.get(),
-            point3D.xyz.data(),
+            point3D->xyz.data(),
             camera.params.data());
       } else {
         problem_->AddResidualBlock(
             CreateCameraCostFunction<ReprojErrorCostFunctor>(camera.model_id,
                                                              point2D.xy),
             loss_function_.get(),
-            point3D.xyz.data(),
+            point3D->xyz.data(),
             rig_from_world.params.data(),
             camera.params.data());
       }
@@ -576,17 +585,9 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
     // Add residuals to bundle adjustment problem.
     size_t num_observations = 0;
     for (const Point2D& point2D : image.Points2D()) {
-      if (!point2D.HasPoint3D() || config_.IsIgnoredPoint(point2D.point3D_id)) {
-        continue;
-      }
-
-      Point3D& point3D = reconstruction.Point3D(point2D.point3D_id);
-      THROW_CHECK_GT(point3D.track.Length(), 1);
-
-      // Skip points with track length below minimum.
-      if (options_.min_track_length > 0 &&
-          static_cast<int>(point3D.track.Length()) <
-              options_.min_track_length) {
+      Point3D* point3D =
+          FindPoint3DInProblem(point2D, reconstruction, config_, options_);
+      if (point3D == nullptr) {
         continue;
       }
 
@@ -600,14 +601,14 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
             CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
                 camera.model_id, point2D.xy, cam_from_world.value()),
             loss_function_.get(),
-            point3D.xyz.data(),
+            point3D->xyz.data(),
             camera.params.data());
       } else if (!constant_rig_from_world && constant_sensor_from_rig) {
         problem_->AddResidualBlock(
             CreateCameraCostFunction<RigReprojErrorConstantRigCostFunctor>(
                 camera.model_id, point2D.xy, sensor_from_rig),
             loss_function_.get(),
-            point3D.xyz.data(),
+            point3D->xyz.data(),
             rig_from_world.params.data(),
             camera.params.data());
       } else {
@@ -615,7 +616,7 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
             CreateCameraCostFunction<RigReprojErrorCostFunctor>(camera.model_id,
                                                                 point2D.xy),
             loss_function_.get(),
-            point3D.xyz.data(),
+            point3D->xyz.data(),
             sensor_from_rig.params.data(),
             rig_from_world.params.data(),
             camera.params.data());
