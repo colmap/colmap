@@ -370,6 +370,12 @@ TEST(MaybeDownloadAndCacheFile, Nominal) {
   EXPECT_EQ(MaybeDownloadAndCacheFile(uri), cached_file_path);
   EXPECT_EQ(MaybeDownloadAndCacheFile(cached_file_path.string()),
             cached_file_path);
+
+  WriteBinaryBlob(cached_file_path, {data.data(), 1});
+  EXPECT_EQ(MaybeDownloadAndCacheFile(uri), cached_file_path);
+  std::vector<char> cached_data;
+  ReadBinaryBlob(cached_file_path, &cached_data);
+  EXPECT_EQ(std::string(cached_data.begin(), cached_data.end()), data);
 }
 
 #endif

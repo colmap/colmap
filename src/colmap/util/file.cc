@@ -246,6 +246,8 @@ void WriteBinaryBlob(const std::filesystem::path& path,
   std::ofstream file(path, std::ios::binary);
   THROW_CHECK_FILE_OPEN(file, path);
   file.write(data.begin(), data.size());
+  file.close();
+  THROW_CHECK(file.good()) << "Failed to write binary blob to " << path;
 }
 
 std::vector<std::string> ReadTextFileLines(const std::filesystem::path& path) {
@@ -464,20 +466,23 @@ std::string DownloadAndCacheFile(const std::string& uri) {
   const auto path = download_cache_dir / (sha256 + "-" + name);
 
   if (std::filesystem::exists(path)) {
-    VLOG(2) << "File already downloaded. Skipping download.";
     std::vector<char> blob;
     ReadBinaryBlob(path.string(), &blob);
-    THROW_CHECK_EQ(ComputeSHA256({blob.data(), blob.size()}), sha256)
-        << "The cached file does not match the expected SHA256";
-  } else {
-    LOG(INFO) << "Downloading file from: " << url;
-    const std::optional<std::string> blob = DownloadFile(url);
-    THROW_CHECK(blob.has_value()) << "Failed to download file";
-    THROW_CHECK_EQ(ComputeSHA256({blob->data(), blob->size()}), sha256)
-        << "The downloaded file does not match the expected SHA256";
-    LOG(INFO) << "Caching file at: " << path;
-    WriteBinaryBlob(path.string(), {blob->data(), blob->size()});
+    if (ComputeSHA256({blob.data(), blob.size()}) == sha256) {
+      VLOG(2) << "File already downloaded. Skipping download.";
+      return path.string();
+    }
+    LOG(WARNING) << "Cached file does not match the expected SHA256. "
+                 << "Re-downloading: " << path;
   }
+
+  LOG(INFO) << "Downloading file from: " << url;
+  const std::optional<std::string> blob = DownloadFile(url);
+  THROW_CHECK(blob.has_value()) << "Failed to download file";
+  THROW_CHECK_EQ(ComputeSHA256({blob->data(), blob->size()}), sha256)
+      << "The downloaded file does not match the expected SHA256";
+  LOG(INFO) << "Caching file at: " << path;
+  WriteBinaryBlob(path.string(), {blob->data(), blob->size()});
 
   return path.string();
 }
