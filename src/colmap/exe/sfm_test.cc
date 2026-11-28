@@ -256,6 +256,7 @@ TEST(BundleAdjusterExe, WithDatabasePositionPriors) {
                  "--output_path=" + output_path.string(),
                  "--BundleAdjustment.use_prior_position=1"});
     std::vector<char*> argv;
+    argv.reserve(args.size());
     for (std::string& arg : args) {
       argv.push_back(arg.data());
     }
