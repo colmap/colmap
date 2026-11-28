@@ -5,6 +5,7 @@
 #include "colmap/math/math.h"
 #include "colmap/mvs/consistency_graph.h"
 #include "colmap/mvs/patch_match_cuda.h"
+#include "colmap/mvs/patch_match_internal.h"
 #include "colmap/mvs/workspace.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/file.h"
@@ -14,6 +15,7 @@
 
 #include <numeric>
 #include <set>
+#include <utility>
 
 #define PrintOption(option) LOG(INFO) << #option ": " << option << std::endl
 
@@ -101,29 +103,32 @@ void PatchMatch::Check() const {
 void PatchMatch::Run() {
   LOG_HEADING2("PatchMatch::Run");
 
+  patch_match_cuda_.reset();
   Check();
 
-  patch_match_cuda_ = std::make_unique<PatchMatchCuda>(options_, problem_);
-  patch_match_cuda_->Run();
+  auto patch_match_cuda = std::make_unique<PatchMatchCuda>(options_, problem_);
+  patch_match_cuda->Run();
+  patch_match_cuda_ = std::move(patch_match_cuda);
 }
 
-DepthMap PatchMatch::GetDepthMap() const {
-  return patch_match_cuda_->GetDepthMap();
+const PatchMatchCuda& PatchMatch::Result() const {
+  return *THROW_CHECK_NOTNULL(patch_match_cuda_.get());
 }
 
-NormalMap PatchMatch::GetNormalMap() const {
-  return patch_match_cuda_->GetNormalMap();
-}
+DepthMap PatchMatch::GetDepthMap() const { return Result().GetDepthMap(); }
+
+NormalMap PatchMatch::GetNormalMap() const { return Result().GetNormalMap(); }
 
 Mat<float> PatchMatch::GetSelProbMap() const {
-  return patch_match_cuda_->GetSelProbMap();
+  return Result().GetSelProbMap();
 }
 
 ConsistencyGraph PatchMatch::GetConsistencyGraph() const {
+  const auto& result = Result();
   const auto& ref_image = problem_.images->at(problem_.ref_image_idx);
   return ConsistencyGraph(ref_image.GetWidth(),
                           ref_image.GetHeight(),
-                          patch_match_cuda_->GetConsistentImageIdxs());
+                          result.GetConsistentImageIdxs());
 }
 
 PatchMatchController::PatchMatchController(
@@ -439,7 +444,6 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
     LOG(INFO) << "Reading inputs...";
 
     // Filter by file existence first (fast, no heavy I/O).
-    std::vector<int> src_image_idxs;
     std::vector<int> valid_image_idxs;
     for (const auto image_idx : used_image_idxs) {
       const auto image_path = workspace_->GetBitmapPath(image_idx);
@@ -466,9 +470,6 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
       }
 
       valid_image_idxs.push_back(image_idx);
-      if (image_idx != problem.ref_image_idx) {
-        src_image_idxs.push_back(image_idx);
-      }
     }
 
     // Read images in parallel using the shared I/O thread pool.
@@ -490,7 +491,13 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
       future.get();
     }
 
-    problem.src_image_idxs = src_image_idxs;
+    // Use membership only for availability, not for source order.
+    used_image_idxs.clear();
+    used_image_idxs.insert(valid_image_idxs.begin(), valid_image_idxs.end());
+    problem.src_image_idxs =
+        internal::SelectPatchMatchSources(problem.ref_image_idx,
+                                          problem.src_image_idxs,
+                                          std::move(used_image_idxs));
   }
 
   problem.Print();
