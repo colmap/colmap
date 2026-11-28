@@ -14,6 +14,7 @@
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 
+#include <algorithm>
 #include <cmath>
 #include <iomanip>
 
@@ -420,6 +421,19 @@ ceres::Solver::Summary SolveWithGpuFallback(
   return ceres_summary;
 }
 
+bool HasVariableRigFromWorldPose(const BundleAdjustmentOptions& options,
+                                 const BundleAdjustmentConfig& config,
+                                 const Reconstruction& reconstruction) {
+  return options.refine_rig_from_world &&
+         !options.constant_rig_from_world_rotation &&
+         std::any_of(config.Images().begin(),
+                     config.Images().end(),
+                     [&](const image_t image_id) {
+                       return !config.HasConstantRigFromWorldPose(
+                           reconstruction.Image(image_id).FrameId());
+                     });
+}
+
 std::vector<PosePrior> FilterPosePriorsInProblem(
     std::vector<PosePrior> pose_priors,
     const BundleAdjustmentConfig& config,
@@ -781,11 +795,21 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
         Eigen::Vector3d::Constant(prior_options.prior_position_fallback_stddev),
         /*overwrite_position_covariance=*/false);
 
-    const bool use_prior_position =
-        pose_priors.size() >= 3 &&
-        AlignReconstruction(prior_options.alignment_ransac_options,
-                            pose_priors,
-                            reconstruction_);
+    bool use_prior_position = false;
+    if (pose_priors.size() >= 3) {
+      if (!HasVariableRigFromWorldPose(options_, config_, reconstruction_)) {
+        LOG_IF(WARNING,
+               options_.refine_rig_from_world &&
+                   options_.constant_rig_from_world_rotation)
+            << "Position priors require variable rig_from_world rotations; "
+               "ignoring position priors.";
+      } else {
+        use_prior_position =
+            AlignReconstruction(prior_options.alignment_ransac_options,
+                                pose_priors,
+                                reconstruction_);
+      }
+    }
 
     if (use_prior_position) {
       // Normalize the reconstruction to avoid any numerical instability but
