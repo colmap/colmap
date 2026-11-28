@@ -828,6 +828,19 @@ void OptionManager::AddMapperOptions() {
   AddDefaultOption("Mapper.snapshot_frames_freq",
                    &mapper->snapshot_frames_freq);
   AddDefaultOption("Mapper.fix_existing_frames", &mapper->fix_existing_frames);
+  AddDefaultOption("Mapper.use_prior_position", &mapper->use_prior_position);
+  AddDefaultOption("Mapper.prior_position_stddev_x",
+                   &mapper->prior_position_stddev.x());
+  AddDefaultOption("Mapper.prior_position_stddev_y",
+                   &mapper->prior_position_stddev.y());
+  AddDefaultOption("Mapper.prior_position_stddev_z",
+                   &mapper->prior_position_stddev.z());
+  AddDefaultOption("Mapper.overwrite_prior_position_covariance",
+                   &mapper->overwrite_prior_position_covariance);
+  AddDefaultOption("Mapper.use_robust_loss_on_prior_position",
+                   &mapper->use_robust_loss_on_prior_position);
+  AddDefaultOption("Mapper.prior_position_loss_scale",
+                   &mapper->prior_position_loss_scale);
 
   // IncrementalMapper.
   AddDefaultOption("Mapper.init_min_num_inliers",

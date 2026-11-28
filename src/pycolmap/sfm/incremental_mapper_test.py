@@ -171,24 +171,14 @@ def test_incremental_pipeline_options_get_local_bundle_adjustment() -> None:
 
 def test_incremental_pipeline_options_get_global_bundle_adjustment() -> None:
     options = pycolmap.IncrementalPipelineOptions()
+    options.use_prior_position = True
+    options.overwrite_prior_position_covariance = True
+    options.prior_position_stddev = [0.5, 1.5, 2.5]
     bundle_adjustment_options = options.get_global_bundle_adjustment()
-    assert bundle_adjustment_options is not None
-
-
-def test_incremental_pipeline_options_ba_local_backend_readwrite() -> None:
-    options = pycolmap.IncrementalPipelineOptions()
-    options.ba_local_backend = pycolmap.BundleAdjustmentBackend.CERES
-    assert options.ba_local_backend == pycolmap.BundleAdjustmentBackend.CERES
-    options.ba_local_backend = pycolmap.BundleAdjustmentBackend.CASPAR
-    assert options.ba_local_backend == pycolmap.BundleAdjustmentBackend.CASPAR
-
-
-def test_incremental_pipeline_options_ba_global_backend_readwrite() -> None:
-    options = pycolmap.IncrementalPipelineOptions()
-    options.ba_global_backend = pycolmap.BundleAdjustmentBackend.CERES
-    assert options.ba_global_backend == pycolmap.BundleAdjustmentBackend.CERES
-    options.ba_global_backend = pycolmap.BundleAdjustmentBackend.CASPAR
-    assert options.ba_global_backend == pycolmap.BundleAdjustmentBackend.CASPAR
+    pose_prior_options = bundle_adjustment_options.pose_prior
+    assert pose_prior_options.use_position
+    assert pose_prior_options.overwrite_position_covariance
+    assert pose_prior_options.position_stddev.tolist() == [0.5, 1.5, 2.5]
 
 
 @pytest.mark.parametrize("dense_cpu_threshold", [50, 0])

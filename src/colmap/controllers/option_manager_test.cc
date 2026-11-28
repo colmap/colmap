@@ -426,6 +426,7 @@ TEST(OptionManager, PriorOptionsRoundTripAndReset) {
       "--BundleAdjustment.prior_position_stddev_y=1.5",
       "--BundleAdjustment.prior_position_stddev_z=2.5",
       "--BundleAdjustmentCeres.prior_position_loss_function_type=CAUCHY",
+      "--Mapper.use_prior_position=1",
   };
   std::vector<char*> argv;
   argv.reserve(args.size());
@@ -447,6 +448,7 @@ TEST(OptionManager, PriorOptionsRoundTripAndReset) {
   EXPECT_EQ(
       options_read.bundle_adjustment->ceres->prior_position_loss_function_type,
       CeresLossFunctionType::CAUCHY);
+  EXPECT_TRUE(options_read.mapper->use_prior_position);
 }
 
 }  // namespace

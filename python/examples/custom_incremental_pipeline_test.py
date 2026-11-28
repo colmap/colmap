@@ -5,6 +5,7 @@
 from pathlib import Path
 
 import custom_incremental_pipeline
+import numpy as np
 import pytest
 
 import pycolmap
@@ -218,3 +219,78 @@ def test_write_snapshot(
 
     snapshot = pycolmap.Reconstruction(snapshot_root / "0000123456")
     assert snapshot.num_images() == 0
+
+
+def _set_pose_priors_with_shifted_anchor(
+    database: pycolmap.Database,
+    shifted_image_id: int,
+    shift: np.ndarray,
+) -> np.ndarray:
+    shifted_prior_position = np.zeros(3)
+    for prior in database.read_all_pose_priors():
+        if prior.corr_data_id.id == shifted_image_id:
+            prior.position = prior.position + shift
+            prior.position_covariance = 1e-12 * np.eye(3)
+            shifted_prior_position = prior.position.copy()
+        else:
+            prior.position_covariance = 1e-6 * np.eye(3)
+        database.update_pose_prior(prior)
+    return shifted_prior_position
+
+
+def test_with_pose_priors(tmp_path: Path) -> None:
+    pycolmap.set_random_seed(0)
+
+    database_path = tmp_path / "database.db"
+    image_path = tmp_path / "images"
+    image_path.mkdir()
+    output_path = tmp_path / "sparse"
+    output_path.mkdir()
+
+    with pycolmap.Database.open(database_path) as database:
+        synthetic_dataset_options = pycolmap.SyntheticDatasetOptions()
+        synthetic_dataset_options.num_rigs = 1
+        synthetic_dataset_options.num_cameras_per_rig = 1
+        synthetic_dataset_options.num_frames_per_rig = 6
+        synthetic_dataset_options.num_points3D = 80
+        synthetic_dataset_options.prior_position = True
+        gt_reconstruction = pycolmap.synthesize_dataset(
+            synthetic_dataset_options, database
+        )
+
+        frame_ids = gt_reconstruction.reg_frame_ids()
+        assert len(frame_ids) == 6
+        shifted_image_id = next(
+            iter(gt_reconstruction.frame(frame_ids[-1]).image_ids)
+        ).id
+        shifted_prior_position = _set_pose_priors_with_shifted_anchor(
+            database, shifted_image_id, np.array([0.01, 0.0, 0.0])
+        )
+
+    options = create_test_options()
+    options.use_prior_position = True
+    options.random_seed = 0
+    custom_incremental_pipeline.main(
+        database_path=database_path,
+        image_path=image_path,
+        output_path=output_path,
+        options=options,
+    )
+
+    computed = pycolmap.Reconstruction(output_path / "0")
+    assert computed.num_reg_frames() == 6
+    shifted_err = float(
+        np.linalg.norm(
+            computed.image(shifted_image_id).projection_center()
+            - shifted_prior_position
+        )
+    )
+    assert shifted_err < 1e-3
+    for image_id, gt_image in gt_reconstruction.images.items():
+        err = float(
+            np.linalg.norm(
+                computed.image(image_id).projection_center()
+                - gt_image.projection_center()
+            )
+        )
+        assert err < 2e-2

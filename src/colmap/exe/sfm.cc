@@ -38,22 +38,6 @@ ExtractExistingImages(const Reconstruction& reconstruction) {
   return {std::move(fixed_image_ids), std::move(orig_fixed_image_positions)};
 }
 
-void UpdateDatabasePosePriorsCovariance(
-    const std::filesystem::path& database_path,
-    const Eigen::Matrix3d& covariance) {
-  auto database = Database::Open(database_path);
-  DatabaseTransaction database_transaction(database.get());
-
-  LOG(INFO)
-      << "Setting up database pose priors with the same covariance matrix: \n"
-      << covariance << '\n';
-
-  for (auto& pose_prior : database->ReadAllPosePriors()) {
-    pose_prior.position_covariance = covariance;
-    database->UpdatePosePrior(pose_prior);
-  }
-}
-
 }  // namespace
 
 int RunAutomaticReconstructor(int argc, char** argv) {
@@ -304,8 +288,10 @@ bool RunIncrementalMapperImpl(
   if (exists_input_reconstruction) {
     const auto& reconstruction = reconstruction_manager->Get(0);
 
-    // Transform the final reconstruction back to the original coordinate frame.
-    if (mapper_options->fix_existing_frames) {
+    // Transform the final reconstruction back to the original coordinate frame
+    // unless active priors constrained it into a metric coordinate frame.
+    if (mapper_options->fix_existing_frames &&
+        !reconstruction->HasMetricScale()) {
       if (fixed_image_ids.size() < 3) {
         LOG(WARNING) << "Too few images to transform the reconstruction.";
       } else {
@@ -489,78 +475,36 @@ int RunHierarchicalMapper(int argc, char** argv) {
 }
 
 int RunPosePriorMapper(int argc, char** argv) {
-  std::filesystem::path input_path;
-  std::filesystem::path output_path;
+  LOG(WARNING) << "pose_prior_mapper is deprecated; use "
+                  "'colmap mapper --Mapper.use_prior_position 1' instead.";
 
-  bool overwrite_priors_covariance = false;
-  double prior_position_std_x = 1.;
-  double prior_position_std_y = 1.;
-  double prior_position_std_z = 1.;
-
-  OptionManager options;
-  options.AddDatabaseOptions();
-  options.AddImageOptions();
-  options.AddDefaultOption("input_path", &input_path);
-  options.AddRequiredOption("output_path", &output_path);
-  options.AddMapperOptions();
-
-  options.mapper->use_prior_position = true;
-
-  options.AddDefaultOption(
-      "overwrite_priors_covariance",
-      &overwrite_priors_covariance,
-      "Priors covariance read from database. If true, overwrite the priors "
-      "covariance using the following prior_position_std_... options");
-  options.AddDefaultOption("prior_position_std_x", &prior_position_std_x);
-  options.AddDefaultOption("prior_position_std_y", &prior_position_std_y);
-  options.AddDefaultOption("prior_position_std_z", &prior_position_std_z);
-  options.AddDefaultOption("use_robust_loss_on_prior_position",
-                           &options.mapper->use_robust_loss_on_prior_position);
-  options.AddDefaultOption("prior_position_loss_scale",
-                           &options.mapper->prior_position_loss_scale);
-  if (!options.Parse(argc, argv)) {
-    return EXIT_FAILURE;
-  }
-
-  if (!ExistsDir(output_path)) {
-    LOG(ERROR) << "`output_path` is not a directory.";
-    return EXIT_FAILURE;
-  }
-
-  if (overwrite_priors_covariance) {
-    const Eigen::Matrix3d covariance =
-        Eigen::Vector3d(
-            prior_position_std_x, prior_position_std_y, prior_position_std_z)
-            .cwiseAbs2()
-            .asDiagonal();
-    UpdateDatabasePosePriorsCovariance(*options.database_path, covariance);
-  }
-
-  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  if (input_path != "") {
-    if (!ExistsDir(input_path)) {
-      LOG(ERROR) << "`input_path` is not a directory.";
-      return EXIT_FAILURE;
-    }
-    reconstruction_manager->Read(input_path);
-  }
-
-  if (!RunIncrementalMapperImpl(*options.database_path,
-                                *options.image_path,
-                                output_path,
-                                options.mapper,
-                                reconstruction_manager)) {
-    return EXIT_FAILURE;
-  }
-
-  if (input_path.empty()) {
-    for (size_t i = 0; i < reconstruction_manager->Size(); ++i) {
-      const auto reconstruction_path = output_path / std::to_string(i);
-      options.Write(reconstruction_path / "project.ini");
+  const std::pair<std::string, std::string> kRenamedOptions[] = {
+      {"--overwrite_priors_covariance",
+       "--Mapper.overwrite_prior_position_covariance"},
+      {"--prior_position_std_x", "--Mapper.prior_position_stddev_x"},
+      {"--prior_position_std_y", "--Mapper.prior_position_stddev_y"},
+      {"--prior_position_std_z", "--Mapper.prior_position_stddev_z"},
+      {"--use_robust_loss_on_prior_position",
+       "--Mapper.use_robust_loss_on_prior_position"},
+      {"--prior_position_loss_scale", "--Mapper.prior_position_loss_scale"},
+  };
+  std::vector<std::string> args(argv, argv + argc);
+  for (std::string& arg : args) {
+    const std::string name = arg.substr(0, arg.find('='));
+    for (const auto& [old_name, new_name] : kRenamedOptions) {
+      if (name == old_name) {
+        arg.replace(0, name.size(), new_name);
+      }
     }
   }
+  args.push_back("--Mapper.use_prior_position=1");
 
-  return EXIT_SUCCESS;
+  std::vector<char*> mapper_argv;
+  mapper_argv.reserve(args.size());
+  for (std::string& arg : args) {
+    mapper_argv.push_back(arg.data());
+  }
+  return RunMapper(mapper_argv.size(), mapper_argv.data());
 }
 
 int RunPointFiltering(int argc, char** argv) {

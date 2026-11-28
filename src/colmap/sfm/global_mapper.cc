@@ -375,7 +375,7 @@ bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
 
   // Normalize the structure for numerical stability.
   // TODO: Skip normalization when position priors are used (similar to
-  // incremental mapper's !use_prior_position condition).
+  // incremental mapper's !HasMetricScale() condition).
   reconstruction_->Normalize();
 
   return true;
@@ -419,7 +419,7 @@ bool GlobalMapper::IterativeBundleAdjustment(
 
     // Normalize the structure for numerical stability.
     // TODO: Skip normalization when position priors are used (similar to
-    // incremental mapper's !use_prior_position condition).
+    // incremental mapper's !HasMetricScale() condition).
     reconstruction_->Normalize();
 
     // Report progress for this refinement iteration and stop early if
@@ -528,7 +528,7 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
 
   // Normalize the structure for numerical stability.
   // TODO: Skip normalization when position priors are used (similar to
-  // incremental mapper's !use_prior_position condition).
+  // incremental mapper's !HasMetricScale() condition).
   reconstruction_->Normalize();
 
   obs_manager.FilterPoints3DWithLargeReprojectionError(
