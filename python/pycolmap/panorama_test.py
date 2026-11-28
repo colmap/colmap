@@ -190,3 +190,26 @@ def test_run_perspective_raises_for_empty_input_dir(tmp_path: Path) -> None:
             output_dir / "database.db",
             output_dir / "sparse",
         )
+
+
+@pytest.mark.parametrize("value", [-2147483648, 0, 512, 16777217, 2147483647])
+def test_process_int32_tiff_panorama(tmp_path: Path, value: int) -> None:
+    pytest.importorskip("cv2")
+    image_module = pytest.importorskip("PIL.Image")
+    image = image_module.fromarray(np.full((64, 128), value, dtype=np.int32))
+    image.save(tmp_path / "pano.tiff")
+    processor = PanoProcessor(
+        tmp_path,
+        tmp_path / "images",
+        tmp_path / "masks",
+        PANO_RENDER_OPTIONS[PanoRenderType.PERSPECTIVE_NON_OVERLAPPING],
+    )
+    processor.process("pano.tiff")
+
+    for cam_idx in range(4):
+        image_path = tmp_path / "images" / f"pano_camera{cam_idx}/pano.tiff"
+        with image_module.open(image_path) as rendered:
+            assert rendered.mode == "I"
+            np.testing.assert_array_equal(
+                np.asarray(rendered), np.full(rendered.size[::-1], value)
+            )
