@@ -37,6 +37,12 @@ if(OPENMP_FOUND)
 endif()
 
 COLMAP_ADD_TEST(
+    NAME patch_match_test
+    SRCS patch_match_test.cc
+    LINK_LIBS colmap_mvs
+)
+
+COLMAP_ADD_TEST(
     NAME consistency_graph_test
     SRCS consistency_graph_test.cc
     LINK_LIBS colmap_mvs
@@ -64,6 +70,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME mesh_simplification_test
     SRCS mesh_simplification_test.cc
+    LINK_LIBS colmap_mvs
+)
+COLMAP_ADD_TEST(
+    NAME patch_match_options_test
+    SRCS patch_match_options_test.cc
     LINK_LIBS colmap_mvs
 )
 COLMAP_ADD_TEST(
@@ -108,8 +119,11 @@ if(CUDA_ENABLED)
         SRCS
             gpu_mat_prng.h gpu_mat_prng.cu
             gpu_mat_ref_image.h gpu_mat_ref_image.cu
+            packed_consistency_mask.h
             patch_match.h patch_match.cc
-            patch_match_cuda.h patch_match_cuda.cu
+            patch_match_cuda.h patch_match_cuda.cu patch_match_geometry.cuh
+            patch_match_sampling.cuh
+            patch_match_rng_perimeter.h
         PUBLIC_LINK_LIBS
             colmap_mvs
             colmap_util_cuda
@@ -247,9 +261,24 @@ if(CUDA_ENABLED)
         )
     endif()
 
+    if(TESTS_ENABLED)
+        target_compile_definitions(colmap_mvs_cuda PRIVATE COLMAP_PATCH_MATCH_TESTING)
+    endif()
+
+    COLMAP_ADD_TEST(
+        NAME patch_match_cuda_test
+        SRCS patch_match_cuda_test.cc patch_match_cuda_test.cu patch_match_cuda_test.h
+        LINK_LIBS colmap_mvs_cuda
+    )
+
     COLMAP_ADD_TEST(
         NAME gpu_mat_test
         SRCS gpu_mat_test.cu
+        LINK_LIBS colmap_mvs_cuda
+    )
+    COLMAP_ADD_TEST(
+        NAME patch_match_sampling_test
+        SRCS patch_match_sampling_test.cu
         LINK_LIBS colmap_mvs_cuda
     )
 endif()
@@ -267,8 +296,11 @@ if(HIP_ENABLED)
         SRCS
             gpu_mat_prng.h gpu_mat_prng.cu
             gpu_mat_ref_image.h gpu_mat_ref_image.cu
+            packed_consistency_mask.h
             patch_match.h patch_match.cc
-            patch_match_cuda.h patch_match_cuda.cu
+            patch_match_cuda.h patch_match_cuda.cu patch_match_geometry.cuh
+            patch_match_sampling.cuh
+            patch_match_rng_perimeter.h
         PUBLIC_LINK_LIBS
             colmap_mvs
             colmap_util_cuda
@@ -288,5 +320,84 @@ if(HIP_ENABLED)
         SRCS gpu_mat_test.cu
         LINK_LIBS colmap_mvs_cuda
     )
-    set_source_files_properties(gpu_mat_test.cu PROPERTIES LANGUAGE HIP)
+    COLMAP_ADD_TEST(
+        NAME patch_match_sampling_test
+        SRCS patch_match_sampling_test.cu
+        LINK_LIBS colmap_mvs_cuda
+    )
+    set_source_files_properties(
+        gpu_mat_test.cu
+        patch_match_sampling_test.cu
+        patch_match_rng_perimeter_test.cu
+        packed_consistency_mask_test.cu
+        PROPERTIES LANGUAGE HIP
+    )
+endif()
+
+# The ordinary production controls compile and register on both GPU backends.
+if(CUDA_ENABLED OR HIP_ENABLED)
+    COLMAP_ADD_TEST(
+        NAME packed_consistency_mask_test
+        SRCS packed_consistency_mask_test.cu
+        LINK_LIBS colmap_mvs_cuda
+    )
+    COLMAP_ADD_TEST(
+        NAME patch_match_rng_perimeter_test
+        SRCS patch_match_rng_perimeter_test.cu
+        LINK_LIBS colmap_mvs_cuda
+    )
+    COLMAP_ADD_TEST(
+        NAME patch_match_probability_test
+        SRCS patch_match_probability_test.cc
+        LINK_LIBS colmap_mvs_cuda
+    )
+
+    # Keep all wrap flags and definitions local to this test executable.
+    # COLMAP_ADD_TEST creates no target when TESTS_ENABLED is OFF.
+    if(TESTS_ENABLED)
+        get_target_property(_COLMAP_MVS_OWNER_TYPE colmap_mvs_cuda TYPE)
+        if(CUDA_ENABLED AND NOT HIP_ENABLED AND UNIX AND NOT APPLE AND NOT WIN32
+           AND _COLMAP_MVS_OWNER_TYPE STREQUAL "STATIC_LIBRARY"
+           AND CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang)$")
+            # Compile AND link the real CUDA symbol/forwarding contract; do not
+            # run it or rely solely on acceptance of a linker option. Function
+            # scope prevents changes to any other capability check or target.
+            function(colmap_mvs_check_cuda_wrap)
+                include(CheckCXXSourceCompiles)
+                set(CMAKE_TRY_COMPILE_TARGET_TYPE EXECUTABLE)
+                set(CMAKE_REQUIRED_LIBRARIES CUDA::cudart)
+                set(CMAKE_REQUIRED_LINK_OPTIONS
+                    "LINKER:--wrap=cudaMallocPitch"
+                    "LINKER:--wrap=cudaFree")
+                check_cxx_source_compiles([=[
+                    #include <cuda_runtime_api.h>
+                    extern "C" cudaError_t __real_cudaMallocPitch(
+                        void**, size_t*, size_t, size_t);
+                    extern "C" cudaError_t __real_cudaFree(void*);
+                    extern "C" cudaError_t __wrap_cudaMallocPitch(
+                        void** p, size_t* s, size_t w, size_t h) {
+                        return __real_cudaMallocPitch(p, s, w, h);
+                    }
+                    extern "C" cudaError_t __wrap_cudaFree(void* p) {
+                        return __real_cudaFree(p);
+                    }
+                    int main() {
+                        void* p = nullptr;
+                        size_t s = 0;
+                        cudaError_t status = cudaMallocPitch(&p, &s, 1, 1);
+                        return static_cast<int>(status == cudaSuccess
+                            ? cudaFree(p) : status);
+                    }
+                ]=] _COLMAP_MVS_HAS_CUDA_WRAP)
+                if(_COLMAP_MVS_HAS_CUDA_WRAP)
+                    target_compile_definitions(colmap_mvs_patch_match_probability_test
+                        PRIVATE COLMAP_MVS_CUDA_ALLOCATION_WRAP=1)
+                    target_link_options(colmap_mvs_patch_match_probability_test PRIVATE
+                        "LINKER:--wrap=cudaMallocPitch"
+                        "LINKER:--wrap=cudaFree")
+                endif()
+            endfunction()
+            colmap_mvs_check_cuda_wrap()
+        endif()
+    endif()
 endif()

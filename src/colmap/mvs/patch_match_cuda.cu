@@ -9,7 +9,16 @@
 
 #define _USE_MATH_DEFINES
 
+#include "colmap/mvs/packed_consistency_mask.h"
 #include "colmap/mvs/patch_match_cuda.h"
+#include "colmap/mvs/patch_match_geometry.cuh"
+#include "colmap/mvs/patch_match_sampling.cuh"
+#ifdef COLMAP_PATCH_MATCH_TESTING
+#include "colmap/mvs/patch_match_cuda_test.h"
+
+#include <cstring>
+#endif
+#include "colmap/mvs/patch_match_rng_perimeter.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/cudacc.h"
 #include "colmap/util/logging.h"
@@ -18,6 +27,7 @@
 #include <cfloat>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <sstream>
 
 // The number of threads per Cuda thread block. Warning: Do not change this
@@ -33,10 +43,23 @@
 namespace colmap {
 namespace mvs {
 
-// Calibration of reference image as {fx, cx, fy, cy}.
-__constant__ float ref_K[4];
-// Calibration of reference image as {1/fx, -cx/fx, 1/fy, -cy/fy}.
-__constant__ float ref_inv_K[4];
+namespace {
+
+// An immutable value copied into each kernel launch's parameter state.
+struct RefCamera {
+  float K[4];      // fx, cx, fy, cy
+  float inv_K[4];  // 1/fx, -cx/fx, 1/fy, -cy/fy
+};
+static_assert(sizeof(RefCamera) == 8 * sizeof(float));
+
+RefCamera MakeRefCamera(const float K[4], const float inv_K[4]) {
+  RefCamera camera;
+  std::copy_n(K, 4, camera.K);
+  std::copy_n(inv_K, 4, camera.inv_K);
+  return camera;
+}
+
+}  // namespace
 
 __device__ inline void Mat33DotVec3(const float mat[9],
                                     const float vec[3],
@@ -61,10 +84,11 @@ __device__ inline float DotProduct3(const float vec1[3], const float vec2[3]) {
 __device__ inline float GenerateRandomDepth(const float depth_min,
                                             const float depth_max,
                                             curandState* rand_state) {
-  return curand_uniform(rand_state) * (depth_max - depth_min) + depth_min;
+  return internal::DrawUniformInterval(depth_min, depth_max, rand_state);
 }
 
-__device__ inline void GenerateRandomNormal(const int row,
+__device__ inline void GenerateRandomNormal(const RefCamera& camera,
+                                            const int row,
                                             const int col,
                                             curandState* rand_state,
                                             float normal[3]) {
@@ -85,8 +109,8 @@ __device__ inline void GenerateRandomNormal(const int row,
   normal[2] = 1.0f - 2.0f * s;
 
   // Make sure normal is looking away from camera.
-  const float view_ray[3] = {ref_inv_K[0] * col + ref_inv_K[1],
-                             ref_inv_K[2] * row + ref_inv_K[3],
+  const float view_ray[3] = {camera.inv_K[0] * col + camera.inv_K[1],
+                             camera.inv_K[2] * row + camera.inv_K[3],
                              1.0f};
   if (DotProduct3(normal, view_ray) > 0) {
     normal[0] = -normal[0];
@@ -103,7 +127,8 @@ __device__ inline float PerturbDepth(const float perturbation,
   return GenerateRandomDepth(depth_min, depth_max, rand_state);
 }
 
-__device__ inline void PerturbNormal(const int row,
+__device__ inline void PerturbNormal(const RefCamera& camera,
+                                     const int row,
                                      const int col,
                                      const float perturbation,
                                      const float normal[3],
@@ -139,13 +164,14 @@ __device__ inline void PerturbNormal(const int row,
 
   // Make sure the perturbed normal is still looking in the same direction as
   // the viewing direction, otherwise try again but with smaller perturbation.
-  const float view_ray[3] = {ref_inv_K[0] * col + ref_inv_K[1],
-                             ref_inv_K[2] * row + ref_inv_K[3],
+  const float view_ray[3] = {camera.inv_K[0] * col + camera.inv_K[1],
+                             camera.inv_K[2] * row + camera.inv_K[3],
                              1.0f};
   if (DotProduct3(perturbed_normal, view_ray) >= 0.0f) {
     const int kMaxNumTrials = 3;
     if (num_trials < kMaxNumTrials) {
-      PerturbNormal(row,
+      PerturbNormal(camera,
+                    row,
                     col,
                     0.5f * perturbation,
                     normal,
@@ -168,44 +194,14 @@ __device__ inline void PerturbNormal(const int row,
   perturbed_normal[2] *= inv_norm;
 }
 
-__device__ inline void ComputePointAtDepth(const float row,
+__device__ inline void ComputePointAtDepth(const RefCamera& camera,
+                                           const float row,
                                            const float col,
                                            const float depth,
                                            float point[3]) {
-  point[0] = depth * (ref_inv_K[0] * col + ref_inv_K[1]);
-  point[1] = depth * (ref_inv_K[2] * row + ref_inv_K[3]);
+  point[0] = depth * (camera.inv_K[0] * col + camera.inv_K[1]);
+  point[1] = depth * (camera.inv_K[2] * row + camera.inv_K[3]);
   point[2] = depth;
-}
-
-// Transfer depth on plane from viewing ray at row1 to row2. The returned
-// depth is the intersection of the viewing ray through row2 with the plane
-// at row1 defined by the given depth and normal.
-__device__ inline float PropagateDepth(const float depth1,
-                                       const float normal1[3],
-                                       const float row1,
-                                       const float row2) {
-  // Point along first viewing ray.
-  const float x1 = depth1 * (ref_inv_K[2] * row1 + ref_inv_K[3]);
-  const float y1 = depth1;
-  // Point on plane defined by point along first viewing ray and plane normal1.
-  const float x2 = x1 + normal1[2];
-  const float y2 = y1 - normal1[1];
-
-  // Origin of second viewing ray.
-  // const float x3 = 0.0f;
-  // const float y3 = 0.0f;
-  // Point on second viewing ray.
-  const float x4 = ref_inv_K[2] * row2 + ref_inv_K[3];
-  // const float y4 = 1.0f;
-
-  // Intersection of the lines ((x1, y1), (x2, y2)) and ((x3, y3), (x4, y4)).
-  const float denom = x2 - x1 + x4 * (y1 - y2);
-  constexpr float kEps = 1e-5f;
-  if (abs(denom) < kEps) {
-    return depth1;
-  }
-  const float nom = y1 * x2 - x1 * y2;
-  return nom / denom;
 }
 
 // First, compute triangulation angle between reference and source image for 3D
@@ -242,6 +238,7 @@ __device__ inline void ComputeViewingAngles(
 }
 
 __device__ inline void ComposeHomography(
+    const RefCamera& camera,
     const cudaTextureObject_t poses_texture,
     const int image_idx,
     const int row,
@@ -269,8 +266,9 @@ __device__ inline void ComposeHomography(
 
   // Distance to the plane.
   const float dist =
-      depth * (normal[0] * (ref_inv_K[0] * col + ref_inv_K[1]) +
-               normal[1] * (ref_inv_K[2] * row + ref_inv_K[3]) + normal[2]);
+      depth *
+      (normal[0] * (camera.inv_K[0] * col + camera.inv_K[1]) +
+       normal[1] * (camera.inv_K[2] * row + camera.inv_K[3]) + normal[2]);
   const float inv_dist = 1.0f / dist;
 
   const float inv_dist_N0 = inv_dist * normal[0];
@@ -278,48 +276,49 @@ __device__ inline void ComposeHomography(
   const float inv_dist_N2 = inv_dist * normal[2];
 
   // Homography as H = K * (R - T * n' / d) * Kref^-1.
-  H[0] = ref_inv_K[0] * (K[0] * (R[0] + inv_dist_N0 * T[0]) +
-                         K[1] * (R[6] + inv_dist_N0 * T[2]));
-  H[1] = ref_inv_K[2] * (K[0] * (R[1] + inv_dist_N1 * T[0]) +
-                         K[1] * (R[7] + inv_dist_N1 * T[2]));
+  H[0] = camera.inv_K[0] * (K[0] * (R[0] + inv_dist_N0 * T[0]) +
+                            K[1] * (R[6] + inv_dist_N0 * T[2]));
+  H[1] = camera.inv_K[2] * (K[0] * (R[1] + inv_dist_N1 * T[0]) +
+                            K[1] * (R[7] + inv_dist_N1 * T[2]));
   H[2] = K[0] * (R[2] + inv_dist_N2 * T[0]) +
          K[1] * (R[8] + inv_dist_N2 * T[2]) +
-         ref_inv_K[1] * (K[0] * (R[0] + inv_dist_N0 * T[0]) +
-                         K[1] * (R[6] + inv_dist_N0 * T[2])) +
-         ref_inv_K[3] * (K[0] * (R[1] + inv_dist_N1 * T[0]) +
-                         K[1] * (R[7] + inv_dist_N1 * T[2]));
-  H[3] = ref_inv_K[0] * (K[2] * (R[3] + inv_dist_N0 * T[1]) +
-                         K[3] * (R[6] + inv_dist_N0 * T[2]));
-  H[4] = ref_inv_K[2] * (K[2] * (R[4] + inv_dist_N1 * T[1]) +
-                         K[3] * (R[7] + inv_dist_N1 * T[2]));
+         camera.inv_K[1] * (K[0] * (R[0] + inv_dist_N0 * T[0]) +
+                            K[1] * (R[6] + inv_dist_N0 * T[2])) +
+         camera.inv_K[3] * (K[0] * (R[1] + inv_dist_N1 * T[0]) +
+                            K[1] * (R[7] + inv_dist_N1 * T[2]));
+  H[3] = camera.inv_K[0] * (K[2] * (R[3] + inv_dist_N0 * T[1]) +
+                            K[3] * (R[6] + inv_dist_N0 * T[2]));
+  H[4] = camera.inv_K[2] * (K[2] * (R[4] + inv_dist_N1 * T[1]) +
+                            K[3] * (R[7] + inv_dist_N1 * T[2]));
   H[5] = K[2] * (R[5] + inv_dist_N2 * T[1]) +
          K[3] * (R[8] + inv_dist_N2 * T[2]) +
-         ref_inv_K[1] * (K[2] * (R[3] + inv_dist_N0 * T[1]) +
-                         K[3] * (R[6] + inv_dist_N0 * T[2])) +
-         ref_inv_K[3] * (K[2] * (R[4] + inv_dist_N1 * T[1]) +
-                         K[3] * (R[7] + inv_dist_N1 * T[2]));
-  H[6] = ref_inv_K[0] * (R[6] + inv_dist_N0 * T[2]);
-  H[7] = ref_inv_K[2] * (R[7] + inv_dist_N1 * T[2]);
-  H[8] = R[8] + ref_inv_K[1] * (R[6] + inv_dist_N0 * T[2]) +
-         ref_inv_K[3] * (R[7] + inv_dist_N1 * T[2]) + inv_dist_N2 * T[2];
+         camera.inv_K[1] * (K[2] * (R[3] + inv_dist_N0 * T[1]) +
+                            K[3] * (R[6] + inv_dist_N0 * T[2])) +
+         camera.inv_K[3] * (K[2] * (R[4] + inv_dist_N1 * T[1]) +
+                            K[3] * (R[7] + inv_dist_N1 * T[2]));
+  H[6] = camera.inv_K[0] * (R[6] + inv_dist_N0 * T[2]);
+  H[7] = camera.inv_K[2] * (R[7] + inv_dist_N1 * T[2]);
+  H[8] = R[8] + camera.inv_K[1] * (R[6] + inv_dist_N0 * T[2]) +
+         camera.inv_K[3] * (R[7] + inv_dist_N1 * T[2]) + inv_dist_N2 * T[2];
 }
 
 // Each thread in the current warp / thread block reads in 3 columns of the
-// reference image. The shared memory holds 3 * THREADS_PER_BLOCK columns and
+// reference image. The shared memory holds 3 * kBlockWidth columns and
 // kWindowSize rows of the reference image. Each thread copies every
-// THREADS_PER_BLOCK-th column from global to shared memory offset by its ID.
-// For example, if THREADS_PER_BLOCK = 32, then thread 0 reads columns 0, 32, 64
+// kBlockWidth-th column from global to shared memory offset by its ID.
+// For example, if kBlockWidth = 32, then thread 0 reads columns 0, 32, 64
 // and thread 1 columns 1, 33, 65. When computing the photoconsistency, which is
 // shared among each thread block, each thread can then read the reference image
 // colors from shared memory. Note that this limits the window radius to a
-// maximum of THREADS_PER_BLOCK.
-template <int kWindowSize>
+// maximum of kBlockWidth.
+template <int kWindowSize, int kBlockWidth = THREADS_PER_BLOCK>
 struct LocalRefImage {
   const static int kWindowRadius = kWindowSize / 2;
+  static_assert(kWindowRadius <= kBlockWidth);
   const static int kThreadBlockRadius = 1;
   const static int kThreadBlockSize = 2 * kThreadBlockRadius + 1;
   const static int kNumRows = kWindowSize;
-  const static int kNumColumns = kThreadBlockSize * THREADS_PER_BLOCK;
+  const static int kNumColumns = kThreadBlockSize * kBlockWidth;
   const static int kDataSize = kNumRows * kNumColumns;
 
   __device__ explicit LocalRefImage(const cudaTextureObject_t ref_image_texture)
@@ -327,7 +326,7 @@ struct LocalRefImage {
 
   float* data = nullptr;
 
-  __device__ inline void Read(const int row) {
+  __device__ inline void Read(const int row, const bool stripe_start = false) {
     // For the first row, read the entire block into shared memory. For all
     // consecutive rows, it is only necessary to shift the rows in shared memory
     // up by one element and then read in a new row at the bottom of the shared
@@ -338,11 +337,10 @@ struct LocalRefImage {
     const int thread_block_first_id = blockDim.x * blockIdx.x;
 
     const int local_col_start = thread_id;
-    const int global_col_start = thread_block_first_id -
-                                 kThreadBlockRadius * THREADS_PER_BLOCK +
-                                 thread_id;
+    const int global_col_start =
+        thread_block_first_id - kThreadBlockRadius * kBlockWidth + thread_id;
 
-    if (row == 0) {
+    if (row == 0 || stripe_start) {
       int global_row = row - kWindowRadius;
       for (int local_row = 0; local_row < kNumRows; ++local_row, ++global_row) {
         int local_col = local_col_start;
@@ -351,8 +349,8 @@ struct LocalRefImage {
         for (int block = 0; block < kThreadBlockSize; ++block) {
           data[local_row * kNumColumns + local_col] =
               tex2D<float>(ref_image_texture_, global_col, global_row);
-          local_col += THREADS_PER_BLOCK;
-          global_col += THREADS_PER_BLOCK;
+          local_col += kBlockWidth;
+          global_col += kBlockWidth;
         }
       }
     } else {
@@ -363,7 +361,7 @@ struct LocalRefImage {
         for (int block = 0; block < kThreadBlockSize; ++block) {
           data[(local_row - 1) * kNumColumns + local_col] =
               data[local_row * kNumColumns + local_col];
-          local_col += THREADS_PER_BLOCK;
+          local_col += kBlockWidth;
         }
       }
 
@@ -376,8 +374,8 @@ struct LocalRefImage {
       for (int block = 0; block < kThreadBlockSize; ++block) {
         data[local_row * kNumColumns + local_col] =
             tex2D<float>(ref_image_texture_, global_col, global_row);
-        local_col += THREADS_PER_BLOCK;
-        global_col += THREADS_PER_BLOCK;
+        local_col += kBlockWidth;
+        global_col += kBlockWidth;
       }
     }
   }
@@ -417,17 +415,27 @@ __device__ inline float SampleLayeredBilinear(const cudaTextureObject_t texture,
 
 // The return values is 1 - NCC, so the range is [0, 2], the smaller the
 // value, the better the color consistency.
-template <int kWindowSize, int kWindowStep>
+template <int kWindowSize, int kWindowStep, int kBlockWidth = THREADS_PER_BLOCK>
 struct PhotoConsistencyCostComputer {
   const static int kWindowRadius = kWindowSize / 2;
+  static constexpr int kNumTapsPerAxis = (kWindowSize - 1) / kWindowStep + 1;
+  static constexpr int kNumTaps = kNumTapsPerAxis * kNumTapsPerAxis;
+  // Restrict cached weights to the retained default specialization. Other
+  // windows preserve native inline FP32 evaluation rather than widen caching.
+  static constexpr bool kCacheWeights = kWindowSize == 11 && kWindowStep == 1;
+  static constexpr int kWeightCacheSize =
+      kCacheWeights ? kNumTaps * kBlockWidth : 1;
+  float* local_weights = nullptr;
 
   __device__ PhotoConsistencyCostComputer(
+      const RefCamera& camera,
       const cudaTextureObject_t ref_image_texture,
       const cudaTextureObject_t src_images_texture,
       const cudaTextureObject_t poses_texture,
       const float sigma_spatial,
       const float sigma_color)
       : local_ref_image(ref_image_texture),
+        camera_(camera),
         src_images_texture_(src_images_texture),
         poses_texture_(poses_texture),
         bilateral_weight_computer_(sigma_spatial, sigma_color) {}
@@ -436,7 +444,7 @@ struct PhotoConsistencyCostComputer {
   const float kMaxCost = 2.0f;
 
   // Thread warp local reference image data around current patch.
-  typedef LocalRefImage<kWindowSize> LocalRefImageType;
+  typedef LocalRefImage<kWindowSize, kBlockWidth> LocalRefImageType;
   LocalRefImageType local_ref_image;
 
   // Precomputed sum of raw and squared image intensities.
@@ -454,15 +462,48 @@ struct PhotoConsistencyCostComputer {
   float depth = 0.0f;
   const float* normal = nullptr;
 
-  __device__ inline void Read(const int row) {
-    local_ref_image.Read(row);
+  __device__ inline void ReadRef(const int row,
+                                 const bool stripe_start = false) {
+    local_ref_image.Read(row, stripe_start);
+  }
+
+  __device__ inline void ReadWeights(const int first_row = 0,
+                                     const int row_stride = 1) {
+    if constexpr (kCacheWeights) {
+      const int thread_id = threadIdx.x;
+      int ref_image_idx = kBlockWidth - kWindowRadius + thread_id;
+      const float ref_center_color =
+          local_ref_image.data[ref_image_idx + kWindowRadius * 3 * kBlockWidth +
+                               kWindowRadius];
+      ref_image_idx += first_row * kWindowStep * 3 * kBlockWidth;
+      int tap = first_row * kNumTapsPerAxis;
+      for (int dy = -kWindowRadius + first_row * kWindowStep;
+           dy <= kWindowRadius;
+           dy += row_stride * kWindowStep) {
+        int idx = ref_image_idx;
+        for (int dx = -kWindowRadius; dx <= kWindowRadius; dx += kWindowStep) {
+          local_weights[tap * kBlockWidth + thread_id] =
+              bilateral_weight_computer_.Compute(
+                  dy, dx, ref_center_color, local_ref_image.data[idx]);
+          ++tap;
+          idx += kWindowStep;
+        }
+        tap += (row_stride - 1) * kNumTapsPerAxis;
+        ref_image_idx += row_stride * kWindowStep * 3 * kBlockWidth;
+      }
+    }
+  }
+
+  __device__ inline void Read(const int row, const bool stripe_start = false) {
+    ReadRef(row, stripe_start);
     __syncthreads();
+    ReadWeights();
   }
 
   __device__ inline float Compute() const {
     float tform[9];
     ComposeHomography(
-        poses_texture_, src_image_idx, row, col, depth, normal, tform);
+        camera_, poses_texture_, src_image_idx, row, col, depth, normal, tform);
 
     float tform_step[8];
     for (int i = 0; i < 8; ++i) {
@@ -480,19 +521,19 @@ struct PhotoConsistencyCostComputer {
     float base_row_src = row_src;
     float base_z = z;
 
-    int ref_image_idx = THREADS_PER_BLOCK - kWindowRadius + thread_id;
+    int ref_image_idx = kBlockWidth - kWindowRadius + thread_id;
     int ref_image_base_idx = ref_image_idx;
 
     const float ref_center_color =
-        local_ref_image
-            .data[ref_image_idx + kWindowRadius * 3 * THREADS_PER_BLOCK +
-                  kWindowRadius];
+        local_ref_image.data[ref_image_idx + kWindowRadius * 3 * kBlockWidth +
+                             kWindowRadius];
     const float ref_color_sum = local_ref_sum;
     const float ref_color_squared_sum = local_ref_squared_sum;
     float src_color_sum = 0.0f;
     float src_color_squared_sum = 0.0f;
     float src_ref_color_sum = 0.0f;
     float bilateral_weight_sum = 0.0f;
+    int weight_tap = 0;
 
     for (int row = -kWindowRadius; row <= kWindowRadius; row += kWindowStep) {
       for (int col = -kWindowRadius; col <= kWindowRadius; col += kWindowStep) {
@@ -508,8 +549,15 @@ struct PhotoConsistencyCostComputer {
             src_images_texture_, norm_col_src, norm_row_src, src_image_idx);
 #endif
 
-        const float bilateral_weight = bilateral_weight_computer_.Compute(
-            row, col, ref_center_color, ref_color);
+        float bilateral_weight;
+        if constexpr (kCacheWeights) {
+          bilateral_weight =
+              local_weights[weight_tap * kBlockWidth + thread_id];
+          ++weight_tap;
+        } else {
+          bilateral_weight = bilateral_weight_computer_.Compute(
+              row, col, ref_center_color, ref_color);
+        }
 
         const float bilateral_weight_src = bilateral_weight * src_color;
 
@@ -529,7 +577,7 @@ struct PhotoConsistencyCostComputer {
         z += tform_step[6];
       }
 
-      ref_image_base_idx += kWindowStep * 3 * THREADS_PER_BLOCK;
+      ref_image_base_idx += kWindowStep * 3 * kBlockWidth;
       ref_image_idx = ref_image_base_idx;
 
       base_col_src += tform_step[1];
@@ -566,12 +614,14 @@ struct PhotoConsistencyCostComputer {
   }
 
  private:
+  const RefCamera& camera_;
   const cudaTextureObject_t src_images_texture_;
   const cudaTextureObject_t poses_texture_;
   const BilateralWeightComputer bilateral_weight_computer_;
 };
 
 __device__ inline float ComputeGeomConsistencyCost(
+    const RefCamera& camera,
     const cudaTextureObject_t poses_texture,
     const cudaTextureObject_t src_depth_maps_texture,
     const float row,
@@ -591,7 +641,7 @@ __device__ inline float ComputeGeomConsistencyCost(
 
   // Project point in reference image to world.
   float forward_point[3];
-  ComputePointAtDepth(row, col, depth, forward_point);
+  ComputePointAtDepth(camera, row, col, depth, forward_point);
 
   // Project world point to source image.
   const float inv_forward_z =
@@ -627,10 +677,10 @@ __device__ inline float ComputeGeomConsistencyCost(
   // Project world point back to reference image.
   const float backward_col =
       inv_backward_point_z *
-      (ref_K[0] * backward_point_x + ref_K[1] * backward_point_z);
+      (camera.K[0] * backward_point_x + camera.K[1] * backward_point_z);
   const float backward_row =
       inv_backward_point_z *
-      (ref_K[2] * backward_point_y + ref_K[3] * backward_point_z);
+      (camera.K[2] * backward_point_y + camera.K[3] * backward_point_z);
 
   // Return truncated reprojection error between original observation and
   // the forward-backward projected observation.
@@ -651,21 +701,6 @@ __device__ inline int FindMinCost(const float costs[kNumCosts]) {
     }
   }
   return min_cost_idx;
-}
-
-__device__ inline void TransformPDFToCDF(float* probs, const int num_probs) {
-  float prob_sum = 0.0f;
-  for (int i = 0; i < num_probs; ++i) {
-    prob_sum += probs[i];
-  }
-  const float inv_prob_sum = 1.0f / prob_sum;
-
-  float cum_prob = 0.0f;
-  for (int i = 0; i < num_probs; ++i) {
-    const float prob = probs[i] * inv_prob_sum;
-    cum_prob += prob;
-    probs[i] = cum_prob;
-  }
 }
 
 class LikelihoodComputer {
@@ -700,7 +735,7 @@ class LikelihoodComputer {
                                          const float prev_weight) const {
     const float zn0 = (1.0f - alpha) * (1.0f - beta);
     const float zn1 = alpha * beta;
-    const float curr = zn1 / (zn0 + zn1);
+    const float curr = __fdiv_rn(zn1, zn0 + zn1);
     return prev_weight * prev + (1.0f - prev_weight) * curr;
   }
 
@@ -804,18 +839,40 @@ class LikelihoodComputer {
   const float ncc_norm_factor_;
 };
 
-// Generate random normals for each pixel in the normal map.
-__global__ void InitNormalMap(GpuMatView<float> normal_map,
-                              GpuMatView<curandState> rand_state_map) {
-  const int row = blockDim.y * blockIdx.y + threadIdx.y;
-  const int col = blockDim.x * blockIdx.x + threadIdx.x;
-  if (col < normal_map.GetWidth() && row < normal_map.GetHeight()) {
-    curandState rand_state = rand_state_map.Get(row, col);
-    float normal[3];
-    GenerateRandomNormal(row, col, &rand_state, normal);
-    normal_map.SetSlice(row, col, normal);
-    rand_state_map.Set(row, col, rand_state);
-  }
+// PHOTO consumes each original pixel's seed, depth and normal draws locally.
+__global__ void InitDepthNormalMaps(const RefCamera camera,
+                                    GpuMatView<float> depth_map,
+                                    GpuMatView<float> normal_map,
+                                    GpuMatView<curandState> perimeter,
+                                    PatchMatchRngPerimeter layout,
+                                    float depth_min,
+                                    float depth_max) {
+  const size_t row = blockDim.y * blockIdx.y + threadIdx.y;
+  const size_t col = blockDim.x * blockIdx.x + threadIdx.x;
+  if (row >= layout.height || col >= layout.width) return;
+  curandState state;
+  curand_init(internal::GpuMatPRNGSeed(row, col, layout.width), 0, 0, &state);
+  depth_map.Set(row, col, GenerateRandomDepth(depth_min, depth_max, &state));
+  float normal[3];
+  GenerateRandomNormal(
+      camera, static_cast<int>(row), static_cast<int>(col), &state, normal);
+  normal_map.SetSlice(row, col, normal);
+  if (row == 0 || col == 0 || row + 1 == layout.height ||
+      col + 1 == layout.width)
+    perimeter.Set(0, layout.Index(row, col), state);
+}
+
+// GEO copies supplied maps and retains freshly seeded states without draws.
+__global__ void InitPerimeter(GpuMatView<curandState> perimeter,
+                              PatchMatchRngPerimeter layout) {
+  const size_t index = blockIdx.x * blockDim.x + threadIdx.x;
+  if (index >= layout.Count()) return;
+  size_t row, col;
+  layout.Coordinates(index, &row, &col);
+  curand_init(internal::GpuMatPRNGSeed(row, col, layout.width),
+              0,
+              0,
+              &perimeter.GetRef(0, index));
 }
 
 // Rotate normals by 90deg around z-axis in counter-clockwise direction.
@@ -833,8 +890,11 @@ __global__ void RotateNormalMap(GpuMatView<float> normal_map) {
   }
 }
 
+constexpr int kInitialCostStripeRows = 64;
+
 template <int kWindowSize, int kWindowStep>
 __global__ void ComputeInitialCost(
+    const RefCamera camera,
     GpuMatView<float> cost_map,
     const GpuMatView<float> depth_map,
     const GpuMatView<float> normal_map,
@@ -849,7 +909,8 @@ __global__ void ComputeInitialCost(
 
   typedef PhotoConsistencyCostComputer<kWindowSize, kWindowStep>
       PhotoConsistencyCostComputerType;
-  PhotoConsistencyCostComputerType pcc_computer(ref_image_texture,
+  PhotoConsistencyCostComputerType pcc_computer(camera,
+                                                ref_image_texture,
                                                 src_images_texture,
                                                 poses_texture,
                                                 sigma_spatial,
@@ -859,14 +920,22 @@ __global__ void ComputeInitialCost(
   __shared__ float local_ref_image_data
       [PhotoConsistencyCostComputerType::LocalRefImageType::kDataSize];
   pcc_computer.local_ref_image.data = &local_ref_image_data[0];
+  __shared__ float
+      local_weight_data[PhotoConsistencyCostComputerType::kWeightCacheSize];
+  pcc_computer.local_weights = &local_weight_data[0];
 
   float normal[3] = {0};
   pcc_computer.normal = normal;
 
-  for (int row = 0; row < cost_map.GetHeight(); ++row) {
+  const int first_row = blockIdx.y * kInitialCostStripeRows;
+  const int last_row = min(first_row + kInitialCostStripeRows,
+                           static_cast<int>(cost_map.GetHeight()));
+  for (int row = first_row; row < last_row; ++row) {
+    // Finish every column's previous-row reads before reusing the shared tile.
+    __syncthreads();
     // Note that this must be executed even for pixels outside the borders,
     // since pixels are used in the local neighborhood of the current pixel.
-    pcc_computer.Read(row);
+    pcc_computer.Read(row, row == first_row);
 
     if (col < cost_map.GetWidth()) {
       pcc_computer.depth = depth_map.Get(row, col);
@@ -903,18 +972,65 @@ struct SweepOptions {
   float filter_geom_consistency_max_cost = 1.0f;
 };
 
+constexpr int kCooperativeSampleBatchSize = 4;
+constexpr int kCooperativeSampleWindowSize = 16;
+
+template <bool kCooperative,
+          int kBlockWidth = THREADS_PER_BLOCK,
+          int kSampleWindowSize = 1>
+struct CooperativeNccJob {};
+
+template <int kBlockWidth, int kSampleWindowSize>
+struct CooperativeNccJob<true, kBlockWidth, kSampleWindowSize> {
+  float depths[4][kBlockWidth];
+  float normals[4][3][kBlockWidth];
+  float results[kSampleWindowSize][4][kBlockWidth];
+  float ref_sum[kBlockWidth];
+  float ref_squared_sum[kBlockWidth];
+  int source[kSampleWindowSize][kBlockWidth];
+  float best_depth[kBlockWidth];
+  float best_normal[3][kBlockWidth];
+  int best_idx[kBlockWidth];
+};
+
+#ifdef COLMAP_PATCH_MATCH_TESTING
+// Views are passed only in test builds; kTrace=false eliminates all writes.
+struct SweepTrace {
+  GpuMatView<int> draws;
+  GpuMatView<int> winners;
+  GpuMatView<int> support;
+  GpuMatView<float> hypotheses;
+  GpuMatView<float> costs;
+  GpuMatView<float> forward;
+};
+#define SWEEP_TRACE_ARGUMENT \
+  , SweepTrace {}
+#else
+#define SWEEP_TRACE_ARGUMENT
+#endif
+
 template <int kWindowSize,
           int kWindowStep,
           bool kGeomConsistencyTerm = false,
           bool kFilterPhotoConsistency = false,
-          bool kFilterGeomConsistency = false>
+          bool kFilterGeomConsistency = false,
+          bool kCooperative = false,
+          int kBlockWidth = THREADS_PER_BLOCK
+#ifdef COLMAP_PATCH_MATCH_TESTING
+          ,
+          bool kTrace = false
+#endif
+          >
 __global__ void SweepFromTopToBottom(
+    const RefCamera camera,
     GpuMatView<float> global_workspace,
     GpuMatView<curandState> rand_state_map,
+    const PatchMatchRngPerimeter rand_state_layout,
+    const unsigned int rand_state_rotation,
     GpuMatView<float> cost_map,
     GpuMatView<float> depth_map,
     GpuMatView<float> normal_map,
-    GpuMatView<uint8_t> consistency_mask,
+    PackedConsistencyMaskView consistency_mask,
     GpuMatView<float> sel_prob_map,
     const GpuMatView<float> prev_sel_prob_map,
     const cudaTextureObject_t ref_image_texture,
@@ -923,8 +1039,25 @@ __global__ void SweepFromTopToBottom(
     const cudaTextureObject_t src_images_texture,
     const cudaTextureObject_t src_depth_maps_texture,
     const cudaTextureObject_t poses_texture,
-    const SweepOptions options) {
+    const SweepOptions options
+#ifdef COLMAP_PATCH_MATCH_TESTING
+    ,
+    SweepTrace trace
+#endif
+) {
   const int col = blockDim.x * blockIdx.x + threadIdx.x;
+  const bool owner = !kCooperative || threadIdx.y == 0;
+  constexpr int kSampleBatchSize =
+      kCooperative && kBlockWidth == 8 ? kCooperativeSampleBatchSize : 1;
+  constexpr int kSampleWindowSize =
+      kCooperative && kBlockWidth == 8 ? kCooperativeSampleWindowSize : 1;
+  __shared__ CooperativeNccJob<kCooperative, kBlockWidth, kSampleWindowSize>
+      cooperative_job;
+  __shared__ int cooperative_sample_alias[kSampleWindowSize][kBlockWidth];
+  __shared__ float
+      cooperative_geometric_costs[kSampleWindowSize]
+                                 [kCooperative && kGeomConsistencyTerm ? 3 : 1]
+                                 [kBlockWidth];
 
   // Probability for boundary pixels.
   constexpr float kUniformProb = 0.5f;
@@ -933,12 +1066,16 @@ __global__ void SweepFromTopToBottom(
                                          options.min_triangulation_angle,
                                          options.incident_angle_sigma);
 
-  float* forward_message =
-      &global_workspace.GetPtr()[col * global_workspace.GetHeight()];
-  float* sampling_probs =
-      &global_workspace.GetPtr()[global_workspace.GetWidth() *
-                                     global_workspace.GetHeight() +
-                                 col * global_workspace.GetHeight()];
+  // The two logical M*S regions are packed; allocation pitch is not stride.
+  const int source_stride = global_workspace.GetWidth();
+  float* forward_message = nullptr;
+  float* sampling_probs = nullptr;
+  if (col < cost_map.GetWidth()) {
+    forward_message = &global_workspace.GetPtr()[col];
+    sampling_probs =
+        &global_workspace
+             .GetPtr()[source_stride * global_workspace.GetHeight() + col];
+  }
 
   //////////////////////////////////////////////////////////////////////////////
   // Compute backward message for all rows. Note that the backward messages are
@@ -947,7 +1084,11 @@ __global__ void SweepFromTopToBottom(
   //////////////////////////////////////////////////////////////////////////////
 
   if (col < cost_map.GetWidth()) {
-    for (int image_idx = 0; image_idx < cost_map.GetDepth(); ++image_idx) {
+    const int first_source = kCooperative ? threadIdx.y : 0;
+    const int source_step = kCooperative ? blockDim.y : 1;
+    for (int image_idx = first_source; image_idx < cost_map.GetDepth();
+         image_idx += source_step) {
+      // Source chains are independent; preserve each ordered row recurrence.
       // Compute backward message.
       float beta = kUniformProb;
       for (int row = cost_map.GetHeight() - 1; row >= 0; --row) {
@@ -957,7 +1098,7 @@ __global__ void SweepFromTopToBottom(
       }
 
       // Initialize forward message.
-      forward_message[image_idx] = kUniformProb;
+      forward_message[image_idx * source_stride] = kUniformProb;
     }
   }
 
@@ -965,9 +1106,10 @@ __global__ void SweepFromTopToBottom(
   // Estimate parameters for remaining rows and compute selection probabilities.
   //////////////////////////////////////////////////////////////////////////////
 
-  typedef PhotoConsistencyCostComputer<kWindowSize, kWindowStep>
+  typedef PhotoConsistencyCostComputer<kWindowSize, kWindowStep, kBlockWidth>
       PhotoConsistencyCostComputerType;
-  PhotoConsistencyCostComputerType pcc_computer(ref_image_texture,
+  PhotoConsistencyCostComputerType pcc_computer(camera,
+                                                ref_image_texture,
                                                 src_images_texture,
                                                 poses_texture,
                                                 options.sigma_spatial,
@@ -977,6 +1119,9 @@ __global__ void SweepFromTopToBottom(
   __shared__ float local_ref_image_data
       [PhotoConsistencyCostComputerType::LocalRefImageType::kDataSize];
   pcc_computer.local_ref_image.data = &local_ref_image_data[0];
+  __shared__ float
+      local_weight_data[PhotoConsistencyCostComputerType::kWeightCacheSize];
+  pcc_computer.local_weights = &local_weight_data[0];
 
   struct ParamState {
     float depth = 0.0f;
@@ -990,273 +1135,557 @@ __global__ void SweepFromTopToBottom(
   // Randomly sampled parameters.
   ParamState rand_param_state;
   // Cuda PRNG state for random sampling.
+#ifndef COLMAP_HIP_ENABLED
+  __shared__ float
+      source_current_cost[kCooperative && kBlockWidth == 8 ? kSampleWindowSize
+                                                           : 1]
+                         [kCooperative && kBlockWidth == 8 ? kBlockWidth : 1];
+#endif
   curandState rand_state;
 
-  if (col < cost_map.GetWidth()) {
+  if (owner && col < cost_map.GetWidth()) {
     // Read random state for current column.
-    rand_state = rand_state_map.Get(0, col);
+    rand_state = rand_state_map.Get(
+        0, rand_state_layout.SweepIndex(rand_state_rotation, col));
     // Parameters for first row in column.
     prev_param_state.depth = depth_map.Get(0, col);
     normal_map.GetSlice(0, col, prev_param_state.normal);
   }
 
   for (int row = 0; row < cost_map.GetHeight(); ++row) {
+    if constexpr (!kCooperative) {
+      // The scalar refresh has no end-of-row barrier before tile reuse.
+      __syncthreads();
+    }
     // Note that this must be executed even for pixels outside the borders,
     // since pixels are used in the local neighborhood of the current pixel.
-    pcc_computer.Read(row);
-
-    if (col >= cost_map.GetWidth()) {
-      continue;
+    if constexpr (kCooperative) {
+      // The owner loads the reference tile; groups fill independent weight
+      // rows. The first barrier publishes the tile, the second its weights.
+      if (owner) pcc_computer.ReadRef(row);
+      __syncthreads();
+      if constexpr (kBlockWidth == 8 &&
+                    PhotoConsistencyCostComputerType::kCacheWeights) {
+        pcc_computer.ReadWeights(threadIdx.y, 4 * kSampleBatchSize);
+      } else {
+        if (owner) pcc_computer.ReadWeights();
+      }
+      __syncthreads();
+    } else {
+      pcc_computer.Read(row);
+      if (col >= cost_map.GetWidth()) continue;
     }
-
-    pcc_computer.row = row;
-    pcc_computer.local_ref_sum = ref_sum_image.Get(row, col);
-    pcc_computer.local_ref_squared_sum = ref_squared_sum_image.Get(row, col);
-
-    // Propagate the depth at which the current ray intersects with the plane
-    // of the normal of the previous ray. This helps to better estimate
-    // the depth of very oblique structures, i.e. pixels whose normal direction
-    // is significantly different from their viewing direction.
-    prev_param_state.depth = PropagateDepth(
-        prev_param_state.depth, prev_param_state.normal, row - 1, row);
-
-    // Read parameters for current pixel from previous sweep.
-    curr_param_state.depth = depth_map.Get(row, col);
-    normal_map.GetSlice(row, col, curr_param_state.normal);
-
-    // Generate random parameters.
-    rand_param_state.depth =
-        PerturbDepth(options.perturbation, curr_param_state.depth, &rand_state);
-    PerturbNormal(row,
-                  col,
-                  options.perturbation * M_PI,
-                  curr_param_state.normal,
-                  &rand_state,
-                  rand_param_state.normal);
-
-    // Read in the backward message, compute selection probabilities and
-    // modulate selection probabilities with priors.
-
-    float point[3];
-    ComputePointAtDepth(row, col, curr_param_state.depth, point);
-
-    for (int image_idx = 0; image_idx < cost_map.GetDepth(); ++image_idx) {
-      const float cost = cost_map.Get(row, col, image_idx);
-      const float alpha = likelihood_computer.ComputeForwardMessage(
-          cost, forward_message[image_idx]);
-      const float beta = sel_prob_map.Get(row, col, image_idx);
-      const float prev_prob = prev_sel_prob_map.Get(row, col, image_idx);
-      const float sel_prob = likelihood_computer.ComputeSelProb(
-          alpha, beta, prev_prob, options.prev_sel_prob_weight);
-
-      float cos_triangulation_angle;
-      float cos_incident_angle;
-      ComputeViewingAngles(poses_texture,
-                           point,
-                           curr_param_state.normal,
-                           image_idx,
-                           &cos_triangulation_angle,
-                           &cos_incident_angle);
-      const float tri_prob =
-          likelihood_computer.ComputeTriProb(cos_triangulation_angle);
-      const float inc_prob =
-          likelihood_computer.ComputeIncProb(cos_incident_angle);
-
-      float H[9];
-      ComposeHomography(poses_texture,
-                        image_idx,
-                        row,
-                        col,
-                        curr_param_state.depth,
-                        curr_param_state.normal,
-                        H);
-      const float res_prob =
-          likelihood_computer.ComputeResolutionProb<kWindowSize>(H, row, col);
-
-      sampling_probs[image_idx] = sel_prob * tri_prob * inc_prob * res_prob;
-    }
-
-    TransformPDFToCDF(sampling_probs, cost_map.GetDepth());
-
-    // Compute matching cost using Monte Carlo sampling of source images. Images
-    // with higher selection probability are more likely to be sampled. Hence,
-    // if only very few source images see the reference image pixel, the same
-    // source image is likely to be sampled many times. Instead of taking
-    // the best K probabilities, this sampling scheme has the advantage of
-    // being adaptive to any distribution of selection probabilities.
 
     constexpr int kNumCosts = 5;
     float costs[kNumCosts] = {0};
-    const float depths[kNumCosts] = {curr_param_state.depth,
+    float depths[kNumCosts] = {0};
+    const float* normals[kNumCosts] = {nullptr};
+    bool empty_sampling_support = false;
+    if (owner && col < cost_map.GetWidth()) {
+      pcc_computer.row = row;
+      pcc_computer.local_ref_sum = ref_sum_image.Get(row, col);
+      pcc_computer.local_ref_squared_sum = ref_squared_sum_image.Get(row, col);
+
+      // Propagate the depth at which the current ray intersects with the plane
+      // of the normal of the previous ray. This helps to better estimate
+      // the depth of very oblique structures, i.e. pixels whose normal
+      // direction is significantly different from their viewing direction.
+      if (row > 0) {
+        prev_param_state.depth =
+            internal::PropagateDepth(camera.inv_K,
                                      prev_param_state.depth,
-                                     rand_param_state.depth,
-                                     curr_param_state.depth,
-                                     rand_param_state.depth};
-    const float* normals[kNumCosts] = {curr_param_state.normal,
-                                       prev_param_state.normal,
-                                       rand_param_state.normal,
-                                       rand_param_state.normal,
-                                       curr_param_state.normal};
-
-    for (int sample = 0; sample < options.num_samples; ++sample) {
-      const float rand_prob = curand_uniform(&rand_state) - FLT_EPSILON;
-
-      pcc_computer.src_image_idx = -1;
-      for (int image_idx = 0; image_idx < cost_map.GetDepth(); ++image_idx) {
-        const float prob = sampling_probs[image_idx];
-        if (prob > rand_prob) {
-          pcc_computer.src_image_idx = image_idx;
-          break;
-        }
+                                     prev_param_state.normal,
+                                     row - 1,
+                                     row,
+                                     col);
       }
 
-      if (pcc_computer.src_image_idx == -1) {
-        continue;
-      }
+      // Read parameters for current pixel from previous sweep.
+      curr_param_state.depth = depth_map.Get(row, col);
+      normal_map.GetSlice(row, col, curr_param_state.normal);
 
-      costs[0] += cost_map.Get(row, col, pcc_computer.src_image_idx);
-      if (kGeomConsistencyTerm) {
-        costs[0] +=
-            options.geom_consistency_regularizer *
-            ComputeGeomConsistencyCost(poses_texture,
-                                       src_depth_maps_texture,
-                                       row,
-                                       col,
-                                       depths[0],
-                                       pcc_computer.src_image_idx,
-                                       options.geom_consistency_max_cost);
-      }
-
-      for (int i = 1; i < kNumCosts; ++i) {
-        pcc_computer.depth = depths[i];
-        pcc_computer.normal = normals[i];
-        costs[i] += pcc_computer.Compute();
-        if (kGeomConsistencyTerm) {
-          costs[i] +=
-              options.geom_consistency_regularizer *
-              ComputeGeomConsistencyCost(poses_texture,
-                                         src_depth_maps_texture,
-                                         row,
-                                         col,
-                                         depths[i],
-                                         pcc_computer.src_image_idx,
-                                         options.geom_consistency_max_cost);
-        }
-      }
+      // Generate random parameters.
+      rand_param_state.depth = PerturbDepth(
+          options.perturbation, curr_param_state.depth, &rand_state);
+      PerturbNormal(camera,
+                    row,
+                    col,
+                    options.perturbation * M_PI,
+                    curr_param_state.normal,
+                    &rand_state,
+                    rand_param_state.normal);
     }
 
-    // Find the parameters of the minimum cost.
-    const int min_cost_idx = FindMinCost<kNumCosts>(costs);
-    const float best_depth = depths[min_cost_idx];
-    const float* best_normal = normals[min_cost_idx];
-
-    // Save best new parameters.
-    depth_map.Set(row, col, best_depth);
-    normal_map.SetSlice(row, col, best_normal);
-
-    // Use the new cost to recompute the updated forward message and
-    // the selection probability.
-    pcc_computer.depth = best_depth;
-    pcc_computer.normal = best_normal;
-    for (int image_idx = 0; image_idx < cost_map.GetDepth(); ++image_idx) {
-      // Determine the cost for best depth.
-      float cost;
-      if (min_cost_idx == 0) {
-        cost = cost_map.Get(row, col, image_idx);
-      } else {
-        pcc_computer.src_image_idx = image_idx;
-        cost = pcc_computer.Compute();
-        cost_map.Set(row, col, image_idx, cost);
+    // Compute independent source probabilities before the ordered CDF update.
+    if (col < cost_map.GetWidth()) {
+      if constexpr (kCooperative) {
+        if (!owner) {
+          curr_param_state.depth = depth_map.Get(row, col);
+          normal_map.GetSlice(row, col, curr_param_state.normal);
+        }
       }
+      float point[3];
+      ComputePointAtDepth(camera, row, col, curr_param_state.depth, point);
 
-      const float alpha = likelihood_computer.ComputeForwardMessage(
-          cost, forward_message[image_idx]);
-      const float beta = sel_prob_map.Get(row, col, image_idx);
-      const float prev_prob = prev_sel_prob_map.Get(row, col, image_idx);
-      const float prob = likelihood_computer.ComputeSelProb(
-          alpha, beta, prev_prob, options.prev_sel_prob_weight);
-      forward_message[image_idx] = alpha;
-      sel_prob_map.Set(row, col, image_idx, prob);
-    }
+      const int first_source = kCooperative ? threadIdx.y : 0;
+      const int source_step = kCooperative ? blockDim.y : 1;
+      for (int image_idx = first_source; image_idx < cost_map.GetDepth();
+           image_idx += source_step) {
+        const float cost = cost_map.Get(row, col, image_idx);
+#ifndef COLMAP_HIP_ENABLED
+        if constexpr (kCooperative && kBlockWidth == 8) {
+          if (image_idx < kSampleWindowSize)
+            source_current_cost[image_idx][threadIdx.x] = cost;
+        }
+#endif
+        const float alpha = likelihood_computer.ComputeForwardMessage(
+            cost, forward_message[image_idx * source_stride]);
+        const float beta = sel_prob_map.Get(row, col, image_idx);
+        const float prev_prob = prev_sel_prob_map.Get(row, col, image_idx);
+        const float sel_prob = likelihood_computer.ComputeSelProb(
+            alpha, beta, prev_prob, options.prev_sel_prob_weight);
 
-    if (kFilterPhotoConsistency || kFilterGeomConsistency) {
-      int num_consistent = 0;
-
-      float best_point[3];
-      ComputePointAtDepth(row, col, best_depth, best_point);
-
-      const float min_ncc_prob =
-          likelihood_computer.ComputeNCCProb(1.0f - options.filter_min_ncc);
-      const float cos_min_triangulation_angle =
-          cos(options.filter_min_triangulation_angle);
-
-      for (int image_idx = 0; image_idx < cost_map.GetDepth(); ++image_idx) {
         float cos_triangulation_angle;
         float cos_incident_angle;
         ComputeViewingAngles(poses_texture,
-                             best_point,
-                             best_normal,
+                             point,
+                             curr_param_state.normal,
                              image_idx,
                              &cos_triangulation_angle,
                              &cos_incident_angle);
-        if (cos_triangulation_angle > cos_min_triangulation_angle ||
-            cos_incident_angle <= 0.0f) {
-          continue;
-        }
+        const float tri_prob =
+            likelihood_computer.ComputeTriProb(cos_triangulation_angle);
+        const float inc_prob =
+            likelihood_computer.ComputeIncProb(cos_incident_angle);
 
-        if (!kFilterGeomConsistency) {
-          if (sel_prob_map.Get(row, col, image_idx) >= min_ncc_prob) {
-            consistency_mask.Set(row, col, image_idx, 1);
-            num_consistent += 1;
-          }
-        } else if (!kFilterPhotoConsistency) {
-          if (ComputeGeomConsistencyCost(poses_texture,
-                                         src_depth_maps_texture,
-                                         row,
-                                         col,
-                                         best_depth,
-                                         image_idx,
-                                         options.geom_consistency_max_cost) <=
-              options.filter_geom_consistency_max_cost) {
-            consistency_mask.Set(row, col, image_idx, 1);
-            num_consistent += 1;
-          }
-        } else {
-          if (sel_prob_map.Get(row, col, image_idx) >= min_ncc_prob &&
-              ComputeGeomConsistencyCost(poses_texture,
-                                         src_depth_maps_texture,
-                                         row,
-                                         col,
-                                         best_depth,
-                                         image_idx,
-                                         options.geom_consistency_max_cost) <=
-                  options.filter_geom_consistency_max_cost) {
-            consistency_mask.Set(row, col, image_idx, 1);
-            num_consistent += 1;
+        float H[9];
+        ComposeHomography(camera,
+                          poses_texture,
+                          image_idx,
+                          row,
+                          col,
+                          curr_param_state.depth,
+                          curr_param_state.normal,
+                          H);
+        const float res_prob =
+            likelihood_computer.ComputeResolutionProb<kWindowSize>(H, row, col);
+
+        sampling_probs[image_idx * source_stride] =
+            sel_prob * tri_prob * inc_prob * res_prob;
+      }
+    }
+    if constexpr (kCooperative) {
+      // Finish every disjoint source probability before the ordered CDF update.
+      __syncthreads();
+    }
+    if (owner && col < cost_map.GetWidth()) {
+      empty_sampling_support = !TransformPDFToCDF(
+          sampling_probs, cost_map.GetDepth(), source_stride);
+
+      // Compute matching cost using Monte Carlo sampling of source images.
+      // Images with higher selection probability are more likely to be sampled.
+      // Hence, if only very few source images see the reference image pixel,
+      // the same source image is likely to be sampled many times. Instead of
+      // taking the best K probabilities, this sampling scheme has the advantage
+      // of being adaptive to any distribution of selection probabilities.
+
+      depths[0] = curr_param_state.depth;
+      depths[1] = prev_param_state.depth;
+      depths[2] = rand_param_state.depth;
+      depths[3] = curr_param_state.depth;
+      depths[4] = rand_param_state.depth;
+      normals[0] = curr_param_state.normal;
+      normals[1] = prev_param_state.normal;
+      normals[2] = rand_param_state.normal;
+      normals[3] = rand_param_state.normal;
+      normals[4] = curr_param_state.normal;
+      if constexpr (kCooperative) {
+        const int lane = threadIdx.x;
+        cooperative_job.ref_sum[lane] = pcc_computer.local_ref_sum;
+        cooperative_job.ref_squared_sum[lane] =
+            pcc_computer.local_ref_squared_sum;
+        for (int hypothesis = 0; hypothesis < 4; ++hypothesis) {
+          cooperative_job.depths[hypothesis][lane] = depths[hypothesis + 1];
+          for (int axis = 0; axis < 3; ++axis) {
+            cooperative_job.normals[hypothesis][axis][lane] =
+                normals[hypothesis + 1][axis];
           }
         }
       }
+    }
+    if constexpr (kCooperative) {
+      // Parameters and reference sums stay immutable through this row.
+      __syncthreads();
+      if (col < cost_map.GetWidth()) {
+        pcc_computer.row = row;
+        pcc_computer.local_ref_sum = cooperative_job.ref_sum[threadIdx.x];
+        pcc_computer.local_ref_squared_sum =
+            cooperative_job.ref_squared_sum[threadIdx.x];
+      }
+    }
 
-      if (num_consistent < options.filter_min_num_consistent) {
-        depth_map.Set(row, col, 0.0f);
-        normal_map.Set(row, col, 0, 0.0f);
-        normal_map.Set(row, col, 1, 0.0f);
-        normal_map.Set(row, col, 2, 0.0f);
-        for (int image_idx = 0; image_idx < cost_map.GetDepth(); ++image_idx) {
-          consistency_mask.Set(row, col, image_idx, 0);
+    for (int sample = 0; sample < options.num_samples;
+         sample += options.num_samples - sample < kSampleWindowSize
+                       ? options.num_samples - sample
+                       : kSampleWindowSize) {
+      const int sample_count = options.num_samples - sample < kSampleWindowSize
+                                   ? options.num_samples - sample
+                                   : kSampleWindowSize;
+      float geometric_costs[3] = {0};
+      if (owner && col < cost_map.GetWidth()) {
+        int num_unique_sources = 0;
+        uint32_t sampled_sources = 0;
+        const bool use_source_mask = cost_map.GetDepth() <= 32;
+        for (int slot = 0; slot < kSampleWindowSize; ++slot) {
+          pcc_computer.src_image_idx = -1;
+          if (slot < sample_count) {
+            // Draw only actual samples, in the original RNG order.
+            const float uniform = curand_uniform(&rand_state);
+            pcc_computer.src_image_idx = SampleSource(
+                sampling_probs, cost_map.GetDepth(), source_stride, uniform);
+#ifdef COLMAP_PATCH_MATCH_TESTING
+            if constexpr (kTrace) {
+              trace.draws.Set(
+                  row, col, sample + slot, pcc_computer.src_image_idx);
+            }
+#endif
+          }
+          if constexpr (kCooperative) {
+            if constexpr (kSampleWindowSize > 1) {
+              cooperative_sample_alias[slot][threadIdx.x] =
+                  internal::AppendSampledSource(pcc_computer.src_image_idx,
+                                                use_source_mask,
+                                                sampled_sources,
+                                                num_unique_sources,
+                                                cooperative_job.source,
+                                                threadIdx.x);
+            } else {
+              cooperative_job.source[slot][threadIdx.x] =
+                  pcc_computer.src_image_idx;
+            }
+          } else if (pcc_computer.src_image_idx >= 0) {
+            if constexpr (kGeomConsistencyTerm) {
+              for (int i = 0; i < 3; ++i) {
+                geometric_costs[i] = ComputeGeomConsistencyCost(
+                    camera,
+                    poses_texture,
+                    src_depth_maps_texture,
+                    row,
+                    col,
+                    depths[i],
+                    pcc_computer.src_image_idx,
+                    options.geom_consistency_max_cost);
+              }
+            }
+            costs[0] += cost_map.Get(row, col, pcc_computer.src_image_idx);
+            if constexpr (kGeomConsistencyTerm) {
+              costs[0] +=
+                  options.geom_consistency_regularizer * geometric_costs[0];
+            }
+          }
+        }
+        if constexpr (kCooperative && kSampleWindowSize > 1) {
+          internal::PackSampledSources<kSampleWindowSize>(
+              use_source_mask,
+              sampled_sources,
+              num_unique_sources,
+              sample_count,
+              cooperative_job.source,
+              cooperative_sample_alias,
+              threadIdx.x);
+        }
+      }
+
+      if constexpr (kCooperative) {
+        if (owner && col >= cost_map.GetWidth()) {
+          for (int slot = 0; slot < kSampleWindowSize; ++slot) {
+            cooperative_job.source[slot][threadIdx.x] = -1;
+            if constexpr (kSampleWindowSize > 1) {
+              cooperative_sample_alias[slot][threadIdx.x] = -1;
+            }
+          }
+        }
+        // Invalid columns and padded final-window samples reach both barriers.
+        __syncthreads();
+        const int hypothesis = threadIdx.y % 4;
+        // Worker waves evaluate dense unique jobs into disjoint result slots.
+        const int worker_limit = kSampleWindowSize == 1 ? 1 : sample_count;
+        for (int slot = threadIdx.y / 4; slot < worker_limit;
+             slot += kSampleBatchSize) {
+          const int source = cooperative_job.source[slot][threadIdx.x];
+          if (col < cost_map.GetWidth() && source >= 0) {
+            if constexpr (kGeomConsistencyTerm) {
+              if (hypothesis < 3) {
+                const int depth_hypothesis =
+                    hypothesis == 0 ? 2 : hypothesis - 1;
+                cooperative_geometric_costs[slot][hypothesis][threadIdx.x] =
+                    ComputeGeomConsistencyCost(
+                        camera,
+                        poses_texture,
+                        src_depth_maps_texture,
+                        row,
+                        col,
+                        cooperative_job.depths[depth_hypothesis][threadIdx.x],
+                        source,
+                        options.geom_consistency_max_cost);
+              }
+            }
+            float hypothesis_normal[3];
+            for (int axis = 0; axis < 3; ++axis) {
+              hypothesis_normal[axis] =
+                  cooperative_job.normals[hypothesis][axis][threadIdx.x];
+            }
+            pcc_computer.src_image_idx = source;
+            pcc_computer.depth =
+                cooperative_job.depths[hypothesis][threadIdx.x];
+            pcc_computer.normal = hypothesis_normal;
+            cooperative_job.results[slot][hypothesis][threadIdx.x] =
+                pcc_computer.Compute();
+          }
+        }
+        __syncthreads();
+        if (owner && col < cost_map.GetWidth()) {
+          for (int slot = 0; slot < sample_count; ++slot) {
+            int result_slot = slot;
+            if constexpr (kSampleWindowSize > 1) {
+              result_slot = cooperative_sample_alias[slot][threadIdx.x];
+              if (result_slot < 0) continue;
+            }
+            const int source = cooperative_job.source[result_slot][threadIdx.x];
+            if (source < 0) continue;
+            // Reuse identical evaluations, but retain every original sample
+            // add.
+#ifndef COLMAP_HIP_ENABLED
+            if constexpr (kBlockWidth == 8) {
+              costs[0] += source < kSampleWindowSize
+                              ? source_current_cost[source][threadIdx.x]
+                              : cost_map.Get(row, col, source);
+            } else
+#endif
+            {
+              costs[0] += cost_map.Get(row, col, source);
+            }
+            if constexpr (kGeomConsistencyTerm) {
+              for (int i = 0; i < 3; ++i) {
+                geometric_costs[i] =
+                    cooperative_geometric_costs[result_slot][i][threadIdx.x];
+              }
+              costs[0] +=
+                  options.geom_consistency_regularizer * geometric_costs[0];
+            }
+            for (int i = 1; i < kNumCosts; ++i) {
+              costs[i] +=
+                  cooperative_job.results[result_slot][i - 1][threadIdx.x];
+              if (kGeomConsistencyTerm) {
+                costs[i] += options.geom_consistency_regularizer *
+                            geometric_costs[i == 3 ? 0 : (i == 4 ? 2 : i)];
+              }
+            }
+          }
+        }
+      } else {
+        if (pcc_computer.src_image_idx == -1) continue;
+        for (int i = 1; i < kNumCosts; ++i) {
+          pcc_computer.depth = depths[i];
+          pcc_computer.normal = normals[i];
+          costs[i] += pcc_computer.Compute();
+          if (kGeomConsistencyTerm) {
+            costs[i] += options.geom_consistency_regularizer *
+                        geometric_costs[i == 3 ? 0 : (i == 4 ? 2 : i)];
+          }
         }
       }
     }
 
-    // Update previous depth for next row.
-    prev_param_state.depth = best_depth;
-    for (int i = 0; i < 3; ++i) {
-      prev_param_state.normal[i] = best_normal[i];
+    int min_cost_idx = 0;
+    float best_depth = 0.0f;
+    const float* best_normal = nullptr;
+    if (owner && col < cost_map.GetWidth()) {
+      // Find the parameters of the minimum cost.
+      min_cost_idx = empty_sampling_support ? 0 : FindMinCost<kNumCosts>(costs);
+#ifdef COLMAP_PATCH_MATCH_TESTING
+      if constexpr (kTrace) {
+        trace.winners.Set(row, col, min_cost_idx);
+        trace.support.Set(row, col, !empty_sampling_support);
+        for (int i = 0; i < kNumCosts; ++i) {
+          trace.costs.Set(row, col, i, costs[i]);
+          trace.hypotheses.Set(row, col, 4 * i, depths[i]);
+          for (int axis = 0; axis < 3; ++axis) {
+            trace.hypotheses.Set(row, col, 4 * i + axis + 1, normals[i][axis]);
+          }
+        }
+      }
+#endif
+      best_depth = depths[min_cost_idx];
+      best_normal = normals[min_cost_idx];
+
+      // Save best new parameters.
+      depth_map.Set(row, col, best_depth);
+      normal_map.SetSlice(row, col, best_normal);
+
+      if constexpr (kCooperative) {
+        const int lane = threadIdx.x;
+        cooperative_job.best_depth[lane] = best_depth;
+        cooperative_job.best_idx[lane] = min_cost_idx;
+        for (int axis = 0; axis < 3; ++axis) {
+          cooperative_job.best_normal[axis][lane] = best_normal[axis];
+        }
+      }
+    }
+
+    if constexpr (kCooperative) {
+      // Publish the winner before independent source-chain updates.
+      __syncthreads();
+    }
+    if (col < cost_map.GetWidth()) {
+      int winner = min_cost_idx;
+      float winning_normal[3];
+      if constexpr (kCooperative) {
+        const int lane = threadIdx.x;
+        winner = cooperative_job.best_idx[lane];
+        for (int axis = 0; axis < 3; ++axis) {
+          winning_normal[axis] = cooperative_job.best_normal[axis][lane];
+        }
+        pcc_computer.depth = cooperative_job.best_depth[lane];
+        pcc_computer.normal = winning_normal;
+      } else {
+        pcc_computer.depth = best_depth;
+        pcc_computer.normal = best_normal;
+      }
+      float* source_forward_message = &global_workspace.GetPtr()[col];
+      const int first_source = kCooperative ? threadIdx.y : 0;
+      const int source_step = kCooperative ? blockDim.y : 1;
+      for (int image_idx = first_source; image_idx < cost_map.GetDepth();
+           image_idx += source_step) {
+        float cost;
+        if (winner == 0) {
+          cost = cost_map.Get(row, col, image_idx);
+        } else {
+          if constexpr (kCooperative) {
+            // Only the final sample window remains live through winner refresh.
+            const int cache_size = min(options.num_samples, kSampleWindowSize);
+            int slot = 0;
+            while (slot < cache_size &&
+                   cooperative_job.source[slot][threadIdx.x] != image_idx) {
+              ++slot;
+            }
+            if (slot < cache_size) {
+              cost = cooperative_job.results[slot][winner - 1][threadIdx.x];
+            } else {
+              pcc_computer.src_image_idx = image_idx;
+              cost = pcc_computer.Compute();
+            }
+          } else {
+            pcc_computer.src_image_idx = image_idx;
+            cost = pcc_computer.Compute();
+          }
+          cost_map.Set(row, col, image_idx, cost);
+        }
+
+        const float alpha = likelihood_computer.ComputeForwardMessage(
+            cost, source_forward_message[image_idx * source_stride]);
+        const float beta = sel_prob_map.Get(row, col, image_idx);
+        const float prev_prob = prev_sel_prob_map.Get(row, col, image_idx);
+        const float prob = likelihood_computer.ComputeSelProb(
+            alpha, beta, prev_prob, options.prev_sel_prob_weight);
+        source_forward_message[image_idx * source_stride] = alpha;
+        sel_prob_map.Set(row, col, image_idx, prob);
+#ifdef COLMAP_PATCH_MATCH_TESTING
+        if constexpr (kTrace) {
+          trace.forward.Set(row, col, image_idx, alpha);
+        }
+#endif
+      }
+    }
+    if constexpr (kCooperative) {
+      // Filtering reads all source probabilities; shared reads finish here.
+      __syncthreads();
+    }
+
+    if (owner && col < cost_map.GetWidth()) {
+      if (kFilterPhotoConsistency || kFilterGeomConsistency) {
+        int num_consistent = 0;
+
+        float best_point[3];
+        ComputePointAtDepth(camera, row, col, best_depth, best_point);
+
+        const float min_ncc_prob =
+            likelihood_computer.ComputeNCCProb(1.0f - options.filter_min_ncc);
+        const float cos_min_triangulation_angle =
+            cos(options.filter_min_triangulation_angle);
+
+        for (int image_idx = 0; image_idx < cost_map.GetDepth(); ++image_idx) {
+          float cos_triangulation_angle;
+          float cos_incident_angle;
+          ComputeViewingAngles(poses_texture,
+                               best_point,
+                               best_normal,
+                               image_idx,
+                               &cos_triangulation_angle,
+                               &cos_incident_angle);
+          if (cos_triangulation_angle > cos_min_triangulation_angle ||
+              cos_incident_angle <= 0.0f) {
+            continue;
+          }
+
+          if (!kFilterGeomConsistency) {
+            if (sel_prob_map.Get(row, col, image_idx) >= min_ncc_prob) {
+              consistency_mask.Set(row, col, image_idx, 1);
+              num_consistent += 1;
+            }
+          } else if (!kFilterPhotoConsistency) {
+            if (ComputeGeomConsistencyCost(camera,
+                                           poses_texture,
+                                           src_depth_maps_texture,
+                                           row,
+                                           col,
+                                           best_depth,
+                                           image_idx,
+                                           options.geom_consistency_max_cost) <=
+                options.filter_geom_consistency_max_cost) {
+              consistency_mask.Set(row, col, image_idx, 1);
+              num_consistent += 1;
+            }
+          } else {
+            if (sel_prob_map.Get(row, col, image_idx) >= min_ncc_prob &&
+                ComputeGeomConsistencyCost(camera,
+                                           poses_texture,
+                                           src_depth_maps_texture,
+                                           row,
+                                           col,
+                                           best_depth,
+                                           image_idx,
+                                           options.geom_consistency_max_cost) <=
+                    options.filter_geom_consistency_max_cost) {
+              consistency_mask.Set(row, col, image_idx, 1);
+              num_consistent += 1;
+            }
+          }
+        }
+
+        if (num_consistent < options.filter_min_num_consistent) {
+          depth_map.Set(row, col, 0.0f);
+          normal_map.Set(row, col, 0, 0.0f);
+          normal_map.Set(row, col, 1, 0.0f);
+          normal_map.Set(row, col, 2, 0.0f);
+          for (int image_idx = 0; image_idx < cost_map.GetDepth();
+               ++image_idx) {
+            consistency_mask.Set(row, col, image_idx, 0);
+          }
+        }
+      }
+
+      // Update previous depth for next row.
+      prev_param_state.depth = best_depth;
+      for (int i = 0; i < 3; ++i) {
+        prev_param_state.normal[i] = best_normal[i];
+      }
     }
   }
 
-  if (col < cost_map.GetWidth()) {
-    rand_state_map.Set(0, col, rand_state);
+  if (owner && col < cost_map.GetWidth()) {
+    rand_state_map.Set(
+        0, rand_state_layout.SweepIndex(rand_state_rotation, col), rand_state);
   }
 }
 
@@ -1275,6 +1704,10 @@ PatchMatchCuda::PatchMatchCuda(const PatchMatchOptions& options,
 }
 
 void PatchMatchCuda::Run() {
+  consistency_mask_valid_ = false;
+  THROW_CHECK_NOTNULL(prev_sel_prob_map_.get());
+  THROW_CHECK_NOTNULL(sel_prob_map_.get());
+
 #define CASE_WINDOW_RADIUS(window_radius, window_step)              \
   case window_radius:                                               \
     RunWithWindowSizeAndStep<2 * window_radius + 1, window_step>(); \
@@ -1334,20 +1767,37 @@ NormalMap PatchMatchCuda::GetNormalMap() const {
 }
 
 Mat<float> PatchMatchCuda::GetSelProbMap() const {
+  THROW_CHECK_NOTNULL(prev_sel_prob_map_.get());
   return prev_sel_prob_map_->CopyToMat();
 }
 
 std::vector<int> PatchMatchCuda::GetConsistentImageIdxs() const {
+  if (!consistency_mask_valid_) {
+    return {};
+  }
   const Mat<uint8_t> mask = consistency_mask_->CopyToMat();
+  const size_t num_sources = problem_.src_image_idxs.size();
+  const size_t num_planes = PackedConsistencyMaskDepth(num_sources);
+  THROW_CHECK_EQ(mask.GetDepth(), num_planes);
   std::vector<int> consistent_image_idxs;
   std::vector<int> pixel_consistent_image_idxs;
-  pixel_consistent_image_idxs.reserve(mask.GetDepth());
+  pixel_consistent_image_idxs.reserve(num_sources);
   for (size_t r = 0; r < mask.GetHeight(); ++r) {
     for (size_t c = 0; c < mask.GetWidth(); ++c) {
       pixel_consistent_image_idxs.clear();
-      for (size_t d = 0; d < mask.GetDepth(); ++d) {
-        if (mask.Get(r, c, d)) {
-          pixel_consistent_image_idxs.push_back(problem_.src_image_idxs[d]);
+      for (size_t plane = 0; plane < num_planes; ++plane) {
+        const uint8_t packed = mask.Get(r, c, plane);
+        if (packed == 0) {
+          continue;
+        }
+        const size_t first = plane * kConsistencyFlagsPerByte;
+        const size_t count =
+            std::min(kConsistencyFlagsPerByte, num_sources - first);
+        for (size_t bit = 0; bit < count; ++bit) {
+          if ((packed & PackedConsistencyMaskBit(bit)) != 0) {
+            pixel_consistent_image_idxs.push_back(
+                problem_.src_image_idxs[first + bit]);
+          }
         }
       }
       if (pixel_consistent_image_idxs.size() > 0) {
@@ -1372,8 +1822,13 @@ void PatchMatchCuda::RunWithWindowSizeAndStep() {
   CudaTimer init_timer;
 
   ComputeCudaConfig();
+  dim3 initial_cost_grid = sweep_grid_size_;
+  initial_cost_grid.y = (cost_map_->GetHeight() + kInitialCostStripeRows - 1) /
+                        kInitialCostStripeRows;
   ComputeInitialCost<kWindowSize, kWindowStep>
-      <<<sweep_grid_size_, sweep_block_size_>>>(
+      <<<initial_cost_grid, sweep_block_size_>>>(
+          MakeRefCamera(ref_K_host_[rotation_in_half_pi_],
+                        ref_inv_K_host_[rotation_in_half_pi_]),
           cost_map_->View(),
           depth_map_->View(),
           normal_map_->View(),
@@ -1410,11 +1865,26 @@ void PatchMatchCuda::RunWithWindowSizeAndStep() {
   sweep_options.filter_geom_consistency_max_cost =
       options_.filter_geom_consistency_max_cost;
 
+#ifdef COLMAP_HIP_ENABLED
+  constexpr bool kCooperative = false;
+#else
+  constexpr bool kCooperative = kWindowSize == 11 && kWindowStep == 1;
+#endif
+  // Only radius 5 / step 1 uses cooperative sweeping (and never on HIP).
+  // Initial-cost and element-wise kernels retain their existing launch shape.
+  constexpr int kSweepBlockWidth = kCooperative ? 8 : THREADS_PER_BLOCK;
+  constexpr int kSampleBatchSize =
+      kCooperative ? kCooperativeSampleBatchSize : 1;
+  const dim3 sweep_kernel_block_size(
+      kSweepBlockWidth, kCooperative ? 4 * kSampleBatchSize : 1, 1);
+
   for (int iter = 0; iter < options_.num_iterations; ++iter) {
     CudaTimer iter_timer;
 
     for (int sweep = 0; sweep < 4; ++sweep) {
       CudaTimer sweep_timer;
+      const dim3 sweep_kernel_grid_size(
+          (cost_map_->GetWidth() - 1) / kSweepBlockWidth + 1, 1, 1);
 
       // Expenentially reduce amount of perturbation during the optimization.
       sweep_options.perturbation = 1.0f / std::pow(2.0f, iter + sweep / 4.0f);
@@ -1425,37 +1895,43 @@ void PatchMatchCuda::RunWithWindowSizeAndStep() {
 
       const bool last_sweep = iter == options_.num_iterations - 1 && sweep == 3;
 
-#define CALL_SWEEP_FUNC                                   \
-  SweepFromTopToBottom<kWindowSize,                       \
-                       kWindowStep,                       \
-                       kGeomConsistencyTerm,              \
-                       kFilterPhotoConsistency,           \
-                       kFilterGeomConsistency>            \
-      <<<sweep_grid_size_, sweep_block_size_>>>(          \
-          global_workspace_->View(),                      \
-          rand_state_map_->View(),                        \
-          cost_map_->View(),                              \
-          depth_map_->View(),                             \
-          normal_map_->View(),                            \
-          consistency_mask_->View(),                      \
-          sel_prob_map_->View(),                          \
-          prev_sel_prob_map_->View(),                     \
-          ref_image_texture_->GetObj(),                   \
-          ref_image_->sum_image->View(),                  \
-          ref_image_->squared_sum_image->View(),          \
-          src_images_texture_->GetObj(),                  \
-          src_depth_maps_texture_ == nullptr              \
-              ? 0                                         \
-              : src_depth_maps_texture_->GetObj(),        \
-          poses_texture_[rotation_in_half_pi_]->GetObj(), \
-          sweep_options);
+#define CALL_SWEEP_FUNC                                         \
+  SweepFromTopToBottom<kWindowSize,                             \
+                       kWindowStep,                             \
+                       kGeomConsistencyTerm,                    \
+                       kFilterPhotoConsistency,                 \
+                       kFilterGeomConsistency,                  \
+                       kCooperative,                            \
+                       kSweepBlockWidth>                        \
+      <<<sweep_kernel_grid_size, sweep_kernel_block_size>>>(    \
+          MakeRefCamera(ref_K_host_[rotation_in_half_pi_],      \
+                        ref_inv_K_host_[rotation_in_half_pi_]), \
+          global_workspace_->View(),                            \
+          rand_state_map_->View(),                              \
+          (PatchMatchRngPerimeter{ref_width_, ref_height_}),    \
+          static_cast<unsigned int>(rotation_in_half_pi_),      \
+          cost_map_->View(),                                    \
+          depth_map_->View(),                                   \
+          normal_map_->View(),                                  \
+          PackedConsistencyMaskView{consistency_mask_->View()}, \
+          sel_prob_map_->View(),                                \
+          prev_sel_prob_map_->View(),                           \
+          ref_image_texture_->GetObj(),                         \
+          ref_image_->sum_image->View(),                        \
+          ref_image_->squared_sum_image->View(),                \
+          src_images_texture_->GetObj(),                        \
+          src_depth_maps_texture_ == nullptr                    \
+              ? 0                                               \
+              : src_depth_maps_texture_->GetObj(),              \
+          poses_texture_[rotation_in_half_pi_]->GetObj(),       \
+          sweep_options SWEEP_TRACE_ARGUMENT);
 
       if (last_sweep) {
         if (options_.filter) {
-          consistency_mask_ =
-              std::make_unique<GpuMat<uint8_t>>(cost_map_->GetWidth(),
-                                                cost_map_->GetHeight(),
-                                                cost_map_->GetDepth());
+          consistency_mask_ = std::make_unique<GpuMat<uint8_t>>(
+              cost_map_->GetWidth(),
+              cost_map_->GetHeight(),
+              PackedConsistencyMaskDepth(cost_map_->GetDepth()));
           consistency_mask_->FillWithScalar(0);
         }
         if (options_.geom_consistency) {
@@ -1501,12 +1977,12 @@ void PatchMatchCuda::RunWithWindowSizeAndStep() {
 
       // Rotate selected image map.
       if (last_sweep && options_.filter) {
-        std::unique_ptr<GpuMat<uint8_t>> rot_consistency_mask_(
-            new GpuMat<uint8_t>(cost_map_->GetWidth(),
-                                cost_map_->GetHeight(),
-                                cost_map_->GetDepth()));
-        consistency_mask_->Rotate(rot_consistency_mask_.get());
-        consistency_mask_.swap(rot_consistency_mask_);
+        auto rotated_mask =
+            std::make_unique<GpuMat<uint8_t>>(cost_map_->GetWidth(),
+                                              cost_map_->GetHeight(),
+                                              consistency_mask_->GetDepth());
+        consistency_mask_->Rotate(rotated_mask.get());
+        consistency_mask_.swap(rotated_mask);
       }
 
       sweep_timer.Print(" Sweep " + std::to_string(sweep + 1));
@@ -1516,7 +1992,10 @@ void PatchMatchCuda::RunWithWindowSizeAndStep() {
   }
 
   total_timer.Print("Total");
+  consistency_mask_valid_ = options_.filter;
 }
+
+#undef SWEEP_TRACE_ARGUMENT
 
 void PatchMatchCuda::ComputeCudaConfig() {
   sweep_block_size_.x = THREADS_PER_BLOCK;
@@ -1711,15 +2190,6 @@ void PatchMatchCuda::InitTransforms() {
     ref_inv_K_host_[i][3] = -ref_K_host_[i][3] / ref_K_host_[i][2];
   }
 
-  // Bind 0 degrees version to constant global memory.
-  CUDA_SAFE_CALL(cudaMemcpyToSymbol(
-      ref_K, ref_K_host_[0], sizeof(float) * 4, 0, cudaMemcpyHostToDevice));
-  CUDA_SAFE_CALL(cudaMemcpyToSymbol(ref_inv_K,
-                                    ref_inv_K_host_[0],
-                                    sizeof(float) * 4,
-                                    0,
-                                    cudaMemcpyHostToDevice));
-
   //////////////////////////////////////////////////////////////////////////////
   // Generate rotated versions of camera poses.
   //////////////////////////////////////////////////////////////////////////////
@@ -1796,7 +2266,24 @@ void PatchMatchCuda::InitTransforms() {
 }
 
 void PatchMatchCuda::InitWorkspaceMemory() {
-  rand_state_map_ = std::make_unique<GpuMatPRNG>(ref_width_, ref_height_);
+  THROW_CHECK_GT(ref_width_, 0);
+  THROW_CHECK_GT(ref_height_, 0);
+  const size_t max_size = std::numeric_limits<size_t>::max();
+  if (ref_width_ > 1 && ref_height_ > 1) {
+    THROW_CHECK_LE(ref_width_ - 1, max_size / 2);
+    THROW_CHECK_LE(ref_height_ - 1, (max_size - 2 * (ref_width_ - 1)) / 2);
+  }
+  const PatchMatchRngPerimeter layout{ref_width_, ref_height_};
+  const size_t count = layout.Count();
+  THROW_CHECK_LE(count, max_size / sizeof(curandState));
+  rand_state_map_ = std::make_unique<GpuMat<curandState>>(count, 1);
+  if (options_.geom_consistency) {
+    constexpr size_t kThreads = 256;
+    const size_t blocks = (count - 1) / kThreads + 1;
+    THROW_CHECK_LE(blocks, std::numeric_limits<int>::max());
+    InitPerimeter<<<static_cast<unsigned int>(blocks), kThreads>>>(
+        rand_state_map_->View(), layout);
+  }
 
   depth_map_ = std::make_unique<GpuMat<float>>(ref_width_, ref_height_);
   if (options_.geom_consistency) {
@@ -1804,9 +2291,6 @@ void PatchMatchCuda::InitWorkspaceMemory() {
         problem_.depth_maps->at(problem_.ref_image_idx);
     depth_map_->CopyToDevice(init_depth_map.GetPtr(),
                              init_depth_map.GetWidth() * sizeof(float));
-  } else {
-    depth_map_->FillWithRandomNumbers(
-        options_.depth_min, options_.depth_max, *rand_state_map_);
   }
 
   normal_map_ = std::make_unique<GpuMat<float>>(ref_width_, ref_height_, 3);
@@ -1825,6 +2309,8 @@ void PatchMatchCuda::InitWorkspaceMemory() {
   cost_map_ = std::make_unique<GpuMat<float>>(
       ref_width_, ref_height_, problem_.src_image_idxs.size());
 
+  // Two packed M*S regions fit in the pitched allocation; M is the logical
+  // source stride, independent of the allocated pitch.
   const int ref_max_dim = std::max(ref_width_, ref_height_);
   global_workspace_ = std::make_unique<GpuMat<float>>(
       ref_max_dim, problem_.src_image_idxs.size(), 2);
@@ -1839,12 +2325,23 @@ void PatchMatchCuda::InitWorkspaceMemory() {
     normal_map_->CopyToDevice(init_normal_map.GetPtr(),
                               init_normal_map.GetWidth() * sizeof(float));
   } else {
-    InitNormalMap<<<elem_wise_grid_size_, elem_wise_block_size_>>>(
-        normal_map_->View(), rand_state_map_->View());
+    InitDepthNormalMaps<<<elem_wise_grid_size_, elem_wise_block_size_>>>(
+        MakeRefCamera(ref_K_host_[rotation_in_half_pi_],
+                      ref_inv_K_host_[rotation_in_half_pi_]),
+        depth_map_->View(),
+        normal_map_->View(),
+        rand_state_map_->View(),
+        layout,
+        options_.depth_min,
+        options_.depth_max);
   }
+  CUDA_SYNC_AND_CHECK();
 }
 
 void PatchMatchCuda::Rotate() {
+  // The completed sweep no longer needs the previous selection probabilities.
+  prev_sel_prob_map_.reset();
+
   rotation_in_half_pi_ = (rotation_in_half_pi_ + 1) % 4;
 
   size_t width;
@@ -1857,13 +2354,7 @@ void PatchMatchCuda::Rotate() {
     height = ref_width_;
   }
 
-  // Rotate random map.
-  {
-    std::unique_ptr<GpuMatPRNG> rotated_rand_state_map(
-        new GpuMatPRNG(width, height));
-    rand_state_map_->Rotate(rotated_rand_state_map.get());
-    rand_state_map_.swap(rotated_rand_state_map);
-  }
+  // RNG remains in canonical perimeter coordinates across all rotations.
 
   // Rotate depth map.
   {
@@ -1899,8 +2390,7 @@ void PatchMatchCuda::Rotate() {
   prev_sel_prob_map_ = std::make_unique<GpuMat<float>>(
       width, height, problem_.src_image_idxs.size());
   sel_prob_map_->Rotate(prev_sel_prob_map_.get());
-  sel_prob_map_ = std::make_unique<GpuMat<float>>(
-      width, height, problem_.src_image_idxs.size());
+  sel_prob_map_.reset();
 
   // Rotate cost map.
   {
@@ -1910,21 +2400,361 @@ void PatchMatchCuda::Rotate() {
     cost_map_.swap(rotated_cost_map);
   }
 
-  // Rotate calibration.
-  CUDA_SAFE_CALL(cudaMemcpyToSymbol(ref_K,
-                                    ref_K_host_[rotation_in_half_pi_],
-                                    sizeof(float) * 4,
-                                    0,
-                                    cudaMemcpyHostToDevice));
-  CUDA_SAFE_CALL(cudaMemcpyToSymbol(ref_inv_K,
-                                    ref_inv_K_host_[rotation_in_half_pi_],
-                                    sizeof(float) * 4,
-                                    0,
-                                    cudaMemcpyHostToDevice));
+  // The next sweep overwrites this scratch map before reading it. Allocate it
+  // after releasing the old cost map to avoid an extra live scalar map.
+  sel_prob_map_ = std::make_unique<GpuMat<float>>(
+      width, height, problem_.src_image_idxs.size());
 
   // Recompute Cuda configuration for rotated reference image.
   ComputeCudaConfig();
 }
+
+#ifdef COLMAP_PATCH_MATCH_TESTING
+// Private bridge for the direct ownership regression. It seeds the existing
+// PRNG state and computes the same initial cost used by Run, before any sweep.
+namespace internal {
+namespace {
+__global__ void SeedOwnershipTest(GpuMatView<curandState> states,
+                                  const PatchMatchRngPerimeter layout,
+                                  const unsigned long long seed) {
+  const int col = blockIdx.x * blockDim.x + threadIdx.x;
+  const int row = blockIdx.y * blockDim.y + threadIdx.y;
+  if (col < layout.width && row < layout.height &&
+      (row == 0 || col == 0 || row + 1 == layout.height ||
+       col + 1 == layout.width)) {
+    curand_init(seed,
+                row * layout.width + col,
+                0,
+                &states.GetRef(0, layout.Index(row, col)));
+  }
+}
+__global__ void SweepContinuation(GpuMatView<curandState> states,
+                                  const PatchMatchRngPerimeter layout,
+                                  const unsigned int rotation,
+                                  GpuMatView<uint32_t> draws) {
+  const int col = blockIdx.x * blockDim.x + threadIdx.x;
+  if (col < draws.GetWidth()) {
+    curandState state = states.Get(0, layout.SweepIndex(rotation, col));
+    for (int i = 0; i < 3; ++i) draws.Set(0, col, i, curand(&state));
+  }
+}
+// Independent original full-map initializer. The seed uses original launch
+// operands, not GpuMatPRNGSeed or the perimeter layout under test.
+__global__ void LegacyRngInitialization(const RefCamera camera,
+                                        GpuMatView<curandState> states,
+                                        GpuMatView<float> depth,
+                                        GpuMatView<float> normal,
+                                        const bool photo,
+                                        const float depth_min,
+                                        const float depth_max) {
+  const size_t row = blockIdx.y * blockDim.y + threadIdx.y;
+  const size_t col = blockIdx.x * blockDim.x + threadIdx.x;
+  if (row >= states.GetHeight() || col >= states.GetWidth()) return;
+  const size_t block = blockIdx.y * gridDim.x + blockIdx.x;
+  const size_t seed =
+      block * blockDim.y * blockDim.x + threadIdx.y * blockDim.x + threadIdx.x;
+  curandState state;
+  curand_init(seed, 0, 0, &state);
+  if (photo) {
+    depth.Set(
+        row, col, curand_uniform(&state) * (depth_max - depth_min) + depth_min);
+    float value[3];
+    GenerateRandomNormal(camera, row, col, &state, value);
+    normal.SetSlice(row, col, value);
+  }
+  states.Set(row, col, state);
+}
+
+// Replay only the unchanged RNG consumers on a legacy full-map row zero.
+// Trace hypothesis zero is the incumbent before random proposals were drawn.
+__global__ void ReplaySweepRng(const RefCamera camera,
+                               GpuMatView<curandState> states,
+                               const GpuMatView<float> hypotheses,
+                               const float perturbation,
+                               const int samples,
+                               GpuMatView<uint32_t> continuation) {
+  const size_t col = blockIdx.x * blockDim.x + threadIdx.x;
+  if (col >= states.GetWidth()) return;
+  curandState state = states.Get(0, col);
+  for (size_t row = 0; row < states.GetHeight(); ++row) {
+    (void)curand_uniform(&state);  // PerturbDepth always consumes one draw.
+    float incumbent[3], perturbed[3];
+    for (int axis = 0; axis < 3; ++axis)
+      incumbent[axis] = hypotheses.Get(row, col, 1 + axis);
+    PerturbNormal(
+        camera, row, col, perturbation * M_PI, incumbent, &state, perturbed);
+    // Empty support still consumes every sample, with no window padding.
+    for (int sample = 0; sample < samples; ++sample)
+      (void)curand_uniform(&state);
+  }
+  states.Set(0, col, state);
+  for (int i = 0; i < 3; ++i) continuation.Set(0, col, i, curand(&state));
+}
+
+bool SameFloatBits(const Mat<float>& a, const Mat<float>& b) {
+  return a.GetWidth() == b.GetWidth() && a.GetHeight() == b.GetHeight() &&
+         a.GetDepth() == b.GetDepth() &&
+         std::memcmp(a.GetPtr(), b.GetPtr(), a.GetNumBytes()) == 0;
+}
+}  // namespace
+
+struct PatchMatchCudaTestAccess {
+  static Mat<float> InitialCost(PatchMatchCuda& pm,
+                                const unsigned long long seed) {
+    const dim3 block(32, 16);
+    const dim3 grid((pm.ref_width_ + block.x - 1) / block.x,
+                    (pm.ref_height_ + block.y - 1) / block.y);
+    SeedOwnershipTest<<<grid, block>>>(
+        pm.rand_state_map_->View(), {pm.ref_width_, pm.ref_height_}, seed);
+    return ComputeCost(pm);
+  }
+
+  static Mat<float> ComputeCost(PatchMatchCuda& pm) {
+    pm.ComputeCudaConfig();
+    dim3 cost_grid = pm.sweep_grid_size_;
+    cost_grid.y = (pm.cost_map_->GetHeight() + kInitialCostStripeRows - 1) /
+                  kInitialCostStripeRows;
+    ComputeInitialCost<11, 1><<<cost_grid, pm.sweep_block_size_>>>(
+        MakeRefCamera(pm.ref_K_host_[pm.rotation_in_half_pi_],
+                      pm.ref_inv_K_host_[pm.rotation_in_half_pi_]),
+        pm.cost_map_->View(),
+        pm.depth_map_->View(),
+        pm.normal_map_->View(),
+        pm.ref_image_texture_->GetObj(),
+        pm.ref_image_->sum_image->View(),
+        pm.ref_image_->squared_sum_image->View(),
+        pm.src_images_texture_->GetObj(),
+        pm.poses_texture_[pm.rotation_in_half_pi_]->GetObj(),
+        pm.options_.sigma_spatial,
+        pm.options_.sigma_color);
+    CUDA_SYNC_AND_CHECK();
+    return pm.cost_map_->CopyToMat();
+  }
+
+  static SweepTraceResult Sweep(PatchMatchCuda& pm,
+                                const bool cooperative,
+                                const unsigned long long seed) {
+    InitialCost(pm, seed);
+    return SweepCurrent(pm, cooperative, 1.0f, 0.0f);
+  }
+
+  static SweepTraceResult SweepCurrent(PatchMatchCuda& pm,
+                                       const bool cooperative,
+                                       const float perturbation,
+                                       const float previous_weight) {
+    const Mat<float> initial_cost = pm.cost_map_->CopyToMat();
+    const size_t width = pm.cost_map_->GetWidth();
+    const size_t height = pm.cost_map_->GetHeight();
+    const size_t sources = pm.cost_map_->GetDepth();
+    GpuMat<int> draws(width, height, pm.options_.num_samples);
+    GpuMat<int> winners(width, height);
+    GpuMat<int> support(width, height);
+    GpuMat<float> hypotheses(width, height, 20);
+    GpuMat<float> costs(width, height, 5);
+    GpuMat<float> forward(width, height, sources);
+    GpuMat<uint32_t> continuation(width, 1, 3);
+    const SweepTrace trace{draws.View(),
+                           winners.View(),
+                           support.View(),
+                           hypotheses.View(),
+                           costs.View(),
+                           forward.View()};
+    SweepOptions options;
+    options.perturbation = perturbation;
+    options.prev_sel_prob_weight = previous_weight;
+    options.depth_min = pm.options_.depth_min;
+    options.depth_max = pm.options_.depth_max;
+    options.sigma_spatial = pm.options_.sigma_spatial;
+    options.sigma_color = pm.options_.sigma_color;
+    options.num_samples = pm.options_.num_samples;
+    options.ncc_sigma = pm.options_.ncc_sigma;
+    options.min_triangulation_angle =
+        DEG2RAD(pm.options_.min_triangulation_angle);
+    options.incident_angle_sigma = pm.options_.incident_angle_sigma;
+    options.geom_consistency_regularizer =
+        pm.options_.geom_consistency_regularizer;
+    options.geom_consistency_max_cost = pm.options_.geom_consistency_max_cost;
+    const RefCamera camera =
+        MakeRefCamera(pm.ref_K_host_[pm.rotation_in_half_pi_],
+                      pm.ref_inv_K_host_[pm.rotation_in_half_pi_]);
+
+    // The two launch paths differ only in specialization and block geometry.
+#define LAUNCH_TEST_SWEEP(COOPERATIVE, WIDTH, GEOMETRY)                \
+  SweepFromTopToBottom<11,                                             \
+                       1,                                              \
+                       GEOMETRY,                                       \
+                       false,                                          \
+                       false,                                          \
+                       COOPERATIVE,                                    \
+                       WIDTH,                                          \
+                       true><<<dim3((width + (WIDTH) - 1) / (WIDTH)),  \
+                               dim3(WIDTH, (COOPERATIVE) ? 16 : 1)>>>( \
+      camera,                                                          \
+      pm.global_workspace_->View(),                                    \
+      pm.rand_state_map_->View(),                                      \
+      (PatchMatchRngPerimeter{pm.ref_width_, pm.ref_height_}),         \
+      static_cast<unsigned int>(pm.rotation_in_half_pi_),              \
+      pm.cost_map_->View(),                                            \
+      pm.depth_map_->View(),                                           \
+      pm.normal_map_->View(),                                          \
+      PackedConsistencyMaskView{pm.consistency_mask_->View()},         \
+      pm.sel_prob_map_->View(),                                        \
+      pm.prev_sel_prob_map_->View(),                                   \
+      pm.ref_image_texture_->GetObj(),                                 \
+      pm.ref_image_->sum_image->View(),                                \
+      pm.ref_image_->squared_sum_image->View(),                        \
+      pm.src_images_texture_->GetObj(),                                \
+      pm.src_depth_maps_texture_ == nullptr                            \
+          ? 0                                                          \
+          : pm.src_depth_maps_texture_->GetObj(),                      \
+      pm.poses_texture_[pm.rotation_in_half_pi_]->GetObj(),            \
+      options,                                                         \
+      trace)
+    if (pm.options_.geom_consistency) {
+      if (cooperative) {
+        LAUNCH_TEST_SWEEP(true, 8, true);
+      } else {
+        LAUNCH_TEST_SWEEP(false, THREADS_PER_BLOCK, true);
+      }
+    } else {
+      if (cooperative) {
+        LAUNCH_TEST_SWEEP(true, 8, false);
+      } else {
+        LAUNCH_TEST_SWEEP(false, THREADS_PER_BLOCK, false);
+      }
+    }
+#undef LAUNCH_TEST_SWEEP
+    CUDA_SYNC_AND_CHECK();
+    SweepContinuation<<<(width + 31) / 32, 32>>>(
+        pm.rand_state_map_->View(),
+        {pm.ref_width_, pm.ref_height_},
+        static_cast<unsigned int>(pm.rotation_in_half_pi_),
+        continuation.View());
+    CUDA_SYNC_AND_CHECK();
+    return {draws.CopyToMat(),
+            winners.CopyToMat(),
+            support.CopyToMat(),
+            hypotheses.CopyToMat(),
+            costs.CopyToMat(),
+            forward.CopyToMat(),
+            initial_cost,
+            pm.cost_map_->CopyToMat(),
+            pm.depth_map_->CopyToMat(),
+            pm.normal_map_->CopyToMat(),
+            pm.sel_prob_map_->CopyToMat(),
+            continuation.CopyToMat()};
+  }
+
+  static SweepSequenceResult Sequence(PatchMatchCuda& pm,
+                                      const bool cooperative) {
+    auto shadow =
+        std::make_unique<GpuMat<curandState>>(pm.ref_width_, pm.ref_height_);
+    GpuMat<float> initial_depth(pm.ref_width_, pm.ref_height_);
+    GpuMat<float> initial_normal(pm.ref_width_, pm.ref_height_, 3);
+    const dim3 block(32, 16);
+    const dim3 grid((pm.ref_width_ + 31) / 32, (pm.ref_height_ + 15) / 16);
+    LegacyRngInitialization<<<grid, block>>>(
+        MakeRefCamera(pm.ref_K_host_[0], pm.ref_inv_K_host_[0]),
+        shadow->View(),
+        initial_depth.View(),
+        initial_normal.View(),
+        !pm.options_.geom_consistency,
+        pm.options_.depth_min,
+        pm.options_.depth_max);
+    if (pm.options_.geom_consistency) {
+      const auto& depth = pm.problem_.depth_maps->at(pm.problem_.ref_image_idx);
+      const auto& normal =
+          pm.problem_.normal_maps->at(pm.problem_.ref_image_idx);
+      initial_depth.CopyToDevice(depth.GetPtr(),
+                                 depth.GetWidth() * sizeof(float));
+      initial_normal.CopyToDevice(normal.GetPtr(),
+                                  normal.GetWidth() * sizeof(float));
+    }
+    CUDA_SYNC_AND_CHECK();
+    SweepSequenceResult result;
+    result.initialization_matches =
+        SameFloatBits(pm.depth_map_->CopyToMat(), initial_depth.CopyToMat()) &&
+        SameFloatBits(pm.normal_map_->CopyToMat(), initial_normal.CopyToMat());
+    ComputeCost(
+        pm);  // Keep constructor RNG state: never call InitialCost here.
+    constexpr int kSweeps = 8;
+    for (int step = 0; step < kSweeps; ++step) {
+      const float perturbation = 1.0f / std::pow(2.0f, step / 4.0f);
+      auto trace = SweepCurrent(
+          pm, cooperative, perturbation, static_cast<float>(step) / kSweeps);
+      GpuMat<float> hypotheses(
+          trace.hypotheses.GetWidth(), trace.hypotheses.GetHeight(), 20);
+      hypotheses.CopyToDevice(trace.hypotheses.GetPtr(),
+                              trace.hypotheses.GetWidth() * sizeof(float));
+      GpuMat<uint32_t> continuation(shadow->GetWidth(), 1, 3);
+      ReplaySweepRng<<<(shadow->GetWidth() + 31) / 32, 32>>>(
+          MakeRefCamera(pm.ref_K_host_[pm.rotation_in_half_pi_],
+                        pm.ref_inv_K_host_[pm.rotation_in_half_pi_]),
+          shadow->View(),
+          hypotheses.View(),
+          perturbation,
+          pm.options_.num_samples,
+          continuation.View());
+      CUDA_SYNC_AND_CHECK();
+      result.continuation_matches.push_back(trace.continuation.GetData() ==
+                                            continuation.CopyToMat().GetData());
+      result.sweeps.push_back(std::move(trace));
+      pm.Rotate();
+      auto rotated = std::make_unique<GpuMat<curandState>>(shadow->GetHeight(),
+                                                           shadow->GetWidth());
+      shadow->Rotate(rotated.get());
+      shadow.swap(rotated);
+    }
+    CUDA_SYNC_AND_CHECK();
+    return result;
+  }
+};
+
+SweepTraceResult ProbeSweep(PatchMatchCuda& pm,
+                            const bool cooperative,
+                            const unsigned long long seed) {
+  return PatchMatchCudaTestAccess::Sweep(pm, cooperative, seed);
+}
+
+SweepSequenceResult ProbeSweepSequence(PatchMatchCuda& pm,
+                                       const bool cooperative) {
+  return PatchMatchCudaTestAccess::Sequence(pm, cooperative);
+}
+
+Mat<float> ProbeOwnershipInitialCost(PatchMatchCuda& pm,
+                                     const unsigned long long seed) {
+  return PatchMatchCudaTestAccess::InitialCost(pm, seed);
+}
+
+namespace {
+__global__ void ProbeSelectionKernel(GpuMatView<uint32_t> input,
+                                     GpuMatView<uint32_t> output) {
+  const int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i >= input.GetHeight()) return;
+  const LikelihoodComputer likelihood(0.6f, 0.1f, 0.9f);
+  const float alpha = __uint_as_float(input.Get(i, 0));
+  const float beta = __uint_as_float(input.Get(i, 1));
+  const float previous = __uint_as_float(input.Get(i, 2));
+  const float weight = __uint_as_float(input.Get(i, 3));
+  output.Set(0,
+             i,
+             __float_as_uint(
+                 likelihood.ComputeSelProb(alpha, beta, previous, weight)));
+}
+}  // namespace
+std::vector<uint32_t> ProbeSelectionProbability(
+    const std::vector<uint32_t>& bits) {
+  THROW_CHECK_EQ(bits.size() % 4, 0);
+  THROW_CHECK_GT(bits.size(), 0);
+  GpuMat<uint32_t> input(4, bits.size() / 4), output(bits.size() / 4, 1);
+  input.CopyToDevice(bits.data(), 4 * sizeof(uint32_t));
+  ProbeSelectionKernel<<<(bits.size() / 4 + 31) / 32, 32>>>(input.View(),
+                                                            output.View());
+  CUDA_SYNC_AND_CHECK();
+  return output.CopyToMat().GetData();
+}
+}  // namespace internal
+#endif  // COLMAP_PATCH_MATCH_TESTING
 
 }  // namespace mvs
 }  // namespace colmap

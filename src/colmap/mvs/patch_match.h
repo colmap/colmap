@@ -56,13 +56,15 @@ class PatchMatch {
   // Run the patch match algorithm.
   void Run();
 
-  // Get the computed values after running the algorithm.
+  // Get the computed values after the latest Run succeeds.
   DepthMap GetDepthMap() const;
   NormalMap GetNormalMap() const;
   ConsistencyGraph GetConsistencyGraph() const;
   Mat<float> GetSelProbMap() const;
 
  private:
+  const PatchMatchCuda& Result() const;
+
   const PatchMatchOptions options_;
   const Problem problem_;
   std::unique_ptr<PatchMatchCuda> patch_match_cuda_;
