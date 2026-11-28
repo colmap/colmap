@@ -124,6 +124,7 @@ void BindCorrespondenceGraph(py::module& m) {
            &CorrespondenceGraph::FindCorrespondences,
            "image_id"_a,
            "point2D_idx"_a,
+           py::keep_alive<0, 1>(),
            "Find range of correspondences of an image observation.")
       .def("is_two_view_observation",
            &CorrespondenceGraph::IsTwoViewObservation,

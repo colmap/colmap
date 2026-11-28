@@ -63,7 +63,7 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
     return undistorted_camera;
   }
 
-  Camera undistorted_camera;
+  Camera undistorted_camera = camera;
   undistorted_camera.model_id = PinholeCameraModel::model_id;
   undistorted_camera.width = camera.width;
   undistorted_camera.height = camera.height;
@@ -115,8 +115,8 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
   }
 
   // Scale in order to match the boundary of the undistorted image.
-  if (roi_enabled || (camera.model_id != SimplePinholeCameraModel::model_id &&
-                      camera.model_id != PinholeCameraModel::model_id)) {
+  if (camera.model_id != SimplePinholeCameraModel::model_id &&
+      camera.model_id != PinholeCameraModel::model_id) {
     // For fisheye camera, CamFromImg returns perspective-normalized coords
     // where |cam_point| = tan(theta). Near theta = pi/2, tan(theta) diverges:
     // border pixels outside the valid fisheye circle (common with off-center
@@ -138,7 +138,7 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
     for (size_t y = roi_min_y; y < roi_max_y; ++y) {
       // Left border.
       if (const std::optional<Eigen::Vector2d> cam_point1 =
-              camera.CamFromImg(Eigen::Vector2d(0.5, y + 0.5));
+              camera.CamFromImg(Eigen::Vector2d(roi_min_x + 0.5, y + 0.5));
           cam_point1.has_value() &&
           cam_point1->squaredNorm() < max_cam_point_norm_sq) {
         if (const std::optional<Eigen::Vector2d> undistorted_point1 =
@@ -150,7 +150,7 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
       }
       // Right border.
       if (const std::optional<Eigen::Vector2d> cam_point2 =
-              camera.CamFromImg(Eigen::Vector2d(camera.width - 0.5, y + 0.5));
+              camera.CamFromImg(Eigen::Vector2d(roi_max_x - 0.5, y + 0.5));
           cam_point2.has_value() &&
           cam_point2->squaredNorm() < max_cam_point_norm_sq) {
         if (const std::optional<Eigen::Vector2d> undistorted_point2 =
@@ -172,7 +172,7 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
     for (size_t x = roi_min_x; x < roi_max_x; ++x) {
       // Top border.
       if (const std::optional<Eigen::Vector2d> cam_point1 =
-              camera.CamFromImg(Eigen::Vector2d(x + 0.5, 0.5));
+              camera.CamFromImg(Eigen::Vector2d(x + 0.5, roi_min_y + 0.5));
           cam_point1.has_value() &&
           cam_point1->squaredNorm() < max_cam_point_norm_sq) {
         if (const std::optional<Eigen::Vector2d> undistorted_point1 =
@@ -184,7 +184,7 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
       }
       // Bottom border.
       if (const std::optional<Eigen::Vector2d> cam_point2 =
-              camera.CamFromImg(Eigen::Vector2d(x + 0.5, camera.height - 0.5));
+              camera.CamFromImg(Eigen::Vector2d(x + 0.5, roi_max_y - 0.5));
           cam_point2.has_value() &&
           cam_point2->squaredNorm() < max_cam_point_norm_sq) {
         if (const std::optional<Eigen::Vector2d> undistorted_point2 =
@@ -294,7 +294,9 @@ bool IsUndistortionNoOp(const UndistortCameraOptions& options,
   return options.max_image_size < 0 &&
          (camera.IsSpherical() ||
           (camera.IsPerspectivePinhole() && camera.IsUndistorted() &&
-           !options.target_camera.has_value()));
+           !options.target_camera.has_value() && options.roi_min_x == 0.0 &&
+           options.roi_min_y == 0.0 && options.roi_max_x == 1.0 &&
+           options.roi_max_y == 1.0));
 }
 
 void UndistortReconstruction(const UndistortCameraOptions& options,

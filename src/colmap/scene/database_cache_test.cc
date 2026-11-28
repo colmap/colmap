@@ -5,6 +5,7 @@
 #include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/math/random_eigen.h"
 #include "colmap/scene/database_sqlite.h"
+#include "colmap/scene/reconstruction.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -153,6 +154,24 @@ TEST(DatabaseCache, ConstructFromDatabase) {
       correspondence_graph->NumCorrespondencesForImage(images[3].ImageId()), 1);
   EXPECT_EQ(correspondence_graph->NumObservationsForImage(images[3].ImageId()),
             1);
+}
+
+TEST(DatabaseCache, ReloadReplacesCachedData) {
+  auto database = CreateTestDatabase();
+  DatabaseCache cache;
+  cache.Load(*database, {});
+  ASSERT_EQ(cache.NumImages(), 4);
+  Camera camera = database->ReadCamera(1);
+  camera.SetFocalLength(3.5);
+  database->UpdateCamera(camera);
+  DatabaseCache::Options options;
+  options.image_names = {"image1"};
+  cache.Load(*database, options);
+  EXPECT_EQ(cache.Camera(1), camera);
+  EXPECT_EQ(cache.NumFrames(), 1);
+  EXPECT_EQ(cache.NumImages(), 2);
+  Reconstruction reconstruction;
+  EXPECT_NO_THROW(reconstruction.Load(cache));
 }
 
 TEST(DatabaseCache, ConstructFromDatabaseWithCustomImages) {
@@ -455,6 +474,24 @@ TEST(DatabaseCache, CreateFromCacheSkipsUndefinedGeometries) {
             0);
   EXPECT_EQ(correspondence_graph->NumMatchesBetweenImages(image_id3, image_id4),
             0);
+}
+
+TEST(DatabaseCache, CreateFromCacheWithRigImageNames) {
+  auto database = CreateTestDatabase();
+  const auto source = DatabaseCache::Create(*database, {});
+  // Selecting an image must include its frame siblings before matching.
+  for (const FlatHashSet<std::string>& image_names :
+       std::vector<FlatHashSet<std::string>>{{"image1"},
+                                             {"image1", "image4"}}) {
+    DatabaseCache::Options options;
+    options.image_names = image_names;
+    const auto expected = DatabaseCache::Create(*database, options);
+    const auto filtered = DatabaseCache::CreateFromCache(*source, options);
+    EXPECT_EQ(filtered->NumFrames(), expected->NumFrames());
+    EXPECT_EQ(filtered->Images(), expected->Images());
+    EXPECT_EQ(filtered->CorrespondenceGraph()->NumMatchesBetweenAllImages(),
+              expected->CorrespondenceGraph()->NumMatchesBetweenAllImages());
+  }
 }
 
 TEST(DatabaseCache, ConvertMixedGravityAndGPSPosePriorsToENU) {

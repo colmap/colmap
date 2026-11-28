@@ -52,35 +52,11 @@ class Model:
             R = world_from_cam.rotation.matrix()
             t = world_from_cam.translation
 
-            # intrinsics
+            # The frustum is a pinhole approximation, ignoring distortion.
             cam = img.camera
-            if cam.model in (
-                pycolmap.CameraModelId.SIMPLE_PINHOLE,
-                pycolmap.CameraModelId.SIMPLE_RADIAL,
-                pycolmap.CameraModelId.RADIAL,
-            ):
-                fx = fy = cam.params[0]
-                cx = cam.params[1]
-                cy = cam.params[2]
-            elif cam.model in (
-                pycolmap.CameraModelId.PINHOLE,
-                pycolmap.CameraModelId.OPENCV,
-                pycolmap.CameraModelId.OPENCV_FISHEYE,
-                pycolmap.CameraModelId.FULL_OPENCV,
-            ):
-                fx = cam.params[0]
-                fy = cam.params[1]
-                cx = cam.params[2]
-                cy = cam.params[3]
-            else:
-                raise Exception("Camera model not supported")
-
-            # intrinsics
-            K = np.identity(3)
-            K[0, 0] = fx
-            K[1, 1] = fy
-            K[0, 2] = cx
-            K[1, 2] = cy
+            if not cam.is_perspective():
+                raise ValueError(f"Unsupported camera model: {cam.model_name}")
+            K = cam.calibration_matrix()
 
             # create axis, plane and pyramid geometries that will be drawn
             cam_model = draw_camera(K, R, t, cam.width, cam.height, scale)

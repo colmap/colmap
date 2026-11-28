@@ -21,14 +21,15 @@ namespace {
 // encodes one scalar in the file's endianness; it must write exactly
 // num_vertices vertices. Pass explicitly typed values (e.g. int16_t(-300))
 // so that scalars get the intended width.
-template <typename WritePayload>
+template <typename WritePayload, typename FaceIndex = int32_t>
 std::filesystem::path WriteBinaryPlyMesh(
     const std::string& file_name,
     const std::string& format,
     size_t num_vertices,
     const std::vector<std::string>& properties,
     WritePayload&& write_payload,
-    const std::vector<std::array<int, 3>>& faces = {}) {
+    const std::vector<std::array<FaceIndex, 3>>& faces = {},
+    const std::string& face_index_type = "int") {
   const auto test_file = CreateTestDir() / file_name;
   {
     std::ofstream text_file(test_file);
@@ -39,7 +40,7 @@ std::filesystem::path WriteBinaryPlyMesh(
       text_file << "property " << property << "\n";
     }
     text_file << "element face " << faces.size() << "\n";
-    text_file << "property list uchar int vertex_index\n";
+    text_file << "property list uchar " << face_index_type << " vertex_index\n";
     text_file << "end_header\n";
     text_file.close();
 
@@ -55,8 +56,8 @@ std::filesystem::path WriteBinaryPlyMesh(
     write_payload(Write);
     for (const auto& face : faces) {
       Write(uint8_t(3));
-      for (int idx : face) {
-        Write(int32_t(idx));
+      for (const FaceIndex idx : face) {
+        Write(idx);
       }
     }
   }
@@ -321,6 +322,29 @@ TEST(Ply, ReadMeshVerticesAsPoints) {
                        mesh.vertices[i].z);
     }
   }
+}
+
+TEST(Ply, ReadHeaderWithTabsAndRepeatedSpaces) {
+  const auto path = CreateTestDir() / "whitespace.ply";
+  {
+    std::ofstream file(path);
+    file << "ply\nformat  ascii\t1.0\nelement\tvertex 3\n"
+         << "property\tfloat  x\nproperty float\ty\nproperty  float z\n"
+         << "property\tuchar\tred\nproperty uchar green\nproperty uchar blue\n"
+         << "element\tface 1\nproperty list  uchar int vertex_indices\n"
+         << "end_header\n"
+         << "0 0 0 10 20 30\n1 0 0 10 20 30\n0 1 0 10 20 30\n3 0 1 2\n";
+  }
+  const auto points = ReadPly(path);
+  ASSERT_EQ(points.size(), 3);
+  ExpectPositionEq(points[1], 1, 0, 0);
+  ExpectColorEq(points[1], 10, 20, 30);
+  EXPECT_TRUE(HasPlyMeshFaces(path));
+  const auto mesh = ReadPlyMesh(path).mesh;
+  ASSERT_EQ(mesh.vertices.size(), 3);
+  ExpectPositionEq(mesh.vertices[1], 1, 0, 0);
+  ExpectColorEq(mesh.vertices[1], 10, 20, 30);
+  ASSERT_EQ(mesh.faces.size(), 1);
 }
 
 TEST(Ply, ReadTextZeroVerticesIgnoresFollowingElements) {
@@ -801,6 +825,33 @@ TEST(Ply, ReadBinaryPlyMeshWithMixedColorTypes) {
   // Out-of-range integer channels clamp to 255; 0-1 float channels scale.
   ExpectColorEq(mesh.vertices[0], 200, 100, 255);
   ExpectColorEq(mesh.vertices[1], 10, 255, 127);
+}
+
+TEST(Ply, ReadBinaryPlyMeshUshortFaceIndices) {
+  // Index 32768 does not fit into a signed 16-bit integer.
+  constexpr size_t kNumVertices = 40001;
+  const std::vector<std::array<uint16_t, 3>> faces = {{0, 32768, 40000}};
+  const auto path = WriteBinaryPlyMesh(
+      "mesh_ushort_indices.ply",
+      "binary_little_endian",
+      kNumVertices,
+      {"float x", "float y", "float z"},
+      [](const auto& Write) {
+        for (size_t i = 0; i < kNumVertices; ++i) {
+          Write(0.0f);
+          Write(0.0f);
+          Write(0.0f);
+        }
+      },
+      faces,
+      "ushort");
+
+  const auto mesh = ReadPlyMesh(path).mesh;
+  ASSERT_EQ(mesh.vertices.size(), kNumVertices);
+  ASSERT_EQ(mesh.faces.size(), 1);
+  EXPECT_EQ(mesh.faces[0].vertex_idx1, 0);
+  EXPECT_EQ(mesh.faces[0].vertex_idx2, 32768);
+  EXPECT_EQ(mesh.faces[0].vertex_idx3, 40000);
 }
 
 TEST(Ply, ReadTextPlyMeshWithFloatColors) {

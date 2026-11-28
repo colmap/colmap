@@ -30,14 +30,24 @@ bool CameraDatabase::QuerySensorWidth(const std::string& make,
   for (const auto& [make_name, models] : specs_) {
     if (StringContains(cleaned_make, make_name) ||
         StringContains(make_name, cleaned_make)) {
+      // A manufacturer suffix in the make (e.g. "NIKON CORPORATION") may
+      // leave its shorter name as a prefix in the model (e.g. "NIKON D800").
+      const std::string model_without_make =
+          StringStartsWith(cleaned_model, make_name)
+              ? cleaned_model.substr(make_name.size())
+              : cleaned_model;
+      // Search every model for an exact match before stopping on ambiguous
+      // partial matches, which may occur earlier in the database.
+      for (const auto& [model_name, sensor_width] : models) {
+        if (cleaned_model == model_name || model_without_make == model_name) {
+          *sensor_width_mm = sensor_width;
+          return true;
+        }
+      }
       for (const auto& [model_name, sensor_width] : models) {
         if (StringContains(cleaned_model, model_name) ||
             StringContains(model_name, cleaned_model)) {
           *sensor_width_mm = sensor_width;
-          if (cleaned_model == model_name) {
-            // Model exactly matches, return immediately.
-            return true;
-          }
           spec_matches += 1;
           if (spec_matches > 1) {
             break;

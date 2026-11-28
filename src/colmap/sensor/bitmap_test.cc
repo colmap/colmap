@@ -808,6 +808,25 @@ TEST(Bitmap, CloneMetaData) {
   EXPECT_EQ(value, kValue);
 }
 
+TEST(Bitmap, CloneMetaDataPreservesTargetChannels) {
+  for (const bool as_rgb : {false, true}) {
+    SCOPED_TRACE(as_rgb);
+    const Bitmap source(3, 2, /*as_rgb=*/!as_rgb);
+    Bitmap target(5, 4, as_rgb);
+    target.Fill(BitmapColor<uint8_t>(12, 34, 56));
+    source.CloneMetadata(&target);
+    int metadata_channels = 0;
+    ASSERT_TRUE(target.GetMetaData("nchannels", "int", &metadata_channels));
+    ASSERT_EQ(metadata_channels, target.Channels());
+
+    const auto path = CreateTestDir() / "cloned_metadata.png";
+    ASSERT_TRUE(target.Write(path));
+    Bitmap read_bitmap;
+    ASSERT_TRUE(read_bitmap.Read(path, as_rgb));
+    EXPECT_EQ(read_bitmap.RowMajorData(), target.RowMajorData());
+  }
+}
+
 TEST(Bitmap, ExifOrientation) {
   Bitmap bitmap(100, 80, /*as_rgb=*/true);
 
@@ -846,6 +865,21 @@ TEST(Bitmap, ExifCameraModelNoModel) {
       "Exif:FocalLengthIn35mmFilm", "float", &focal_length_in_35mm_film);
 
   EXPECT_FALSE(bitmap.ExifCameraModel().has_value());
+}
+
+TEST(Bitmap, ExifCameraModelUnknownFocalLength) {
+  Bitmap bitmap(100, 80, /*as_rgb=*/true);
+  bitmap.SetMetaData("Make", "make");
+  bitmap.SetMetaData("Model", "model");
+  const float unknown_focal_length = 0.f;
+  bitmap.SetMetaData(
+      "Exif:FocalLengthIn35mmFilm", "float", &unknown_focal_length);
+  bitmap.SetMetaData("Exif:FocalLength", "float", &unknown_focal_length);
+  EXPECT_FALSE(bitmap.ExifCameraModel().has_value());
+
+  const float focal_length = 35.f;
+  bitmap.SetMetaData("Exif:FocalLength", "float", &focal_length);
+  EXPECT_EQ(bitmap.ExifCameraModel(), "make-model-35.000000-100x80");
 }
 
 TEST(Bitmap, ExifCameraModelNoFocalLength) {

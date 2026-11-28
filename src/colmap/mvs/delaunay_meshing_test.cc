@@ -168,6 +168,23 @@ TEST(DenseDelaunayMeshing, Integration) {
   EXPECT_GE(mesh_vertices.size(), 3);
 }
 
+TEST(SparseDelaunayMeshing, PlanarInput) {
+  const auto test_dir = CreateTestDir();
+  const auto sparse_path = test_dir / "sparse";
+  const auto output_path = test_dir / "mesh.ply";
+  auto reconstruction = CreateAndWriteSyntheticReconstruction(sparse_path);
+  for (const point3D_t point_id : reconstruction.Point3DIds()) {
+    reconstruction.Point3D(point_id).xyz.z() = 0;
+  }
+  reconstruction.Write(sparse_path);
+
+  DelaunayMeshingOptions options;
+  options.num_threads = 1;
+  SparseDelaunayMeshing(options, sparse_path, output_path);
+
+  EXPECT_TRUE(ReadPlyMesh(output_path).mesh.faces.empty());
+}
+
 #endif  // COLMAP_CGAL_ENABLED
 
 }  // namespace

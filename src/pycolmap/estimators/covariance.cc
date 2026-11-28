@@ -35,14 +35,20 @@ void BindCovarianceEstimator(py::module& m) {
             if (!self.cam_from_world)
               return py::none();
             else
-              return py::array_t<double>(4, self.cam_from_world);
+              return py::array_t<double>(7, self.cam_from_world);
           },
-          [](internal::PoseParam& self, py::array_t<double> pyarray) {
-            THROW_CHECK_EQ(pyarray.ndim(), 1);
-            THROW_CHECK_EQ(pyarray.size(), 4);
-            py::buffer_info info = pyarray.request();
-            self.cam_from_world = (double*)info.ptr;
-          });
+          py::cpp_function(
+              [](internal::PoseParam& self,
+                 py::array_t<double, py::array::c_style> pyarray) {
+                THROW_CHECK_EQ(pyarray.ndim(), 1);
+                THROW_CHECK_EQ(pyarray.size(), 7);
+                self.cam_from_world = pyarray.data();
+              },
+              py::arg("self"),
+              py::arg("cam_from_world").noconvert()),
+          "Pose parameter block [qx, qy, qz, qw, tx, ty, tz]. The input must "
+          "be a contiguous float64 array and remain alive while covariance "
+          "is estimated.");
   MakeDataclass(PyExperimentalPoseParam);
 
   py::classh<BACovarianceOptions> PyBACovarianceOptions(m,
@@ -78,27 +84,30 @@ void BindCovarianceEstimator(py::module& m) {
       .def("get_cam_cov_from_world",
            &BACovariance::GetCamCovFromWorld,
            "image_id"_a,
-           "Tangent space covariance in the order [rotation, translation]. If "
-           "some dimensions are kept constant, the respective rows/columns are "
-           "omitted. Returns null if image is not a variable in the problem.")
+           "Covariance in the problem's tangent coordinates, ordered "
+           "[rotation, translation]. The standard COLMAP pose manifold uses "
+           "Ceres' left quaternion half-angle increments and additive "
+           "translation. Constant dimensions are omitted. Returns null if the "
+           "image is not a variable in the problem.")
       .def("get_cam_cross_cov_from_world",
            &BACovariance::GetCamCrossCovFromWorld,
            "image_id1"_a,
            "image_id2"_a,
-           "Tangent space covariance in the order [rotation, translation]. If "
-           "some dimensions are kept constant, the respective rows/columns are "
-           "omitted. Returns null if image is not a variable in the problem.")
+           "Covariance in the problem's tangent coordinates, ordered "
+           "[rotation, translation]. The standard COLMAP pose manifold uses "
+           "Ceres' left quaternion half-angle increments and additive "
+           "translation. Constant dimensions are omitted. Returns null if an "
+           "image is not a variable in the problem.")
       .def("get_cam2_cov_from_cam1",
            &BACovariance::GetCam2CovFromCam1,
            "image_id1"_a,
            "cam1_from_world"_a,
            "image_id2"_a,
            "cam2_from_world"_a,
-           "Get relative pose covariance in the order [rotation, translation]. "
-           "This function returns null if some dimensions are kept constant "
-           "for either of the two poses. This does not mean that one cannot "
-           "get relative pose covariance for such case, but requires custom "
-           "logic to fill in zero block in the covariance matrix.")
+           "Relative pose covariance in left SE(3) tangent coordinates, "
+           "ordered [full-angle rotation, translation]. Both poses must use "
+           "EigenQuaternionManifold x EuclideanManifold<3>. Returns null if "
+           "either pose is fixed or partially fixed.")
       .def(
           "get_other_params_cov",
           [](BACovariance& self, py::array_t<double>& pyarray) {
@@ -110,7 +119,8 @@ void BindCovarianceEstimator(py::module& m) {
           "Tangent space covariance for any variable parameter block in the "
           "problem. If some dimensions are kept constant, the respective "
           "rows/columns are omitted. Returns null if parameter block not a "
-          "variable in the problem.");
+          "variable in the problem or other-parameter covariance was not "
+          "requested.");
 
   m.def(
       "estimate_ba_covariance",

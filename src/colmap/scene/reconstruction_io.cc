@@ -81,11 +81,15 @@ bool ExportNVM(const Reconstruction& reconstruction,
       // since VisualSfM does not support with multiple observations.
       if (image_ids.count(track_el.image_id) == 0) {
         const class Image& image = reconstruction.Image(track_el.image_id);
+        const struct Camera& camera = reconstruction.Camera(image.CameraId());
         const Point2D& point2D = image.Point2D(track_el.point2D_idx);
         line << image_id_to_idx_[track_el.image_id] << " ";
         line << track_el.point2D_idx << " ";
-        line << point2D.xy(0) << " ";
-        line << point2D.xy(1) << " ";
+        // NVM measurements use the image center as their origin, even when
+        // the calibrated principal point is elsewhere. Both axes keep their
+        // COLMAP directions: right and down.
+        line << point2D.xy(0) - camera.width / 2.0 << " ";
+        line << point2D.xy(1) - camera.height / 2.0 << " ";
         image_ids.insert(track_el.image_id);
       }
     }
@@ -398,6 +402,7 @@ void ExportVRML(const Reconstruction& reconstruction,
   std::ofstream images_file(images_path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(images_file, images_path);
   SetFullPrecTextStream(images_file);
+  images_file << "#VRML V2.0 utf8\n";
 
   const double six = image_scale * 0.15;
   const double siy = image_scale * 0.1;

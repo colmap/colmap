@@ -66,8 +66,11 @@ TEST(UndistortCamera, Nominal) {
 
   distorted_camera =
       Camera::CreateFromModelId(1, CameraModelId::kSimpleRadial, 1, 1, 1);
+  distorted_camera.source = CameraSource::USER;
   undistorted_camera = UndistortCamera(options, distorted_camera);
   EXPECT_EQ(undistorted_camera.ModelName(), "PINHOLE");
+  EXPECT_EQ(undistorted_camera.camera_id, distorted_camera.camera_id);
+  EXPECT_EQ(undistorted_camera.source, CameraSource::USER);
   EXPECT_EQ(undistorted_camera.FocalLengthX(), 1);
   EXPECT_EQ(undistorted_camera.FocalLengthY(), 1);
   EXPECT_EQ(undistorted_camera.width, 1);
@@ -110,10 +113,44 @@ TEST(UndistortCamera, Nominal) {
   EXPECT_EQ(undistorted_camera.ModelName(), "PINHOLE");
   EXPECT_EQ(undistorted_camera.FocalLengthX(), 100);
   EXPECT_EQ(undistorted_camera.FocalLengthY(), 100);
-  EXPECT_EQ(undistorted_camera.width, 80);
-  EXPECT_EQ(undistorted_camera.height, 60);
-  EXPECT_EQ(undistorted_camera.PrincipalPointX(), 40);
-  EXPECT_EQ(undistorted_camera.PrincipalPointY(), 30);
+  Camera cropped_camera = distorted_camera;
+  cropped_camera.width = 80;
+  cropped_camera.height = 60;
+  cropped_camera.SetPrincipalPointX(40);
+  cropped_camera.SetPrincipalPointY(30);
+  options.roi_min_x = options.roi_min_y = 0;
+  options.roi_max_x = options.roi_max_y = 1;
+  const Camera expected_camera = UndistortCamera(options, cropped_camera);
+  EXPECT_EQ(undistorted_camera.width, expected_camera.width);
+  EXPECT_EQ(undistorted_camera.height, expected_camera.height);
+  EXPECT_EQ(undistorted_camera.params, expected_camera.params);
+}
+
+TEST(UndistortCamera, RegionOfInterest) {
+  for (const auto model_id :
+       {CameraModelId::kPinhole, CameraModelId::kSimpleRadial}) {
+    Camera camera = Camera::CreateFromModelId(1, model_id, 100, 100, 80);
+    if (model_id == CameraModelId::kSimpleRadial) {
+      camera.params[3] = 0.2;
+    }
+    // Oracle: crop first, then undistort.
+    Camera cropped_camera = camera;
+    cropped_camera.width = 60;
+    cropped_camera.height = 56;
+    cropped_camera.SetPrincipalPointX(camera.PrincipalPointX() - 20);
+    cropped_camera.SetPrincipalPointY(camera.PrincipalPointY() - 8);
+    UndistortCameraOptions options;
+    const Camera expected = UndistortCamera(options, cropped_camera);
+    options.roi_min_x = 0.2;
+    options.roi_min_y = 0.1;
+    options.roi_max_x = options.roi_max_y = 0.8;
+    const Camera actual = UndistortCamera(options, camera);
+    EXPECT_EQ(actual.width, expected.width);
+    EXPECT_EQ(actual.height, expected.height);
+    EXPECT_THAT(
+        actual.params,
+        testing::Pointwise(testing::DoubleNear(1e-12), expected.params));
+  }
 }
 
 TEST(UndistortCamera, MaxCamPointNorm) {
@@ -353,7 +390,10 @@ TEST(UndistortReconstruction, Nominal) {
   UndistortReconstruction(options, &reconstruction);
   for (const auto& camera : reconstruction.Cameras()) {
     EXPECT_EQ(camera.second.ModelName(), "PINHOLE");
+    EXPECT_EQ(camera.second.camera_id, camera.first);
   }
+  // Copying requires valid camera IDs to reconnect images to cameras.
+  const Reconstruction copy = reconstruction;
 
   for (const auto& image : reconstruction.Images()) {
     for (const auto& point2D : image.second.Points2D()) {
@@ -467,8 +507,15 @@ TEST(IsUndistortionNoOp, Nominal) {
   EXPECT_FALSE(IsUndistortionNoOp(options, undistorted_camera));
   EXPECT_TRUE(IsUndistortionNoOp(options, spherical_camera));
 
-  // Rescaling applies to all cameras.
   options.target_camera.reset();
+
+  // A cropped ROI only applies to perspective cameras.
+  options.roi_min_x = 0.1;
+  EXPECT_FALSE(IsUndistortionNoOp(options, undistorted_camera));
+  EXPECT_TRUE(IsUndistortionNoOp(options, spherical_camera));
+  options.roi_min_x = 0.0;
+
+  // Rescaling applies to all cameras.
   options.max_image_size = 50;
   EXPECT_FALSE(IsUndistortionNoOp(options, undistorted_camera));
   EXPECT_FALSE(IsUndistortionNoOp(options, spherical_camera));

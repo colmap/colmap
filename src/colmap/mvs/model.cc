@@ -33,6 +33,7 @@ void Model::ReadFromCOLMAP(const std::filesystem::path& path,
   Reconstruction reconstruction;
   reconstruction.Read(path / sparse_path);
 
+  Clear();
   images.reserve(reconstruction.NumRegImages());
   NodeHashMap<image_t, size_t> image_id_to_idx;
   size_t image_idx = 0;
@@ -249,6 +250,14 @@ std::vector<std::map<int, float>> Model::ComputeTriangulationAngles(
   return triangulation_angles;
 }
 
+void Model::Clear() {
+  images.clear();
+  points.clear();
+  image_names_.clear();
+  image_name_to_idx_.clear();
+  pmvs_vis_dat_.clear();
+}
+
 bool Model::ReadFromBundlerPMVS(const std::filesystem::path& path) {
   const auto bundle_file_path = path / "bundle.rd.out";
 
@@ -267,6 +276,7 @@ bool Model::ReadFromBundlerPMVS(const std::filesystem::path& path) {
   int num_images, num_points;
   THROW_CHECK(file >> num_images >> num_points);
 
+  Clear();
   images.reserve(num_images);
   for (int image_idx = 0; image_idx < num_images; ++image_idx) {
     const std::string image_name = StringPrintf("%08d.jpg", image_idx);
@@ -335,6 +345,7 @@ bool Model::ReadFromRawPMVS(const std::filesystem::path& path) {
     return false;
   }
 
+  Clear();
   for (int image_idx = 0;; ++image_idx) {
     const std::string image_name = StringPrintf("%08d.jpg", image_idx);
     const auto image_path = path / "visualize" / image_name;
@@ -393,30 +404,31 @@ bool Model::ReadFromRawPMVS(const std::filesystem::path& path) {
   SetFullPrecTextStream(vis_dat_file);
 
   std::string visdata;
-  vis_dat_file >> visdata;
+  THROW_CHECK(vis_dat_file >> visdata);
   THROW_CHECK_EQ(visdata, "VISDATA");
 
   int num_images;
-  vis_dat_file >> num_images;
+  THROW_CHECK(vis_dat_file >> num_images);
   THROW_CHECK_GE(num_images, 0);
   THROW_CHECK_EQ(num_images, images.size());
 
   pmvs_vis_dat_.resize(num_images);
   for (int i = 0; i < num_images; ++i) {
     int image_idx;
-    vis_dat_file >> image_idx;
+    THROW_CHECK(vis_dat_file >> image_idx);
     THROW_CHECK_GE(image_idx, 0);
     THROW_CHECK_LT(image_idx, num_images);
 
     int num_visible_images;
-    vis_dat_file >> num_visible_images;
+    THROW_CHECK(vis_dat_file >> num_visible_images);
+    THROW_CHECK_GE(num_visible_images, 0);
 
     auto& visible_image_idxs = pmvs_vis_dat_[image_idx];
     visible_image_idxs.reserve(num_visible_images);
 
     for (int j = 0; j < num_visible_images; ++j) {
       int visible_image_idx;
-      vis_dat_file >> visible_image_idx;
+      THROW_CHECK(vis_dat_file >> visible_image_idx);
       THROW_CHECK_GE(visible_image_idx, 0);
       THROW_CHECK_LT(visible_image_idx, num_images);
       if (visible_image_idx != image_idx) {

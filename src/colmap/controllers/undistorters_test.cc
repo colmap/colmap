@@ -48,6 +48,18 @@ Reconstruction CreateSyntheticReconstructionWithBitmaps(
   return reconstruction;
 }
 
+// Every generated COLMAP command must end at its --output_path line.
+void ExpectCommandsTerminated(const std::filesystem::path& script) {
+  int num_output_paths = 0;
+  for (const auto& line : ReadTextFileLines(script)) {
+    if (StringContains(line, "--output_path")) {
+      ++num_output_paths;
+      EXPECT_NE(line.back(), '\\') << line;
+    }
+  }
+  EXPECT_EQ(num_output_paths, 3);
+}
+
 TEST(COLMAPUndistorter, Integration) {
   const auto temp_dir = CreateTestDir();
   const auto image_path = temp_dir / "input_images";
@@ -80,6 +92,7 @@ TEST(COLMAPUndistorter, Integration) {
   // Expect dense reconstruction files to be written.
   EXPECT_TRUE(ExistsFile(output_path / "stereo/patch-match.cfg"));
   EXPECT_TRUE(ExistsFile(output_path / "stereo/fusion.cfg"));
+  ExpectCommandsTerminated(output_path / "run-colmap-geometric.sh");
 }
 
 TEST(COLMAPUndistorter, UndistortsZeroDistortionFisheyeCameras) {
@@ -111,6 +124,41 @@ TEST(COLMAPUndistorter, UndistortsZeroDistortionFisheyeCameras) {
   undistorted_reconstruction.Read(output_path / "sparse");
   EXPECT_EQ(undistorted_reconstruction.Camera(1).model_id,
             PinholeCameraModel::model_id);
+}
+
+TEST(COLMAPUndistorter, RegionOfInterest) {
+  const auto temp_dir = CreateTestDir();
+  const auto image_path = temp_dir / "input_images";
+  const auto output_path = temp_dir / "output";
+  CreateDirIfNotExists(image_path);
+  CreateDirIfNotExists(output_path);
+  const Reconstruction reconstruction =
+      CreateSyntheticReconstructionWithBitmaps(image_path,
+                                               1,
+                                               100,
+                                               80,
+                                               ".png",
+                                               CameraModelId::kPinhole,
+                                               {100, 100, 50, 40});
+  UndistortCameraOptions camera_options;
+  camera_options.roi_min_x = camera_options.roi_min_y = 0.25;
+  camera_options.roi_max_x = camera_options.roi_max_y = 0.75;
+  COLMAPUndistorter undistorter(COLMAPUndistorter::Options(),
+                                camera_options,
+                                reconstruction,
+                                image_path,
+                                output_path);
+  undistorter.Run();
+
+  Reconstruction output_reconstruction;
+  output_reconstruction.Read(output_path / "sparse");
+  EXPECT_EQ(output_reconstruction.Camera(1).width, 50);
+  EXPECT_EQ(output_reconstruction.Camera(1).height, 40);
+  Bitmap bitmap;
+  ASSERT_TRUE(bitmap.Read(output_path / "images" /
+                          reconstruction.Images().begin()->second.Name()));
+  EXPECT_EQ(bitmap.Width(), 50);
+  EXPECT_EQ(bitmap.Height(), 40);
 }
 
 TEST(COLMAPUndistorter, StopsPendingWork) {
@@ -279,6 +327,7 @@ TEST(PMVSUndistorter, Integration) {
     const std::string image_name = StringPrintf("%08zu.jpg", i);
     EXPECT_TRUE(ExistsFile(output_path / "pmvs" / "visualize" / image_name));
   }
+  ExpectCommandsTerminated(output_path / "run-cmvs-colmap-geometric.sh");
 }
 
 TEST(CMPMVSUndistorter, Integration) {
@@ -338,6 +387,30 @@ TEST(StandaloneImageUndistorter, Integration) {
 
   // Verify undistorted images were written.
   for (const auto& [image_name, camera] : options.image_names_and_cameras) {
+    EXPECT_TRUE(ExistsFile(output_path / image_name));
+  }
+}
+
+TEST(StandaloneImageUndistorter, NestedImagePaths) {
+  const auto temp_dir = CreateTestDir();
+  const auto image_path = temp_dir / "input_images";
+  const std::string image_name = "a/b/image.png";
+  CreateDirIfNotExists((image_path / image_name).parent_path(),
+                       /*recursive=*/true);
+  ASSERT_TRUE(Bitmap(32, 24, true).Write(image_path / image_name));
+  // PINHOLE images are copied, SIMPLE_RADIAL images are warped.
+  for (const CameraModelId model_id :
+       {CameraModelId::kPinhole, CameraModelId::kSimpleRadial}) {
+    Camera camera = Camera::CreateFromModelId(1, model_id, 32, 32, 24);
+    if (model_id == CameraModelId::kSimpleRadial) {
+      camera.params[3] = 0.05;
+    }
+    const auto output_path = temp_dir / camera.ModelName();
+    StandaloneImageUndistorter::Options options;
+    options.image_names_and_cameras.emplace_back(image_name, camera);
+    StandaloneImageUndistorter undistorter(
+        options, UndistortCameraOptions(), image_path, output_path);
+    undistorter.Run();
     EXPECT_TRUE(ExistsFile(output_path / image_name));
   }
 }

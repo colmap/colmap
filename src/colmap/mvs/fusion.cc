@@ -12,6 +12,7 @@
 #include "colmap/util/timer.h"
 
 #include <fstream>
+#include <iterator>
 
 #include <Eigen/Geometry>
 
@@ -228,12 +229,13 @@ void StereoFusion::Run() {
   auto ProcessImageRows = [&, this](const int row_start,
                                     const int height,
                                     const int width,
-                                    const int image_idx,
-                                    const Mat<char>& fused_pixel_mask) {
+                                    const int image_idx) {
+    const auto& fused_pixel_mask = fused_pixel_masks_[image_idx];
     const int row_end = std::min(height, row_start + kRowStride);
     for (int row = row_start; row < row_end; ++row) {
       for (int col = 0; col < width; ++col) {
-        if (fused_pixel_mask.Get(row, col) > 0) {
+        if (fused_pixel_mask[static_cast<size_t>(row) * width + col].load(
+                std::memory_order_relaxed) > 0) {
           continue;
         }
         const int thread_id = thread_pool.GetThreadIndex();
@@ -262,15 +264,10 @@ void StereoFusion::Run() {
 
     const int width = depth_map_sizes_.at(image_idx).first;
     const int height = depth_map_sizes_.at(image_idx).second;
-    const auto& fused_pixel_mask = fused_pixel_masks_.at(image_idx);
 
     for (int row_start = 0; row_start < height; row_start += kRowStride) {
-      thread_pool.AddTask(ProcessImageRows,
-                          row_start,
-                          height,
-                          width,
-                          image_idx,
-                          fused_pixel_mask);
+      thread_pool.AddTask(
+          ProcessImageRows, row_start, height, width, image_idx);
     }
     thread_pool.Wait();
 
@@ -296,8 +293,10 @@ void StereoFusion::Run() {
 
     fused_points_visibility_.insert(
         fused_points_visibility_.end(),
-        task_fused_points_visibility_[thread_id].begin(),
-        task_fused_points_visibility_[thread_id].end());
+        std::make_move_iterator(
+            task_fused_points_visibility_[thread_id].begin()),
+        std::make_move_iterator(
+            task_fused_points_visibility_[thread_id].end()));
     task_fused_points_visibility_[thread_id].clear();
   }
 
@@ -316,7 +315,7 @@ void StereoFusion::InitFusedPixelMask(int image_idx,
                                       size_t width,
                                       size_t height) {
   Bitmap mask;
-  Mat<char>& fused_pixel_mask = fused_pixel_masks_.at(image_idx);
+  auto& fused_pixel_mask = fused_pixel_masks_.at(image_idx);
   const std::string mask_image_name =
       workspace_->GetModel().GetImageName(image_idx);
   auto mask_path = options_.mask_path / (mask_image_name + ".png");
@@ -327,7 +326,8 @@ void StereoFusion::InitFusedPixelMask(int image_idx,
       mask_path.replace_extension(".png");
     }
   }
-  fused_pixel_mask = Mat<char>(width, height, 1);
+  // Keep explicit initialization for C++17 portability.
+  fused_pixel_mask = std::vector<std::atomic<char>>(width * height);
   if (!options_.mask_path.empty() && ExistsFile(mask_path) &&
       mask.Read(mask_path, false)) {
     mask.Rescale(static_cast<int>(width),
@@ -336,11 +336,14 @@ void StereoFusion::InitFusedPixelMask(int image_idx,
     for (size_t row = 0; row < height; ++row) {
       for (size_t col = 0; col < width; ++col) {
         const auto color = mask.GetPixel(col, row);
-        fused_pixel_mask.Set(row, col, (!color || color->r == 0) ? 1 : 0);
+        std::atomic_init(&fused_pixel_mask[row * width + col],
+                         static_cast<char>(!color || color->r == 0));
       }
     }
   } else {
-    fused_pixel_mask.Fill(0);
+    for (auto& pixel : fused_pixel_mask) {
+      std::atomic_init(&pixel, char{0});
+    }
   }
 }
 
@@ -377,8 +380,11 @@ void StereoFusion::Fuse(const int thread_id,
     fusion_queue.pop_back();
 
     // Check if pixel already fused.
-    auto& fused_pixel_mask = fused_pixel_masks_.at(image_idx);
-    if (fused_pixel_mask.Get(row, col) > 0) {
+    const int width = depth_map_sizes_.at(image_idx).first;
+    auto& fused_pixel = fused_pixel_masks_.at(
+        image_idx)[static_cast<size_t>(row) * width + col];
+    // The flag carries only its own value; it does not publish point data.
+    if (fused_pixel.load(std::memory_order_relaxed) > 0) {
       continue;
     }
 
@@ -441,7 +447,7 @@ void StereoFusion::Fuse(const int thread_id,
             .value_or(BitmapColor<uint8_t>(0));
 
     // Set the current pixel as visited.
-    fused_pixel_mask.Set(row, col, 1);
+    fused_pixel.store(1, std::memory_order_relaxed);
 
     // Pixels out of bounds are filtered
     if (xyz(0) < options_.bounding_box.first(0) ||

@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import numpy as np
-import pytest
 
 import pycolmap
 
@@ -41,12 +40,13 @@ def test_estimate_sim3d_with_points() -> None:
     assert result is None or isinstance(result, pycolmap.Sim3d)
 
 
-@pytest.mark.parametrize(
-    "name",
-    [
-        "estimate_rigid3d_robust",
-        "estimate_sim3d_robust",
-    ],
-)
-def test_public_api_callable(name: str) -> None:
-    assert callable(getattr(pycolmap, name))
+def test_estimate_transform_robust() -> None:
+    src = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=float)
+    rigid = pycolmap.estimate_rigid3d_robust(src, src + 1)
+    sim = pycolmap.estimate_sim3d_robust(src, 2 * src + 1)
+    assert rigid is not None and sim is not None
+    assert rigid["num_inliers"] == sim["num_inliers"] == len(src)
+    np.testing.assert_allclose(rigid["tgt_from_src"] * src, src + 1, atol=1e-8)
+    np.testing.assert_allclose(
+        sim["tgt_from_src"] * src, 2 * src + 1, atol=1e-8
+    )

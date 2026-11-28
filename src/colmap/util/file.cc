@@ -63,22 +63,17 @@ std::filesystem::path AddFileExtension(std::filesystem::path path,
 void SplitFileExtension(const std::string& path,
                         std::string* root,
                         std::string* ext) {
-  const auto parts = StringSplit(path, ".");
-  THROW_CHECK_GT(parts.size(), 0);
-  if (parts.size() == 1) {
-    *root = parts[0];
+  const size_t filename_start =
+      path.size() - std::filesystem::path(path).filename().string().size();
+  const size_t extension_start = path.find_last_of('.');
+  if (extension_start == std::string::npos ||
+      extension_start < filename_start) {
+    *root = path;
     *ext = "";
   } else {
-    *root = "";
-    for (size_t i = 0; i < parts.size() - 1; ++i) {
-      *root += parts[i] + ".";
-    }
-    *root = root->substr(0, root->length() - 1);
-    if (parts.back() == "") {
-      *ext = "";
-    } else {
-      *ext = "." + parts.back();
-    }
+    *root = path.substr(0, extension_start);
+    *ext =
+        extension_start + 1 == path.size() ? "" : path.substr(extension_start);
   }
 }
 
@@ -93,7 +88,8 @@ void FileCopy(const std::filesystem::path& src_path,
       std::filesystem::create_hard_link(src_path, dst_path);
       break;
     case FileCopyType::SOFT_LINK:
-      std::filesystem::create_symlink(src_path, dst_path);
+      std::filesystem::create_symlink(std::filesystem::absolute(src_path),
+                                      dst_path);
       break;
   }
 }
@@ -250,6 +246,8 @@ void WriteBinaryBlob(const std::filesystem::path& path,
   std::ofstream file(path, std::ios::binary);
   THROW_CHECK_FILE_OPEN(file, path);
   file.write(data.begin(), data.size());
+  file.close();
+  THROW_CHECK(file.good()) << "Failed to write binary blob to " << path;
 }
 
 std::vector<std::string> ReadTextFileLines(const std::filesystem::path& path) {
@@ -468,20 +466,23 @@ std::string DownloadAndCacheFile(const std::string& uri) {
   const auto path = download_cache_dir / (sha256 + "-" + name);
 
   if (std::filesystem::exists(path)) {
-    VLOG(2) << "File already downloaded. Skipping download.";
     std::vector<char> blob;
     ReadBinaryBlob(path.string(), &blob);
-    THROW_CHECK_EQ(ComputeSHA256({blob.data(), blob.size()}), sha256)
-        << "The cached file does not match the expected SHA256";
-  } else {
-    LOG(INFO) << "Downloading file from: " << url;
-    const std::optional<std::string> blob = DownloadFile(url);
-    THROW_CHECK(blob.has_value()) << "Failed to download file";
-    THROW_CHECK_EQ(ComputeSHA256({blob->data(), blob->size()}), sha256)
-        << "The downloaded file does not match the expected SHA256";
-    LOG(INFO) << "Caching file at: " << path;
-    WriteBinaryBlob(path.string(), {blob->data(), blob->size()});
+    if (ComputeSHA256({blob.data(), blob.size()}) == sha256) {
+      VLOG(2) << "File already downloaded. Skipping download.";
+      return path.string();
+    }
+    LOG(WARNING) << "Cached file does not match the expected SHA256. "
+                 << "Re-downloading: " << path;
   }
+
+  LOG(INFO) << "Downloading file from: " << url;
+  const std::optional<std::string> blob = DownloadFile(url);
+  THROW_CHECK(blob.has_value()) << "Failed to download file";
+  THROW_CHECK_EQ(ComputeSHA256({blob->data(), blob->size()}), sha256)
+      << "The downloaded file does not match the expected SHA256";
+  LOG(INFO) << "Caching file at: " << path;
+  WriteBinaryBlob(path.string(), {blob->data(), blob->size()});
 
   return path.string();
 }

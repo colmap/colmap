@@ -32,17 +32,19 @@ struct BACovariance {
   // omitted. Returns null if 3D point not a variable in the problem.
   std::optional<Eigen::MatrixXd> GetPointCov(point3D_t point3D_id) const;
 
-  // Tangent space covariance in the order [rotation, translation]. If some
-  // dimensions are kept constant, the respective rows/columns are omitted.
-  // Returns null if image is not a variable in the problem.
+  // Covariance in the problem's tangent coordinates, ordered [rotation,
+  // translation]. The standard COLMAP pose manifold uses Ceres' left quaternion
+  // half-angle increments and additive translation. If some dimensions are kept
+  // constant, the respective rows/columns are omitted. Returns null if image is
+  // not a variable in the problem.
   std::optional<Eigen::MatrixXd> GetCamCovFromWorld(image_t image_id) const;
   std::optional<Eigen::MatrixXd> GetCamCrossCovFromWorld(
       image_t image_id1, image_t image_id2) const;
-  // Get relative pose covariance in the order [rotation, translation]. This
-  // function returns null if some dimensions are kept constant for either of
-  // the two poses. This does not mean that one cannot get relative pose
-  // covariance for such case, but requires custom logic to fill in zero block
-  // in the covariance matrix.
+  // Relative pose covariance in left SE(3) tangent coordinates, ordered
+  // [full-angle rotation, translation].
+  // Requires both poses to use EigenQuaternionManifold x EuclideanManifold<3>.
+  // Returns null if some dimensions are kept constant for either pose. Such a
+  // case requires custom logic to fill in zero blocks in the covariance matrix.
   std::optional<Eigen::MatrixXd> GetCam2CovFromCam1(
       image_t image_id1,
       const Rigid3d& cam1_from_world,
@@ -52,14 +54,14 @@ struct BACovariance {
   // Tangent space covariance for any other variable parameter block in the
   // problem. If some dimensions are kept constant, the respective rows/columns
   // are omitted. Returns null if parameter block is not a variable in the
-  // problem.
+  // problem or other-parameter covariance was not requested.
   std::optional<Eigen::MatrixXd> GetOtherParamsCov(const double* params) const;
 
  private:
-  const FlatHashMap<point3D_t, Eigen::MatrixXd> point_covs_;
-  const NodeHashMap<image_t, std::pair<int, int>> pose_L_start_size_;
-  const NodeHashMap<const double*, std::pair<int, int>> other_L_start_size_;
-  const Eigen::MatrixXd L_inv_;
+  FlatHashMap<point3D_t, Eigen::MatrixXd> point_covs_;
+  NodeHashMap<image_t, std::pair<int, int>> pose_L_start_size_;
+  NodeHashMap<const double*, std::pair<int, int>> other_L_start_size_;
+  Eigen::MatrixXd L_inv_;
 };
 
 struct BACovarianceOptions {

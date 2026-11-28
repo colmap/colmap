@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
+import weakref
+
 import pycolmap
 
 
@@ -55,3 +57,15 @@ def test_database_cache_images_property(
     options.load_all_images = True
     cache = pycolmap.DatabaseCache.create(database, options)
     assert cache.images is not None
+
+
+def test_find_image_with_name_keeps_cache_alive() -> None:
+    cache = pycolmap.DatabaseCache()
+    cache.add_image(pycolmap.Image(name="a.jpg", image_id=1))
+    assert cache.find_image_with_name("missing.jpg") is None
+    image = cache.find_image_with_name("a.jpg")
+    assert image is not None
+    cache_ref = weakref.ref(cache)
+    del cache
+    assert cache_ref() is not None
+    assert image.name == "a.jpg"

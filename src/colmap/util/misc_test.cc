@@ -214,5 +214,15 @@ TEST(RemoveCommandLineArgument, Nominal) {
   EXPECT_EQ(argc, 0);
 }
 
+TEST(RemoveCommandLineArgument, PreservesOrder) {
+  std::string a = "a", b = "b", c = "c", d = "d";
+  std::vector<char*> argv = {a.data(), b.data(), c.data(), d.data()};
+  int argc = 4;
+  RemoveCommandLineArgument("b", &argc, argv.data());
+  EXPECT_EQ(argc, 3);
+  EXPECT_THAT(std::vector<std::string>(argv.begin(), argv.begin() + argc),
+              testing::ElementsAre("a", "c", "d"));
+}
+
 }  // namespace
 }  // namespace colmap

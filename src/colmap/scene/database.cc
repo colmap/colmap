@@ -171,10 +171,14 @@ void Database::Merge(const Database& database1,
         << image.Name() << " in both databases";
     const image_t new_image_id = merged_database->WriteImage(image);
     new_image_ids1.emplace(image.ImageId(), new_image_id);
-    const auto keypoints = database1.ReadKeypoints(image.ImageId());
-    const auto descriptors = database1.ReadDescriptors(image.ImageId());
-    merged_database->WriteKeypoints(new_image_id, keypoints);
-    merged_database->WriteDescriptors(new_image_id, descriptors);
+    if (database1.ExistsKeypoints(image.ImageId())) {
+      merged_database->WriteKeypoints(new_image_id,
+                                      database1.ReadKeypoints(image.ImageId()));
+    }
+    if (database1.ExistsDescriptors(image.ImageId())) {
+      merged_database->WriteDescriptors(
+          new_image_id, database1.ReadDescriptors(image.ImageId()));
+    }
   }
 
   NodeHashMap<image_t, image_t> new_image_ids2;
@@ -187,10 +191,14 @@ void Database::Merge(const Database& database1,
         << image.Name() << " in both databases";
     const image_t new_image_id = merged_database->WriteImage(image);
     new_image_ids2.emplace(image.ImageId(), new_image_id);
-    const auto keypoints = database2.ReadKeypoints(image.ImageId());
-    const auto descriptors = database2.ReadDescriptors(image.ImageId());
-    merged_database->WriteKeypoints(new_image_id, keypoints);
-    merged_database->WriteDescriptors(new_image_id, descriptors);
+    if (database2.ExistsKeypoints(image.ImageId())) {
+      merged_database->WriteKeypoints(new_image_id,
+                                      database2.ReadKeypoints(image.ImageId()));
+    }
+    if (database2.ExistsDescriptors(image.ImageId())) {
+      merged_database->WriteDescriptors(
+          new_image_id, database2.ReadDescriptors(image.ImageId()));
+    }
   }
 
   // Merge the frames.

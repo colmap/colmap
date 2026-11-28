@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
+import weakref
+
 import numpy as np
 import pytest
 
@@ -141,3 +143,23 @@ def test_correspondence_graph_is_two_view_observation() -> None:
     graph.add_two_view_geometry(1, 2, two_view)
     graph.finalize()
     assert graph.is_two_view_observation(1, 0) is True
+
+
+def test_correspondence_range_keeps_graph_alive() -> None:
+    graph = pycolmap.CorrespondenceGraph()
+    graph.add_image(1, 5)
+    graph.add_image(2, 5)
+    two_view = pycolmap.TwoViewGeometry(
+        inlier_matches=np.array([[0, 0]], dtype=np.uint32)
+    )
+    graph.add_two_view_geometry(1, 2, two_view)
+    graph.finalize()
+    graph_ref = weakref.ref(graph)
+    correspondences = graph.find_correspondences(1, 0)
+    del graph
+    assert graph_ref() is not None
+    assert [(c.image_id, c.point2D_idx) for c in correspondences.to_list()] == [
+        (2, 0)
+    ]
+    del correspondences
+    assert graph_ref() is None

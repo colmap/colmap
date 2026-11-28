@@ -76,9 +76,13 @@ TEST(SynthesizeDataset, Nominal) {
     EXPECT_THAT(image.Name(), testing::EndsWith(options.image_extension));
     image_names.insert(image.Name());
     EXPECT_EQ(image.NumPoints2D(), database->ReadKeypoints(image_id).size());
-    EXPECT_EQ(image.NumPoints2D(),
-              database->ReadDescriptors(image_id).data.rows());
-    EXPECT_EQ(database->ReadDescriptors(image_id).data.cols(), 128);
+    const FeatureDescriptors descriptors = database->ReadDescriptors(image_id);
+    EXPECT_EQ(image.NumPoints2D(), descriptors.data.rows());
+    EXPECT_EQ(descriptors.data.cols(), 128);
+    for (Eigen::Index i = 0; i < descriptors.data.rows(); ++i) {
+      // SIFT descriptors are L2-normalized to 512 up to rounding.
+      EXPECT_NEAR(descriptors.data.row(i).cast<float>().norm(), 512, 6);
+    }
     EXPECT_EQ(image.NumPoints2D(),
               options.num_points3D + options.num_points2D_without_point3D);
     EXPECT_EQ(image.NumPoints3D(), options.num_points3D);

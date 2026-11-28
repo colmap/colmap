@@ -44,7 +44,7 @@ void BindSim3(py::module& m) {
             if (py::isinstance<py::array>(value)) {
               auto arr = value.cast<py::array_t<double>>();
               THROW_CHECK_EQ(arr.size(), 1);
-              self.scale() = arr.at(0);
+              self.scale() = *arr.data();
             } else {
               self.scale() = value.cast<double>();
             }

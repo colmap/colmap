@@ -4,6 +4,9 @@
 
 #include "colmap/util/testing.h"
 
+#include <stdexcept>
+
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -100,6 +103,12 @@ TEST(ConsistencyGraph, WriteReadRoundtrip) {
   loaded.GetImageIdxs(1, 0, &num_images, &image_idxs);
   EXPECT_EQ(num_images, 1);
   EXPECT_EQ(image_idxs[0], 100);
+}
+
+TEST(ConsistencyGraph, RejectsTruncatedRecordPayload) {
+  EXPECT_THAT([] { ConsistencyGraph(1, 1, {0, 0, 2, 7}); },
+              testing::ThrowsMessage<std::invalid_argument>(
+                  testing::HasSubstr("insufficient image indices")));
 }
 
 }  // namespace

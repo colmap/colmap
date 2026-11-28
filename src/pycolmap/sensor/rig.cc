@@ -25,11 +25,12 @@ void BindSensorRig(py::module& m) {
                     "Unique identifier of the rig.")
       .def("add_ref_sensor",
            &Rig::AddRefSensor,
-           "sensor_id"
+           "sensor_id"_a,
            "Add reference sensor.")
       .def("add_sensor",
            &Rig::AddSensor,
-           "sensor_id"
+           "sensor_id"_a,
+           "sensor_from_rig"_a = py::none(),
            "Add non-reference sensor.")
       .def("has_sensor",
            &Rig::HasSensor,

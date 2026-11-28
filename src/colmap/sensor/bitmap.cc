@@ -259,8 +259,10 @@ std::optional<std::string> Bitmap::ExifCameraModel() const {
     return std::nullopt;
   }
   float focal_length = 0;
-  if (!GetMetaData("Exif:FocalLengthIn35mmFilm", "float", &focal_length) &&
-      !GetMetaData("Exif:FocalLength", "float", &focal_length)) {
+  if ((!GetMetaData("Exif:FocalLengthIn35mmFilm", "float", &focal_length) ||
+       !(focal_length > 0)) &&
+      (!GetMetaData("Exif:FocalLength", "float", &focal_length) ||
+       !(focal_length > 0))) {
     return std::nullopt;
   }
   std::string camera_model = StringPrintf("%s-%s-%.6f-%dx%d",
@@ -677,9 +679,7 @@ Bitmap Bitmap::CloneAsGrey() const {
                                              .7152f * data_[3 * i + 1] +
                                              .0722f * data_[3 * i + 2] + .5f);
     }
-    cloned.meta_data_ = OIIOMetaData::Clone(meta_data_);
-    auto* cloned_meta_data = OIIOMetaData::Upcast(cloned.meta_data_.get());
-    cloned_meta_data->image_spec.nchannels = 1;
+    CloneMetadata(&cloned);
     return cloned;
   }
 }
@@ -700,9 +700,7 @@ Bitmap Bitmap::CloneAsRGB() const {
       cloned.data_[3 * i + 1] = data_[i];
       cloned.data_[3 * i + 2] = data_[i];
     }
-    cloned.meta_data_ = OIIOMetaData::Clone(meta_data_);
-    auto* cloned_meta_data = OIIOMetaData::Upcast(cloned.meta_data_.get());
-    cloned_meta_data->image_spec.nchannels = 3;
+    CloneMetadata(&cloned);
     return cloned;
   }
 }
@@ -761,6 +759,11 @@ void Bitmap::CloneMetadata(Bitmap* target) const {
   auto* target_meta_data = OIIOMetaData::Upcast(target->meta_data_.get());
   target_meta_data->image_spec.width = target->Width();
   target_meta_data->image_spec.height = target->Height();
+  if (target_meta_data->image_spec.nchannels != target->Channels()) {
+    target_meta_data->image_spec.nchannels = target->Channels();
+    target_meta_data->image_spec.default_channel_names();
+    target_meta_data->image_spec.channelformats.clear();
+  }
 }
 
 std::ostream& operator<<(std::ostream& stream, const Bitmap& bitmap) {

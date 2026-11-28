@@ -113,19 +113,20 @@ std::vector<PlyPoint> ReadPly(const std::filesystem::path& path) {
       break;
     }
 
-    if (line.size() >= 6 && line.substr(0, 6) == "format") {
-      if (line == "format ascii 1.0") {
+    const std::vector<std::string> line_elems = StringSplit(line, " \t");
+
+    if (line_elems.size() == 3 && line_elems[0] == "format" &&
+        line_elems[2] == "1.0") {
+      if (line_elems[1] == "ascii") {
         is_binary = false;
-      } else if (line == "format binary_little_endian 1.0") {
+      } else if (line_elems[1] == "binary_little_endian") {
         is_binary = true;
         is_little_endian = true;
-      } else if (line == "format binary_big_endian 1.0") {
+      } else if (line_elems[1] == "binary_big_endian") {
         is_binary = true;
         is_little_endian = false;
       }
     }
-
-    const std::vector<std::string> line_elems = StringSplit(line, " ");
 
     if (line_elems.size() >= 3 && line_elems[0] == "element") {
       in_vertex_section = false;
@@ -145,60 +146,50 @@ std::vector<PlyPoint> ReadPly(const std::filesystem::path& path) {
     // Show diffuse, ambient, specular colors as regular colors.
 
     if (line_elems.size() >= 3 && line_elems[0] == "property") {
-      THROW_CHECK(line_elems[1] == "float" || line_elems[1] == "float32" ||
-                  line_elems[1] == "double" || line_elems[1] == "float64" ||
-                  line_elems[1] == "uchar")
+      const std::string& dtype = line_elems[1];
+      const std::string& pname = line_elems[2];
+      const bool is_float = IsPlyFloatType(dtype);
+      THROW_CHECK(is_float || dtype == "uchar")
           << "PLY import only supports float, double, and uchar data types";
 
-      if (line == "property float x" || line == "property float32 x" ||
-          line == "property double x" || line == "property float64 x") {
+      if (is_float && pname == "x") {
         X_index = index;
         X_byte_pos = num_bytes_per_line;
-        X_double = (line_elems[1] == "double" || line_elems[1] == "float64");
-      } else if (line == "property float y" || line == "property float32 y" ||
-                 line == "property double y" || line == "property float64 y") {
+        X_double = (dtype == "double" || dtype == "float64");
+      } else if (is_float && pname == "y") {
         Y_index = index;
         Y_byte_pos = num_bytes_per_line;
-        Y_double = (line_elems[1] == "double" || line_elems[1] == "float64");
-      } else if (line == "property float z" || line == "property float32 z" ||
-                 line == "property double z" || line == "property float64 z") {
+        Y_double = (dtype == "double" || dtype == "float64");
+      } else if (is_float && pname == "z") {
         Z_index = index;
         Z_byte_pos = num_bytes_per_line;
-        Z_double = (line_elems[1] == "double" || line_elems[1] == "float64");
-      } else if (line == "property float nx" || line == "property float32 nx" ||
-                 line == "property double nx" ||
-                 line == "property float64 nx") {
+        Z_double = (dtype == "double" || dtype == "float64");
+      } else if (is_float && pname == "nx") {
         NX_index = index;
         NX_byte_pos = num_bytes_per_line;
-        NX_double = (line_elems[1] == "double" || line_elems[1] == "float64");
-      } else if (line == "property float ny" || line == "property float32 ny" ||
-                 line == "property double ny" ||
-                 line == "property float64 ny") {
+        NX_double = (dtype == "double" || dtype == "float64");
+      } else if (is_float && pname == "ny") {
         NY_index = index;
         NY_byte_pos = num_bytes_per_line;
-        NY_double = (line_elems[1] == "double" || line_elems[1] == "float64");
-      } else if (line == "property float nz" || line == "property float32 nz" ||
-                 line == "property double nz" ||
-                 line == "property float64 nz") {
+        NY_double = (dtype == "double" || dtype == "float64");
+      } else if (is_float && pname == "nz") {
         NZ_index = index;
         NZ_byte_pos = num_bytes_per_line;
-        NZ_double = (line_elems[1] == "double" || line_elems[1] == "float64");
-      } else if (line == "property uchar r" || line == "property uchar red" ||
-                 line == "property uchar diffuse_red" ||
-                 line == "property uchar ambient_red" ||
-                 line == "property uchar specular_red") {
+        NZ_double = (dtype == "double" || dtype == "float64");
+      } else if (dtype == "uchar" &&
+                 (pname == "r" || pname == "red" || pname == "diffuse_red" ||
+                  pname == "ambient_red" || pname == "specular_red")) {
         R_index = index;
         R_byte_pos = num_bytes_per_line;
-      } else if (line == "property uchar g" || line == "property uchar green" ||
-                 line == "property uchar diffuse_green" ||
-                 line == "property uchar ambient_green" ||
-                 line == "property uchar specular_green") {
+      } else if (dtype == "uchar" &&
+                 (pname == "g" || pname == "green" ||
+                  pname == "diffuse_green" || pname == "ambient_green" ||
+                  pname == "specular_green")) {
         G_index = index;
         G_byte_pos = num_bytes_per_line;
-      } else if (line == "property uchar b" || line == "property uchar blue" ||
-                 line == "property uchar diffuse_blue" ||
-                 line == "property uchar ambient_blue" ||
-                 line == "property uchar specular_blue") {
+      } else if (dtype == "uchar" &&
+                 (pname == "b" || pname == "blue" || pname == "diffuse_blue" ||
+                  pname == "ambient_blue" || pname == "specular_blue")) {
         B_index = index;
         B_byte_pos = num_bytes_per_line;
       }
@@ -478,13 +469,16 @@ PlyTexturedMesh ReadPlyMesh(const std::filesystem::path& path) {
       break;
     }
 
-    if (line.size() >= 6 && line.substr(0, 6) == "format") {
-      if (line == "format ascii 1.0") {
+    const std::vector<std::string> line_elems = StringSplit(line, " \t");
+
+    if (line_elems.size() == 3 && line_elems[0] == "format" &&
+        line_elems[2] == "1.0") {
+      if (line_elems[1] == "ascii") {
         is_binary = false;
-      } else if (line == "format binary_little_endian 1.0") {
+      } else if (line_elems[1] == "binary_little_endian") {
         is_binary = true;
         is_little_endian = true;
-      } else if (line == "format binary_big_endian 1.0") {
+      } else if (line_elems[1] == "binary_big_endian") {
         is_binary = true;
         is_little_endian = false;
       }
@@ -496,8 +490,6 @@ PlyTexturedMesh ReadPlyMesh(const std::filesystem::path& path) {
         result.texture_file = elems[2];
       }
     }
-
-    const std::vector<std::string> line_elems = StringSplit(line, " ");
 
     if (line_elems.size() >= 3 && line_elems[0] == "element") {
       in_vertex_section = false;
@@ -640,17 +632,20 @@ PlyTexturedMesh ReadPlyMesh(const std::filesystem::path& path) {
           return static_cast<uint8_t>(std::clamp(scaled, 0.0f, 255.0f));
         };
 
-    auto ReadInt = [&](const char* buf, size_t num_bytes) {
+    auto ReadInt =
+        [&](const char* buf, size_t num_bytes, bool is_unsigned) -> int64_t {
+      auto ReadTyped = [&](auto type_tag) {
+        using T = decltype(type_tag);
+        const auto val = ReadFromBuffer<T>(buf, 0);
+        return static_cast<int64_t>(is_little_endian ? LittleEndianToNative(val)
+                                                     : BigEndianToNative(val));
+      };
       if (num_bytes == 4) {
-        const auto val = ReadFromBuffer<int32_t>(buf, 0);
-        return static_cast<int>(is_little_endian ? LittleEndianToNative(val)
-                                                 : BigEndianToNative(val));
+        return is_unsigned ? ReadTyped(uint32_t{}) : ReadTyped(int32_t{});
       } else if (num_bytes == 2) {
-        const auto val = ReadFromBuffer<int16_t>(buf, 0);
-        return static_cast<int>(is_little_endian ? LittleEndianToNative(val)
-                                                 : BigEndianToNative(val));
+        return is_unsigned ? ReadTyped(uint16_t{}) : ReadTyped(int16_t{});
       } else {
-        return static_cast<int>(ReadFromBuffer<uint8_t>(buf, 0));
+        return is_unsigned ? ReadTyped(uint8_t{}) : ReadTyped(int8_t{});
       }
     };
 
@@ -685,26 +680,30 @@ PlyTexturedMesh ReadPlyMesh(const std::filesystem::path& path) {
 
     const size_t face_count_bytes = PlyTypeBytes(face_count_type);
     const size_t face_index_bytes = PlyTypeBytes(face_index_type);
+    // All supported unsigned type names and their aliases start with 'u'.
+    const bool face_count_is_unsigned = face_count_type[0] == 'u';
+    const bool face_index_is_unsigned = face_index_type[0] == 'u';
 
     std::vector<char> face_buffer(std::max(face_count_bytes, face_index_bytes));
     for (size_t i = 0; i < num_faces; ++i) {
       file.read(face_buffer.data(), face_count_bytes);
       THROW_CHECK(file.good()) << "Unexpected end of PLY file at face " << i;
 
-      const int num_face_vertices =
-          ReadInt(face_buffer.data(), face_count_bytes);
+      const int64_t num_face_vertices =
+          ReadInt(face_buffer.data(), face_count_bytes, face_count_is_unsigned);
       THROW_CHECK_EQ(num_face_vertices, 3)
           << "Only triangular faces are supported";
 
-      int indices[3];
+      int64_t indices[3];
       for (int j = 0; j < 3; ++j) {
         file.read(face_buffer.data(), face_index_bytes);
         THROW_CHECK(file.good())
             << "Unexpected end of PLY file at face " << i << " index " << j;
-        indices[j] = ReadInt(face_buffer.data(), face_index_bytes);
+        indices[j] = ReadInt(
+            face_buffer.data(), face_index_bytes, face_index_is_unsigned);
         THROW_CHECK_GE(indices[j], 0)
             << "Negative face vertex index at face " << i;
-        THROW_CHECK_LT(indices[j], static_cast<int>(num_vertices))
+        THROW_CHECK_LT(static_cast<uint64_t>(indices[j]), num_vertices)
             << "Face vertex index out of bounds at face " << i;
       }
 
@@ -934,7 +933,7 @@ bool HasPlyMeshFaces(const std::filesystem::path& path) {
       break;
     }
 
-    const std::vector<std::string> line_elems = StringSplit(line, " ");
+    const std::vector<std::string> line_elems = StringSplit(line, " \t");
     if (line_elems.size() >= 3 && line_elems[0] == "element" &&
         line_elems[1] == "face") {
       try {

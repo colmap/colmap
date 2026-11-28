@@ -152,13 +152,17 @@ void BindIncrementalTriangulator(py::module& m) {
            "recursively add observations to a track that might have failed "
            "to triangulate before due to inaccurate poses, etc. Returns "
            "the number of completed observations.")
-      .def("__copy__",
-           [](const IncrementalTriangulator& self) {
-             return IncrementalTriangulator(self);
-           })
-      .def("__deepcopy__",
-           [](const IncrementalTriangulator& self, const py::dict&) {
-             return IncrementalTriangulator(self);
-           })
+      .def(
+          "__copy__",
+          [](const IncrementalTriangulator& self) {
+            return IncrementalTriangulator(self);
+          },
+          py::keep_alive<0, 1>())
+      .def(
+          "__deepcopy__",
+          [](const IncrementalTriangulator& self, const py::dict&) {
+            return IncrementalTriangulator(self);
+          },
+          py::keep_alive<0, 1>())
       .def("__repr__", &CreateRepresentation<IncrementalTriangulator>);
 }

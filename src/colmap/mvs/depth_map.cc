@@ -85,8 +85,11 @@ Bitmap DepthMap::ToBitmap(const float min_percentile,
       if (depth > 0) {
         const float robust_depth =
             std::clamp(depth, robust_depth_min, robust_depth_max);
+        // Keep valid depths visible when the percentile range collapses.
         const float gray =
-            (robust_depth - robust_depth_min) / robust_depth_range;
+            robust_depth_range == 0.0f
+                ? 0.5f
+                : (robust_depth - robust_depth_min) / robust_depth_range;
         bitmap.SetPixel(x, y, JetColormap::ToBitmapColor(gray));
       } else {
         bitmap.SetPixel(x, y, BitmapColor<uint8_t>(0));

@@ -31,6 +31,26 @@ def test_rotation3d_from_buffer() -> None:
     assert rotation is not None
 
 
+def test_rotation3d_strided_and_readonly_buffers() -> None:
+    quat = np.array([0.0, 0.0, np.sqrt(0.5), np.sqrt(0.5)])
+    expected = pycolmap.Rotation3d(xyzw=quat).matrix()
+    # Row of a Fortran-order array is a non-contiguous view.
+    strided = np.asfortranarray([quat, [1.0, 0.0, 0.0, 0.0]])[0]
+    np.testing.assert_allclose(
+        pycolmap.Rotation3d.from_buffer(strided).matrix(), expected
+    )
+    rigid = pycolmap.Rigid3d(strided, np.zeros(3))  # type: ignore[call-overload]
+    np.testing.assert_array_equal(rigid.rotation.quat, quat)
+    # Contiguous inputs and transform params remain zero-copy views.
+    assert np.shares_memory(pycolmap.Rotation3d.from_buffer(quat).quat, quat)
+    assert np.shares_memory(rigid.rotation.quat, rigid.params)
+    quat.setflags(write=False)
+    rotation = pycolmap.Rotation3d.from_buffer(quat)
+    np.testing.assert_array_equal(
+        pycolmap.Rigid3d(rotation, np.zeros(3)).rotation.quat, quat
+    )
+
+
 def test_rotation3d_quat_readwrite() -> None:
     rotation = pycolmap.Rotation3d()
     quat = rotation.quat

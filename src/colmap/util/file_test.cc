@@ -77,6 +77,12 @@ TEST(SplitFileExtension, Nominal) {
   SplitFileExtension("./dir.suffix/file.", &root, &ext);
   EXPECT_EQ(root, "./dir.suffix/file");
   EXPECT_EQ(ext, "");
+  SplitFileExtension("capture.v1/image", &root, &ext);
+  EXPECT_EQ(root, "capture.v1/image");
+  EXPECT_EQ(ext, "");
+  SplitFileExtension("dir..x/image..jpg", &root, &ext);
+  EXPECT_EQ(root, "dir..x/image.");
+  EXPECT_EQ(ext, ".jpg");
 }
 
 TEST(GetPathBaseName, Nominal) {
@@ -177,6 +183,45 @@ TEST(FileCopy, Nominal) {
   const auto dst_soft_link_path = dir / "destination_soft_link.txt";
   FileCopy(src_path, dst_soft_link_path, FileCopyType::SOFT_LINK);
   EXPECT_TRUE(ExistsFile(dst_soft_link_path));
+}
+
+TEST(FileCopy, RelativeSoftLink) {
+  const auto dir = std::filesystem::absolute(CreateTestDir());
+  const auto src_path = dir / "input" / "source.txt";
+  const auto dst_dir = dir / "nested" / "output";
+  CreateDirIfNotExists(src_path.parent_path());
+  CreateDirIfNotExists(dst_dir, /*recursive=*/true);
+  {
+    std::ofstream file(src_path);
+    file << "test content";
+  }
+
+  struct RestoreCurrentPath {
+    std::filesystem::path path;
+    ~RestoreCurrentPath() { std::filesystem::current_path(path); }
+  } restore_current_path{std::filesystem::current_path()};
+  std::filesystem::current_path(dir);
+  const std::filesystem::path relative_src_path = "input/source.txt";
+  for (const bool relative_dst : {false, true}) {
+    SCOPED_TRACE(relative_dst);
+    const auto dst_path =
+        dst_dir / (relative_dst ? "relative.txt" : "absolute.txt");
+    const auto dst_arg =
+        relative_dst ? std::filesystem::path("nested/output/relative.txt")
+                     : dst_path;
+    try {
+      FileCopy(relative_src_path, dst_arg, FileCopyType::SOFT_LINK);
+    } catch (const std::filesystem::filesystem_error& e) {
+      // Might fail on Windows if symlinks are not enabled.
+      GTEST_SKIP() << "Could not create symlink: " << e.what();
+    }
+    EXPECT_TRUE(std::filesystem::is_symlink(dst_path));
+    EXPECT_TRUE(ExistsFile(dst_path));
+    std::ifstream file(dst_path);
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    EXPECT_EQ(buffer.str(), "test content");
+  }
 }
 
 TEST(GetRecursiveFileList, Nominal) {
@@ -325,6 +370,12 @@ TEST(MaybeDownloadAndCacheFile, Nominal) {
   EXPECT_EQ(MaybeDownloadAndCacheFile(uri), cached_file_path);
   EXPECT_EQ(MaybeDownloadAndCacheFile(cached_file_path.string()),
             cached_file_path);
+
+  WriteBinaryBlob(cached_file_path, {data.data(), 1});
+  EXPECT_EQ(MaybeDownloadAndCacheFile(uri), cached_file_path);
+  std::vector<char> cached_data;
+  ReadBinaryBlob(cached_file_path, &cached_data);
+  EXPECT_EQ(std::string(cached_data.begin(), cached_data.end()), data);
 }
 
 #endif

@@ -101,20 +101,20 @@ void WriteCOLMAPCommands(const bool geometric,
     *file << indent << "  --input_type photometric \\\n";
   }
   *file << indent << "  --output_path "
-        << workspace_path / (output_prefix + "fused.ply") << " \\\n";
+        << workspace_path / (output_prefix + "fused.ply") << '\n';
 
   *file << indent << "$COLMAP_EXE_PATH/colmap poisson_mesher \\\n";
   *file << indent << "  --input_path "
         << workspace_path / (output_prefix + "fused.ply") << " \\\n";
   *file << indent << "  --output_path "
-        << workspace_path / (output_prefix + "meshed-poisson.ply") << " \\\n";
+        << workspace_path / (output_prefix + "meshed-poisson.ply") << '\n';
 
   *file << indent << "$COLMAP_EXE_PATH/colmap delaunay_mesher \\\n";
   *file << indent << "  --input_path " << workspace_path / output_prefix
         << " \\\n";
   *file << indent << "  --input_type dense \\\n";
   *file << indent << "  --output_path "
-        << workspace_path / (output_prefix + "meshed-delaunay.ply") << " \\\n";
+        << workspace_path / (output_prefix + "meshed-delaunay.ply") << '\n';
 }
 
 }  // namespace
@@ -632,6 +632,10 @@ void StandaloneImageUndistorter::Run() {
   run_timer.Start();
 
   CreateDirIfNotExists(output_path_);
+  for (const auto& [image_name, camera] : options_.image_names_and_cameras) {
+    CreateDirIfNotExists((output_path_ / image_name).parent_path(),
+                         /*recursive=*/true);
+  }
 
   ThreadPool thread_pool(options_.num_threads);
   std::vector<std::shared_future<bool>> futures;

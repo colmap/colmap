@@ -185,8 +185,8 @@ def adjust_local_bundle(
 
         # Fix camera intrinsics, if not all images within local bundle.
         num_images_per_camera: dict[int, int] = collections.defaultdict(int)
-        for image_id in ba_config.images:
-            image = reconstruction.images[image_id]
+        for ba_image_id in ba_config.images:
+            image = reconstruction.images[ba_image_id]
             num_images_per_camera[image.camera_id] += 1
         for camera_id, num_images_local in num_images_per_camera.items():
             if (
