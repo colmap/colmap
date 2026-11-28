@@ -1101,6 +1101,32 @@ TEST_P(ParameterizedDatabaseTests, Merge) {
   EXPECT_EQ(merged_database->NumMatches(), 0);
 }
 
+TEST_P(ParameterizedDatabaseTests, MergePreservesFeatureRecordPresence) {
+  const Camera camera = Camera::CreateFromModelId(
+      kInvalidCameraId, CameraModelId::kSimplePinhole, 1.0, 1, 1);
+  const auto database1 = GetParam()(kInMemorySqliteDatabasePath);
+  Image image1;
+  image1.SetCameraId(database1->WriteCamera(camera));
+  image1.SetName("no_features");
+  database1->WriteImage(image1);
+  const auto database2 = GetParam()(kInMemorySqliteDatabasePath);
+  Image image2;
+  image2.SetCameraId(database2->WriteCamera(camera));
+  image2.SetName("empty_keypoints");
+  database2->WriteKeypoints(database2->WriteImage(image2), FeatureKeypoints());
+
+  const auto merged_database = GetParam()(kInMemorySqliteDatabasePath);
+  Database::Merge(*database1, *database2, merged_database.get());
+  const image_t merged_image_id1 =
+      merged_database->ReadImageWithName("no_features").value().ImageId();
+  const image_t merged_image_id2 =
+      merged_database->ReadImageWithName("empty_keypoints").value().ImageId();
+  EXPECT_FALSE(merged_database->ExistsKeypoints(merged_image_id1));
+  EXPECT_FALSE(merged_database->ExistsDescriptors(merged_image_id1));
+  EXPECT_TRUE(merged_database->ExistsKeypoints(merged_image_id2));
+  EXPECT_FALSE(merged_database->ExistsDescriptors(merged_image_id2));
+}
+
 INSTANTIATE_TEST_SUITE_P(
     DatabaseTests,
     ParameterizedDatabaseTests,
