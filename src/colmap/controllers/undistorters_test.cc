@@ -391,6 +391,30 @@ TEST(StandaloneImageUndistorter, Integration) {
   }
 }
 
+TEST(StandaloneImageUndistorter, NestedImagePaths) {
+  const auto temp_dir = CreateTestDir();
+  const auto image_path = temp_dir / "input_images";
+  const std::string image_name = "a/b/image.png";
+  CreateDirIfNotExists((image_path / image_name).parent_path(),
+                       /*recursive=*/true);
+  ASSERT_TRUE(Bitmap(32, 24, true).Write(image_path / image_name));
+  // PINHOLE images are copied, SIMPLE_RADIAL images are warped.
+  for (const CameraModelId model_id :
+       {CameraModelId::kPinhole, CameraModelId::kSimpleRadial}) {
+    Camera camera = Camera::CreateFromModelId(1, model_id, 32, 32, 24);
+    if (model_id == CameraModelId::kSimpleRadial) {
+      camera.params[3] = 0.05;
+    }
+    const auto output_path = temp_dir / camera.ModelName();
+    StandaloneImageUndistorter::Options options;
+    options.image_names_and_cameras.emplace_back(image_name, camera);
+    StandaloneImageUndistorter undistorter(
+        options, UndistortCameraOptions(), image_path, output_path);
+    undistorter.Run();
+    EXPECT_TRUE(ExistsFile(output_path / image_name));
+  }
+}
+
 TEST(StandaloneImageUndistorter, TargetCamera) {
   const auto temp_dir = CreateTestDir();
   const auto image_path = temp_dir / "input_images";
