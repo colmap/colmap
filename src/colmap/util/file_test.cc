@@ -77,6 +77,12 @@ TEST(SplitFileExtension, Nominal) {
   SplitFileExtension("./dir.suffix/file.", &root, &ext);
   EXPECT_EQ(root, "./dir.suffix/file");
   EXPECT_EQ(ext, "");
+  SplitFileExtension("capture.v1/image", &root, &ext);
+  EXPECT_EQ(root, "capture.v1/image");
+  EXPECT_EQ(ext, "");
+  SplitFileExtension("dir..x/image..jpg", &root, &ext);
+  EXPECT_EQ(root, "dir..x/image.");
+  EXPECT_EQ(ext, ".jpg");
 }
 
 TEST(GetPathBaseName, Nominal) {
