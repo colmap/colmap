@@ -333,7 +333,8 @@ in many ways, but an easy option is to use pycolmap's database API.
 Otherwise, you can skip this step and
 simply continue as follows::
 
-    colmap exhaustive_matcher \ # or alternatively any other matcher
+    # Alternatively, use another matcher.
+    colmap exhaustive_matcher \
         --database_path $PROJECT_PATH/database.db
 
     colmap point_triangulator \
