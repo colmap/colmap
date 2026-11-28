@@ -112,6 +112,23 @@ def download_eth3d_undistorted(data_path: Path) -> None:
     _download_eth3d_archives(data_path, ETH3D_UNDISTORTED_RIG_ARCHIVES)
 
 
+def _group_imc_scenes(data_path: Path) -> None:
+    """Move scenes into the all category, merging a previous extraction."""
+    category_path = data_path / "train/all"
+    category_path.mkdir(parents=True, exist_ok=True)
+    for scene in (data_path / "train").iterdir():
+        if scene.name == "all":
+            continue
+        target = category_path / scene.name
+        if scene.is_dir() and target.is_dir():
+            shutil.copytree(
+                scene, target, copy_function=shutil.move, dirs_exist_ok=True
+            )
+            shutil.rmtree(scene)
+        else:
+            shutil.move(scene, target)
+
+
 def _download_imc(data_path: Path, year: int, move_scenes_to_all: bool) -> None:
     data_path.mkdir(parents=True, exist_ok=True)
 
@@ -135,13 +152,7 @@ def _download_imc(data_path: Path, year: int, move_scenes_to_all: bool) -> None:
         archive.extractall(path=data_path)
 
     if move_scenes_to_all:
-        # Move all scenes to the "all" category sub-folder.
-        category_path = data_path / "train/all"
-        category_path.mkdir(parents=True, exist_ok=True)
-        for scene in (data_path / "train").iterdir():
-            if scene.name == "all":
-                continue
-            shutil.move(scene, category_path)
+        _group_imc_scenes(data_path)
     archive_path.unlink()
 
 
