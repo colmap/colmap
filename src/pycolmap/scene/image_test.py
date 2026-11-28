@@ -1,6 +1,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
+import gc
+import weakref
+
 import numpy as np
+import pytest
 
 import pycolmap
 
@@ -95,3 +99,42 @@ def test_image_map_insert_and_access() -> None:
     image_map[1] = image
     assert len(image_map) == 1
     assert image_map[1].name == "test.jpg"
+
+
+@pytest.mark.parametrize(
+    ("owner_type", "property_name", "id_name"),
+    [
+        ("image", "camera", "camera_id"),
+        ("image", "frame", "frame_id"),
+        ("frame", "rig", "rig_id"),
+    ],
+)
+def test_scene_pointer_property_keeps_reconstruction_alive(
+    simple_camera: pycolmap.Camera,
+    owner_type: str,
+    property_name: str,
+    id_name: str,
+) -> None:
+    reconstruction = pycolmap.Reconstruction()
+    reconstruction.add_camera_with_trivial_rig(simple_camera)
+    reconstruction.add_image_with_trivial_frame(
+        pycolmap.Image(name="image.jpg", image_id=1, camera_id=1)
+    )
+    owner = getattr(reconstruction, owner_type)(1)
+    borrowed = getattr(owner, property_name)
+    reconstruction_ref = weakref.ref(reconstruction)
+    del owner, reconstruction
+    gc.collect()
+
+    assert reconstruction_ref() is not None
+    assert getattr(borrowed, id_name) == 1
+
+    del borrowed
+    gc.collect()
+    assert reconstruction_ref() is None
+
+
+def test_unset_scene_pointer_properties() -> None:
+    assert pycolmap.Image().camera is None
+    assert pycolmap.Image().frame is None
+    assert pycolmap.Frame().rig is None
