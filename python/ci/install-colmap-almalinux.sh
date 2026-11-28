@@ -51,8 +51,9 @@ fi
 # ccache shipped by CentOS is too old so we download and cache it.
 COMPILER_TOOLS_DIR="${CONTAINER_COMPILER_CACHE_DIR}/bin"
 mkdir -p ${COMPILER_TOOLS_DIR}
-if [ ! -f "${COMPILER_TOOLS_DIR}/ccache" ]; then
-    FILE="ccache-4.14.1-linux-x86_64-glibc"
+if ! "${COMPILER_TOOLS_DIR}/ccache" --version >/dev/null 2>&1; then
+    # The aarch64 glibc binary needs a newer libc than manylinux_2_28.
+    FILE="ccache-4.14.1-linux-$(uname -m)-musl-static"
     curl -sSLO https://github.com/ccache/ccache/releases/download/v4.14.1/${FILE}.tar.xz
     tar -xf ${FILE}.tar.xz
     cp ${FILE}/ccache ${COMPILER_TOOLS_DIR}
