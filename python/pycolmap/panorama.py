@@ -322,9 +322,11 @@ class PanoProcessor:
             )
             if mode == "I":
                 # Convert interpolated values back without overflowing int32.
-                image = np.rint(image).clip(
-                    np.iinfo(np.int32).min, np.iinfo(np.int32).max
-                ).astype(np.int32)
+                image = (
+                    np.rint(image)
+                    .clip(np.iinfo(np.int32).min, np.iinfo(np.int32).max)
+                    .astype(np.int32)
+                )
             # We define a mask such that each pixel of the panorama has its
             # features extracted only in a single virtual camera.
             closest_camera = np.argmax(
