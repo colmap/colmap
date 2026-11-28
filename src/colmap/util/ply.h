@@ -87,8 +87,8 @@ void WriteBinaryPlyPoints(const std::filesystem::path& path,
 // meshes (with per-face UV coordinates and "comment TextureFile" header).
 PlyTexturedMesh ReadPlyMesh(const std::filesystem::path& path);
 
-// Write PLY mesh to text or binary file. Writes texture coordinates and
-// TextureFile comment when present in the mesh.
+// Write PLY mesh positions and vertex colors to text or binary file. Writes
+// texture coordinates and TextureFile comment when present in the mesh.
 void WriteTextPlyMesh(const std::filesystem::path& path,
                       const PlyTexturedMesh& mesh);
 void WriteBinaryPlyMesh(const std::filesystem::path& path,

@@ -5,13 +5,25 @@
 #include "colmap/util/endian.h"
 #include "colmap/util/testing.h"
 
+#include <algorithm>
 #include <array>
+#include <csignal>
 #include <cstdint>
+#include <cstdlib>
+#include <cstring>
 #include <fstream>
+#include <iterator>
+#include <limits>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+#ifdef __linux__
+#include <sys/resource.h>
+#endif  // __linux__
 
 namespace colmap {
 namespace {
@@ -373,9 +385,9 @@ TEST(Ply, RoundTripTextPlyMesh) {
   const auto test_file = test_dir / "mesh.ply";
 
   PlyMesh original_mesh;
-  original_mesh.vertices.emplace_back(0.0f, 0.0f, 0.0f);
-  original_mesh.vertices.emplace_back(1.0f, 0.0f, 0.0f);
-  original_mesh.vertices.emplace_back(0.0f, 1.0f, 0.0f);
+  original_mesh.vertices.emplace_back(0.0f, 0.0f, 0.0f, 0, 17, 255);
+  original_mesh.vertices.emplace_back(1.0f, 0.0f, 0.0f, 109, 233, 1);
+  original_mesh.vertices.emplace_back(0.0f, 1.0f, 0.0f, 255, 0, 128);
   original_mesh.vertices.emplace_back(1.0f, 1.0f, 1.0f);
 
   original_mesh.faces.emplace_back(0, 1, 2);
@@ -393,8 +405,10 @@ TEST(Ply, RoundTripTextPlyMesh) {
                      original_mesh.vertices[i].x,
                      original_mesh.vertices[i].y,
                      original_mesh.vertices[i].z);
-    // No colors in file, should get defaults.
-    ExpectColorEq(loaded_mesh.vertices[i], 200, 200, 200);
+    ExpectColorEq(loaded_mesh.vertices[i],
+                  original_mesh.vertices[i].r,
+                  original_mesh.vertices[i].g,
+                  original_mesh.vertices[i].b);
   }
 
   for (size_t i = 0; i < original_mesh.faces.size(); ++i) {
@@ -412,9 +426,9 @@ TEST(Ply, RoundTripBinaryPlyMesh) {
   const auto test_file = test_dir / "mesh.ply";
 
   PlyMesh original_mesh;
-  original_mesh.vertices.emplace_back(0.0f, 0.0f, 0.0f);
-  original_mesh.vertices.emplace_back(1.0f, 0.0f, 0.0f);
-  original_mesh.vertices.emplace_back(0.0f, 1.0f, 0.0f);
+  original_mesh.vertices.emplace_back(0.0f, 0.0f, 0.0f, 0, 17, 255);
+  original_mesh.vertices.emplace_back(1.0f, 0.0f, 0.0f, 109, 233, 1);
+  original_mesh.vertices.emplace_back(0.0f, 1.0f, 0.0f, 255, 0, 128);
   original_mesh.vertices.emplace_back(1.0f, 1.0f, 1.0f);
 
   original_mesh.faces.emplace_back(0, 1, 2);
@@ -432,8 +446,10 @@ TEST(Ply, RoundTripBinaryPlyMesh) {
                      original_mesh.vertices[i].x,
                      original_mesh.vertices[i].y,
                      original_mesh.vertices[i].z);
-    // No colors in file, should get defaults.
-    ExpectColorEq(loaded_mesh.vertices[i], 200, 200, 200);
+    ExpectColorEq(loaded_mesh.vertices[i],
+                  original_mesh.vertices[i].r,
+                  original_mesh.vertices[i].g,
+                  original_mesh.vertices[i].b);
   }
 
   for (size_t i = 0; i < original_mesh.faces.size(); ++i) {
@@ -490,6 +506,10 @@ void VerifyTexturedMesh(const PlyTexturedMesh& loaded,
                      original.mesh.vertices[i].x,
                      original.mesh.vertices[i].y,
                      original.mesh.vertices[i].z);
+    ExpectColorEq(loaded.mesh.vertices[i],
+                  original.mesh.vertices[i].r,
+                  original.mesh.vertices[i].g,
+                  original.mesh.vertices[i].b);
   }
 
   for (size_t i = 0; i < original.mesh.faces.size(); ++i) {
@@ -511,6 +531,9 @@ TEST(Ply, RoundTripTextTexturedPlyMesh) {
   const auto test_file = test_dir / "textured_mesh.ply";
 
   PlyTexturedMesh original = CreateTestTexturedMesh();
+  original.mesh.vertices[0].r = 0;
+  original.mesh.vertices[0].g = 17;
+  original.mesh.vertices[0].b = 255;
   WriteTextPlyMesh(test_file, original);
   PlyTexturedMesh loaded = ReadPlyMesh(test_file);
   VerifyTexturedMesh(loaded, original);
@@ -521,6 +544,9 @@ TEST(Ply, RoundTripBinaryTexturedPlyMesh) {
   const auto test_file = test_dir / "textured_mesh.ply";
 
   PlyTexturedMesh original = CreateTestTexturedMesh();
+  original.mesh.vertices[0].r = 0;
+  original.mesh.vertices[0].g = 17;
+  original.mesh.vertices[0].b = 255;
   WriteBinaryPlyMesh(test_file, original);
   PlyTexturedMesh loaded = ReadPlyMesh(test_file);
   VerifyTexturedMesh(loaded, original);
@@ -902,6 +928,186 @@ TEST(Ply, HasPlyMeshFacesWithZeroFaces) {
   WriteTextPlyMesh(test_file, PlyTexturedMesh{mesh});
 
   EXPECT_FALSE(HasPlyMeshFaces(test_file));
+}
+
+void WriteTestFile(const std::filesystem::path& path,
+                   const std::string& bytes) {
+  std::ofstream file(path, std::ios::binary);
+  file << bytes;
+  file.close();
+  ASSERT_TRUE(file.good());
+}
+
+std::string ReadTestFile(const std::filesystem::path& path) {
+  std::ifstream file(path, std::ios::binary);
+  return {std::istreambuf_iterator<char>(file), {}};
+}
+
+#ifdef __linux__
+TEST(Ply, FailedOutputIsReported) {
+  const std::filesystem::path path = "/dev/full";
+  const std::vector<PlyPoint> points(1);
+  const PlyTexturedMesh mesh;
+  const auto throws_write_error = testing::ThrowsMessage<std::invalid_argument>(
+      testing::HasSubstr("Failed to write PLY file"));
+  for (const bool normals : {false, true}) {
+    for (const bool colors : {false, true}) {
+      EXPECT_THAT([&] { WriteTextPlyPoints(path, points, normals, colors); },
+                  throws_write_error);
+      EXPECT_THAT([&] { WriteBinaryPlyPoints(path, points, normals, colors); },
+                  throws_write_error);
+    }
+  }
+  EXPECT_THAT([&] { WriteTextPlyMesh(path, mesh); }, throws_write_error);
+  EXPECT_THAT([&] { WriteBinaryPlyMesh(path, mesh); }, throws_write_error);
+}
+#endif
+
+#ifdef __linux__
+TEST(Ply, BinaryPayloadFailureIsReported) {
+  const auto path = CreateTestDir() / "limited.ply";
+  const std::vector<PlyPoint> points(64);
+  auto mesh = CreateTestTexturedMesh();
+  mesh.face_uvs.clear();
+  mesh.mesh.faces.resize(128, mesh.mesh.faces.front());
+  for (const bool write_mesh : {false, true}) {
+    SCOPED_TRACE(write_mesh);
+    const auto Write = [&] {
+      if (write_mesh) {
+        WriteBinaryPlyMesh(path, mesh);
+      } else {
+        WriteBinaryPlyPoints(path, points);
+      }
+    };
+    Write();
+    std::ifstream input(path, std::ios::binary);
+    const std::string bytes((std::istreambuf_iterator<char>(input)), {});
+    input.close();
+    const size_t header_end = bytes.find("end_header\n");
+    ASSERT_NE(header_end, std::string::npos);
+    ASSERT_LT(header_end + std::string("end_header\n").size(), 1024);
+    ASSERT_GT(bytes.size(), 1024);
+    ASSERT_LT(bytes.size(), 4096);
+    ASSERT_TRUE(std::filesystem::remove(path));
+    // Restrict only the isolated child. The header fits; the buffered binary
+    // payload reaches the file-size limit and must be reported on completion.
+    EXPECT_EXIT(
+        {
+          struct rlimit limit;
+          if (getrlimit(RLIMIT_FSIZE, &limit) != 0 ||
+              std::signal(SIGXFSZ, SIG_IGN) == SIG_ERR) {
+            std::_Exit(2);
+          }
+          limit.rlim_cur = 1024;
+          if (setrlimit(RLIMIT_FSIZE, &limit) != 0) std::_Exit(2);
+          try {
+            Write();
+          } catch (const std::invalid_argument& error) {
+            std::_Exit(
+                std::string(error.what()).find("Failed to write PLY file") !=
+                        std::string::npos
+                    ? 0
+                    : 1);
+          }
+          std::_Exit(1);
+        },
+        testing::ExitedWithCode(0),
+        "");
+    EXPECT_EQ(std::filesystem::file_size(path), 1024);
+  }
+}
+#endif
+
+TEST(Ply, MeshRejectsInvalidInputBeforeOpeningOutput) {
+  const auto path = CreateTestDir() / "existing_mesh.ply";
+  const std::string previous = "Retain existing output on invalid mesh";
+  const auto ExpectRefusal = [&](const PlyTexturedMesh& mesh,
+                                 const std::string& message) {
+    for (const bool binary : {false, true}) {
+      SCOPED_TRACE(binary);
+      const auto Write = [&] {
+        binary ? WriteBinaryPlyMesh(path, mesh) : WriteTextPlyMesh(path, mesh);
+      };
+      const auto expected_error = testing::ThrowsMessage<std::invalid_argument>(
+          testing::HasSubstr(message));
+      WriteTestFile(path, previous);
+      EXPECT_THAT(Write, expected_error);
+      EXPECT_EQ(ReadTestFile(path), previous);
+      ASSERT_TRUE(std::filesystem::remove(path));
+      EXPECT_THAT(Write, expected_error);
+      EXPECT_FALSE(std::filesystem::exists(path));
+    }
+  };
+  for (const bool textured : {false, true}) {
+    for (const size_t index :
+         {static_cast<size_t>(std::numeric_limits<int32_t>::max()) + 1,
+          std::numeric_limits<size_t>::max()}) {
+      for (const size_t face_index : {0, 1}) {
+        for (int slot = 0; slot < 3; ++slot) {
+          auto mesh = CreateTestTexturedMesh();
+          if (!textured) mesh.face_uvs.clear();
+          auto& face = mesh.mesh.faces[face_index];
+          const std::array<size_t*, 3> indices = {
+              &face.vertex_idx1, &face.vertex_idx2, &face.vertex_idx3};
+          *indices[slot] = index;
+          ExpectRefusal(mesh, "PLY int range");
+        }
+      }
+    }
+    auto mesh = CreateTestTexturedMesh();
+    if (!textured) mesh.face_uvs.clear();
+    mesh.mesh.faces.back().vertex_idx3 = mesh.mesh.vertices.size();
+    ExpectRefusal(mesh, "");
+  }
+  auto mesh = CreateTestTexturedMesh();
+  mesh.face_uvs.pop_back();
+  ExpectRefusal(mesh, "Expected 6 UV coordinates");
+}
+
+TEST(Ply, MeshWriterPayloadAndColorRetention) {
+  const auto p = CreateTestDir() / "mesh.ply";
+  PlyTexturedMesh mesh;
+  mesh.mesh.vertices = {
+      {1, 2, 3, 17, 109, 233}, {-4, 5, 6, 0, 128, 255}, {7, -8, 9, 255, 1, 2}};
+  mesh.mesh.faces = {{2, 0, 1}, {1, 0, 2}};
+  mesh.face_uvs = {0.125f, 0.25f, 0.5f, 0.75f, 1, 0, 1, 1, 0, 1, 0.5f, 0.25f};
+  mesh.texture_file = "texture.png";
+  for (const bool binary : {false, true}) {
+    binary ? WriteBinaryPlyMesh(p, mesh) : WriteTextPlyMesh(p, mesh);
+    const auto loaded = ReadPlyMesh(p);
+    ASSERT_EQ(loaded.mesh.vertices.size(), mesh.mesh.vertices.size());
+    ASSERT_EQ(loaded.mesh.faces.size(), mesh.mesh.faces.size());
+    EXPECT_EQ(loaded.face_uvs, mesh.face_uvs);
+    EXPECT_EQ(loaded.texture_file, mesh.texture_file);
+    for (size_t i = 0; i < mesh.mesh.vertices.size(); ++i) {
+      EXPECT_EQ(loaded.mesh.vertices[i].x, mesh.mesh.vertices[i].x);
+      EXPECT_EQ(loaded.mesh.vertices[i].y, mesh.mesh.vertices[i].y);
+      EXPECT_EQ(loaded.mesh.vertices[i].z, mesh.mesh.vertices[i].z);
+      ExpectColorEq(loaded.mesh.vertices[i],
+                    mesh.mesh.vertices[i].r,
+                    mesh.mesh.vertices[i].g,
+                    mesh.mesh.vertices[i].b);
+    }
+    for (size_t i = 0; i < mesh.mesh.faces.size(); ++i) {
+      EXPECT_EQ(loaded.mesh.faces[i].vertex_idx1,
+                mesh.mesh.faces[i].vertex_idx1);
+      EXPECT_EQ(loaded.mesh.faces[i].vertex_idx2,
+                mesh.mesh.faces[i].vertex_idx2);
+      EXPECT_EQ(loaded.mesh.faces[i].vertex_idx3,
+                mesh.mesh.faces[i].vertex_idx3);
+    }
+    EXPECT_TRUE(HasPlyMeshFaces(p));
+    const auto points = ReadPly(p);
+    ASSERT_EQ(points.size(), mesh.mesh.vertices.size());
+    for (size_t i = 0; i < points.size(); ++i) {
+      EXPECT_EQ(points[i].x, mesh.mesh.vertices[i].x);
+      EXPECT_EQ(points[i].y, mesh.mesh.vertices[i].y);
+      EXPECT_EQ(points[i].z, mesh.mesh.vertices[i].z);
+      EXPECT_EQ(points[i].r, mesh.mesh.vertices[i].r);
+      EXPECT_EQ(points[i].g, mesh.mesh.vertices[i].g);
+      EXPECT_EQ(points[i].b, mesh.mesh.vertices[i].b);
+    }
+  }
 }
 
 }  // namespace
