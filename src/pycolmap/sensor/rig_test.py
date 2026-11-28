@@ -33,8 +33,18 @@ def test_rig_add_sensor() -> None:
     ref_sensor = _make_sensor(pycolmap.SensorType.CAMERA, 0)
     other_sensor = _make_sensor(pycolmap.SensorType.CAMERA, 1)
     rig.add_ref_sensor(ref_sensor)
-    rig.add_sensor(other_sensor, None)
+    rig.add_sensor(other_sensor)
     assert rig.has_sensor(other_sensor)
+
+
+def test_rig_sensor_keyword_args() -> None:
+    rig = pycolmap.Rig()
+    ref_sensor = _make_sensor(pycolmap.SensorType.CAMERA, 0)
+    other_sensor = _make_sensor(pycolmap.SensorType.CAMERA, 1)
+    rig.add_ref_sensor(sensor_id=ref_sensor)
+    rig.add_sensor(sensor_id=other_sensor, sensor_from_rig=pycolmap.Rigid3d())
+    assert rig.is_ref_sensor(ref_sensor)
+    assert rig.has_sensor_from_rig(other_sensor)
 
 
 def test_rig_has_sensor() -> None:
