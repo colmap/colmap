@@ -30,6 +30,8 @@ def download_file(url: str, file_path: str, max_retries: int = 3) -> None:
                 f"Failed to download {url} (trial={retry + 1}) "
                 f"to {file_path} due to {exc}"
             )
+            if retry + 1 == max_retries:
+                raise
 
 
 def check_small_errors_or_exit(
