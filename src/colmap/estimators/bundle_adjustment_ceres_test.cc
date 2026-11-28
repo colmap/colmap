@@ -1442,7 +1442,7 @@ TEST(DefaultBundleAdjuster, DeprecatedPosePriorBundleAdjusterShim) {
                                                   /*num_frames_per_rig=*/5,
                                                   /*num_points3D=*/60);
 
-  Reconstruction reconstruction = std::move(scene.gt_reconstruction);
+  Reconstruction reconstruction = scene.gt_reconstruction;
   SyntheticNoiseOptions noise_options;
   noise_options.point3D_stddev = 0.01;
   noise_options.rig_from_world_rotation_stddev = 0.1;
