@@ -3,6 +3,7 @@
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pytest
 
 import pycolmap
@@ -76,10 +77,50 @@ def test_visual_index_python_override(tmp_path: Path) -> None:
     options = pycolmap.VisualIndex.QueryOptions(max_num_images=5)
     keypoints = pycolmap.FeatureKeypoints()
     descriptors = pycolmap.FeatureDescriptorsFloat()
-    index.query(options, descriptors, [])
-    index.query(options, keypoints, descriptors, [])
+    assert index.query(options, descriptors) == []
+    assert index.query(options, keypoints, descriptors) == []
     assert [o.max_num_images for o in index.query_options] == [5, 5]
 
     path = tmp_path / "index.bin"
     index.write(path)
     assert index.path == path
+
+
+@pytest.mark.parametrize("with_keypoints", [False, True])
+def test_visual_index_query_returns_scores(with_keypoints: bool) -> None:
+    rng = np.random.default_rng(0)
+    training_data = rng.standard_normal((1000, 128)).astype(np.float32)
+    training_descriptors = pycolmap.FeatureDescriptorsFloat(
+        pycolmap.FeatureExtractorType.SIFT, training_data
+    )
+    index = pycolmap.VisualIndex.create(128, 64)
+    index.build(
+        pycolmap.VisualIndex.BuildOptions(
+            num_visual_words=100,
+            num_iterations=5,
+            num_rounds=1,
+            num_threads=1,
+        ),
+        training_descriptors,
+    )
+    keypoints = pycolmap.FeatureKeypoints(
+        [pycolmap.FeatureKeypoint() for _ in range(50)]
+    )
+    descriptors = pycolmap.FeatureDescriptorsFloat(
+        pycolmap.FeatureExtractorType.SIFT, training_data[:50]
+    )
+    index_options = pycolmap.VisualIndex.IndexOptions(num_threads=1)
+    for image_id in (7, 9):
+        index.add(index_options, image_id, keypoints, descriptors)
+    index.prepare()
+    query_options = pycolmap.VisualIndex.QueryOptions(
+        num_neighbors=1,
+        num_threads=1,
+    )
+    if with_keypoints:
+        scores = index.query(query_options, keypoints, descriptors)
+    else:
+        scores = index.query(query_options, descriptors)
+    assert isinstance(scores, list)
+    assert all(isinstance(score, pycolmap.ImageScore) for score in scores)
+    assert {score.image_id for score in scores} == {7, 9}
