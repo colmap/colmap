@@ -472,6 +472,7 @@ bool AlignReconstruction(const RANSACOptions& ransac_options,
     return false;
   }
   reconstruction.Transform(metric_from_orig);
+  reconstruction.SetHasMetricScale(true);
 
   // Compute alignment error w.r.t. prior positions.
   if (VLOG_IS_ON(2)) {

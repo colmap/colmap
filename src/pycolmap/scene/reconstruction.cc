@@ -109,6 +109,11 @@ void BindReconstruction(py::module& m) {
       .def("is_valid",
            &Reconstruction::IsValid,
            "Check whether the reconstruction object is internally consistent.")
+      .def_property("has_metric_scale",
+                    &Reconstruction::HasMetricScale,
+                    &Reconstruction::SetHasMetricScale,
+                    "Whether the reconstruction is known to be in metric scale "
+                    "(in-memory only, not persisted).")
       .def("load", &Reconstruction::Load, "database_cache"_a)
       .def("tear_down", &Reconstruction::TearDown)
       .def("add_rig", &Reconstruction::AddRig, "rig"_a, "Add new rig.")

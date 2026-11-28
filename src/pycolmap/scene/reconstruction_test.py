@@ -336,3 +336,13 @@ def test_reconstruction_delete_all_points2d_and_points3d(
     reconstruction_copy = pycolmap.Reconstruction(synthetic_reconstruction)
     reconstruction_copy.delete_all_points2D_and_points3D()
     assert reconstruction_copy.num_points3D() == 0
+
+
+def test_reconstruction_has_metric_scale(
+    synthetic_reconstruction: pycolmap.Reconstruction,
+) -> None:
+    rec = pycolmap.Reconstruction(synthetic_reconstruction)
+    assert not rec.has_metric_scale
+    rec.has_metric_scale = True
+    assert rec.has_metric_scale
+    assert pycolmap.Reconstruction(rec).has_metric_scale

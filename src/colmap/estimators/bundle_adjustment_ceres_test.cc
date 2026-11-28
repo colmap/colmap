@@ -962,6 +962,7 @@ TEST(DefaultBundleAdjuster, PosePriorAlignmentRobustToOutliers) {
       ba_options, ba_config, reconstruction, priors);
   auto summary = adjuster->Solve();
   ASSERT_TRUE(summary->IsSolutionUsable());
+  EXPECT_TRUE(reconstruction.HasMetricScale());
 
   EXPECT_THAT(gt_reconstruction,
               ReconstructionNear(reconstruction,
@@ -1024,6 +1025,7 @@ TEST(DefaultBundleAdjuster, PosePriorInsufficientPriorsIgnored) {
         ba_options, config, reconstruction, priors);
 
     EXPECT_FALSE(adjuster->NormalizedFromMetric().has_value());
+    EXPECT_FALSE(reconstruction.HasMetricScale());
     EXPECT_EQ(adjuster->Problem()->NumResidualBlocks(), expected_num_residuals);
     ASSERT_TRUE(adjuster->Solve()->IsSolutionUsable());
     EXPECT_THAT(plain_reconstruction,
