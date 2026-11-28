@@ -704,6 +704,8 @@ TEST(IncrementalPipelineOptions, DefaultPriorPositionLossScale) {
                    std::sqrt(kChiSquare95ThreeDof));
   EXPECT_DOUBLE_EQ(IncrementalMapper::Options().prior_position_loss_scale,
                    std::sqrt(kChiSquare95ThreeDof));
+  EXPECT_DOUBLE_EQ(CeresBundleAdjustmentOptions().prior_position_loss_scale,
+                   std::sqrt(kChiSquare95ThreeDof));
   EXPECT_DOUBLE_EQ(
       CeresPosePriorBundleAdjustmentOptions().prior_position_loss_scale,
       std::sqrt(kChiSquare95ThreeDof));

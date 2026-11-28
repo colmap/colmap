@@ -272,17 +272,28 @@ BundleAdjustmentBackendOptions& BundleAdjustmentBackendOptions::operator=(
   return *this;
 }
 
+bool BundleAdjustmentPosePriorOptions::Check() const {
+  CHECK_OPTION(position_stddev.allFinite() &&
+               (position_stddev.array() > 0).all());
+  return true;
+}
+
 bool BundleAdjustmentOptions::Check() const {
+  CHECK_OPTION(pose_prior.Check());
+  CHECK_OPTION(!pose_prior.use_position ||
+               backend != BundleAdjustmentBackend::CASPAR);
   return THROW_CHECK_NOTNULL(ceres)->Check();
 }
 
 std::unique_ptr<BundleAdjuster> CreateDefaultBundleAdjuster(
     const BundleAdjustmentOptions& options,
     const BundleAdjustmentConfig& config,
-    Reconstruction& reconstruction) {
+    Reconstruction& reconstruction,
+    const BundleAdjustmentPriors& priors) {
   switch (options.backend) {
     case BundleAdjustmentBackend::CERES:
-      return CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
+      return CreateDefaultCeresBundleAdjuster(
+          options, config, reconstruction, priors);
     case BundleAdjustmentBackend::CASPAR:
       return CreateDefaultCasparBundleAdjuster(options, config, reconstruction);
   }

@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
+import numpy as np
 import pytest
 
 import pycolmap
@@ -205,6 +206,47 @@ def test_ba_options_check() -> None:
     assert isinstance(result, bool)
 
 
+def test_bundle_adjustment_priors_default_init() -> None:
+    priors = pycolmap.BundleAdjustmentPriors()
+    assert priors.pose_priors == []
+
+
+def test_ba_options_prior_fields() -> None:
+    options = pycolmap.BundleAdjustmentOptions()
+    assert isinstance(
+        options.pose_prior, pycolmap.BundleAdjustmentPosePriorOptions
+    )
+    assert not options.pose_prior.use_position
+    assert not options.pose_prior.overwrite_position_covariance
+    np.testing.assert_allclose(
+        options.pose_prior.position_stddev, [1.0, 1.0, 1.0]
+    )
+
+    options.pose_prior.use_position = True
+    options.pose_prior.overwrite_position_covariance = True
+    options.pose_prior.position_stddev = np.array([2.0, 3.0, 4.0])
+    np.testing.assert_allclose(
+        options.pose_prior.position_stddev, [2.0, 3.0, 4.0]
+    )
+    assert options.pose_prior.check()
+    assert options.check()
+
+    assert (
+        options.ceres.prior_position_loss_function_type
+        == pycolmap.LossFunctionType.TRIVIAL
+    )
+    options.ceres.prior_position_loss_function_type = (
+        pycolmap.LossFunctionType.CAUCHY
+    )
+    options.ceres.prior_position_loss_scale = 3.5
+    assert (
+        options.ceres.prior_position_loss_function_type
+        == pycolmap.LossFunctionType.CAUCHY
+    )
+    assert options.ceres.prior_position_loss_scale == 3.5
+    assert options.ceres.check()
+
+
 def test_pose_prior_ba_options_default_init() -> None:
     options = pycolmap.PosePriorBundleAdjustmentOptions()
     assert options is not None
@@ -253,7 +295,16 @@ def test_create_default_ceres_bundle_adjuster(
     assert adjuster.normalized_from_metric is None
 
 
-def test_pose_prior_ceres_bundle_adjuster_normalized_from_metric() -> None:
+def test_bundle_adjustment_pipeline(
+    synthetic_reconstruction: pycolmap.Reconstruction,
+) -> None:
+    reconstruction = pycolmap.Reconstruction(synthetic_reconstruction)
+    options = pycolmap.BundleAdjustmentOptions()
+    options.print_summary = False
+    pycolmap.bundle_adjustment(reconstruction, options)
+
+
+def test_bundle_adjustment_with_pose_priors() -> None:
     pycolmap.set_random_seed(0)
     with pycolmap.Database.open(":memory:") as database:
         synth_options = pycolmap.SyntheticDatasetOptions()
@@ -262,19 +313,34 @@ def test_pose_prior_ceres_bundle_adjuster_normalized_from_metric() -> None:
         synth_options.num_frames_per_rig = 5
         synth_options.num_points3D = 50
         synth_options.prior_position = True
-        reconstruction = pycolmap.synthesize_dataset(synth_options, database)
+        gt_reconstruction = pycolmap.synthesize_dataset(synth_options, database)
         pose_priors = database.read_all_pose_priors()
 
+    priors = pycolmap.BundleAdjustmentPriors()
+    priors.pose_priors = pose_priors
+    orig_first_pos = priors.pose_priors[0].position.copy()
+    held_prior = priors.pose_priors[0]
+    held_prior.position = [123.0, 456.0, 789.0]
+    assert (priors.pose_priors[0].position == orig_first_pos).all()
+
+    reconstruction = pycolmap.Reconstruction(gt_reconstruction)
     config = pycolmap.BundleAdjustmentConfig()
     for image_id in reconstruction.reg_image_ids():
         config.add_image(image_id)
 
     options = pycolmap.BundleAdjustmentOptions()
+    options.pose_prior.use_position = True
+    options.pose_prior.position_alignment_ransac.random_seed = 0
     options.print_summary = False
-    prior_options = pycolmap.PosePriorBundleAdjustmentOptions()
-    prior_options.alignment_ransac.random_seed = 0
-    ceres_adjuster = pycolmap.create_pose_prior_ceres_bundle_adjuster(
-        options, prior_options, config, pose_priors, reconstruction
+    # Pass a temporary Reconstruction to verify py::keep_alive lifetime safety.
+    adjuster = pycolmap.create_default_bundle_adjuster(
+        options, config, pycolmap.Reconstruction(gt_reconstruction), priors
+    )
+    summary = adjuster.solve()
+    assert summary.is_solution_usable()
+
+    ceres_adjuster = pycolmap.create_default_ceres_bundle_adjuster(
+        options, config, reconstruction, priors
     )
     assert isinstance(ceres_adjuster.normalized_from_metric, pycolmap.Sim3d)
     assert ceres_adjuster.solve().is_solution_usable()
@@ -283,11 +349,17 @@ def test_pose_prior_ceres_bundle_adjuster_normalized_from_metric() -> None:
             pycolmap.BACovarianceOptions(), reconstruction, ceres_adjuster
         )
 
-
-def test_bundle_adjustment_pipeline(
-    synthetic_reconstruction: pycolmap.Reconstruction,
-) -> None:
-    reconstruction = pycolmap.Reconstruction(synthetic_reconstruction)
-    options = pycolmap.BundleAdjustmentOptions()
-    options.print_summary = False
-    pycolmap.bundle_adjustment(reconstruction, options)
+    # Deprecated factory shims emit DeprecationWarning and still solve.
+    for create_deprecated_adjuster in (
+        pycolmap.create_pose_prior_bundle_adjuster,
+        pycolmap.create_pose_prior_ceres_bundle_adjuster,
+    ):
+        with pytest.warns(DeprecationWarning):
+            deprecated_adjuster = create_deprecated_adjuster(
+                pycolmap.BundleAdjustmentOptions(),
+                pycolmap.PosePriorBundleAdjustmentOptions(),
+                config,
+                pose_priors,
+                pycolmap.Reconstruction(gt_reconstruction),
+            )
+        assert deprecated_adjuster.solve().is_solution_usable()

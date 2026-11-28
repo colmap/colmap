@@ -439,12 +439,12 @@ TEST(BACovariance, RejectsMetricScalePriors) {
   for (const image_t image_id : reconstruction.RegImageIds()) {
     config.AddImage(image_id);
   }
-  auto bundle_adjuster =
-      CreatePosePriorCeresBundleAdjuster(BundleAdjustmentOptions(),
-                                         PosePriorBundleAdjustmentOptions(),
-                                         config,
-                                         database->ReadAllPosePriors(),
-                                         reconstruction);
+  BundleAdjustmentOptions ba_options;
+  ba_options.pose_prior.use_position = true;
+  BundleAdjustmentPriors priors;
+  priors.pose_priors = database->ReadAllPosePriors();
+  auto bundle_adjuster = CreateDefaultCeresBundleAdjuster(
+      ba_options, config, reconstruction, priors);
   EXPECT_TRUE(bundle_adjuster->NormalizedFromMetric().has_value());
   ASSERT_TRUE(bundle_adjuster->Solve()->IsSolutionUsable());
 
@@ -456,18 +456,14 @@ TEST(BACovariance, RejectsMetricScalePriors) {
       testing::ThrowsMessage<std::invalid_argument>(
           testing::HasSubstr("metric-scale priors")));
 
-  // When no priors are active, the problem stays in the reconstruction frame
-  // and EstimateBACovariance succeeds once the gauge is fixed via constant
-  // poses.
+  // When use_position is enabled but no priors are active, the problem stays in
+  // the reconstruction frame and EstimateBACovariance succeeds once the gauge
+  // is fixed via constant poses.
   const std::vector<frame_t> reg_frame_ids = reconstruction.RegFrameIds();
   config.SetConstantRigFromWorldPose(reg_frame_ids[0]);
   config.SetConstantRigFromWorldPose(reg_frame_ids[1]);
   auto unnormalized_adjuster =
-      CreatePosePriorCeresBundleAdjuster(BundleAdjustmentOptions(),
-                                         PosePriorBundleAdjustmentOptions(),
-                                         config,
-                                         /*pose_priors=*/{},
-                                         reconstruction);
+      CreateDefaultCeresBundleAdjuster(ba_options, config, reconstruction);
   EXPECT_FALSE(unnormalized_adjuster->NormalizedFromMetric().has_value());
   ASSERT_TRUE(unnormalized_adjuster->Solve()->IsSolutionUsable());
   EXPECT_TRUE(EstimateBACovariance(
