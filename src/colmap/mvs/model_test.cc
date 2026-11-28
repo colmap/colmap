@@ -90,6 +90,27 @@ TEST(Model, ReadCOLMAP) {
   EXPECT_THROW(model.GetImageName(model.images.size()), std::exception);
 }
 
+TEST(Model, ReadCOLMAPReplacesPreviousModel) {
+  const auto test_dir = CreateTestDir();
+  const auto sparse_path = test_dir / "sparse";
+  std::filesystem::create_directories(sparse_path);
+  Model model;
+  for (const int num_images : {3, 2}) {
+    Reconstruction reconstruction;
+    SyntheticDatasetOptions options;
+    options.num_rigs = 1;
+    options.num_cameras_per_rig = 1;
+    options.num_frames_per_rig = num_images;
+    options.num_points3D = 2 * num_images;
+    SynthesizeDataset(options, &reconstruction);
+    reconstruction.WriteBinary(sparse_path);
+    model.ReadFromCOLMAP(test_dir);
+    EXPECT_EQ(model.images.size(), num_images);
+    EXPECT_EQ(model.points.size(), 2 * num_images);
+    EXPECT_THROW(model.GetImageName(num_images), std::exception);
+  }
+}
+
 TEST(Model, ComputeSharedPoints) {
   Model model;
   const float K[9] = {100, 0, 50, 0, 100, 50, 0, 0, 1};

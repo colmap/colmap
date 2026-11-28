@@ -22,7 +22,7 @@ struct Model {
     std::vector<int> track;
   };
 
-  // Read the model from different data formats.
+  // Read a replacement model from different data formats.
   void Read(const std::filesystem::path& path, const std::string& format);
   void ReadFromCOLMAP(const std::filesystem::path& path,
                       const std::filesystem::path& sparse_path = "sparse",
@@ -61,6 +61,7 @@ struct Model {
   std::vector<Point> points;
 
  private:
+  void Clear();
   bool ReadFromBundlerPMVS(const std::filesystem::path& path);
   bool ReadFromRawPMVS(const std::filesystem::path& path);
 
