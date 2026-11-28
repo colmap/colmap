@@ -54,6 +54,12 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     LOG(FATAL_THROW) << "Data type not supported";
   }
 
+  // Must come after the data type, as ModifyForVideoData resets all options
+  // except for the paths.
+  option_manager_.image_reader->image_names = options_.image_names;
+  option_manager_.mapper->image_names = {options_.image_names.begin(),
+                                         options_.image_names.end()};
+
   THROW_CHECK(ExistsCameraModelWithName(options_.camera_model));
 
   // Set feature type first so quality modifiers can query EffMaxImageSize().
