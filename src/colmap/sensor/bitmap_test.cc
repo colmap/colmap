@@ -867,6 +867,21 @@ TEST(Bitmap, ExifCameraModelNoModel) {
   EXPECT_FALSE(bitmap.ExifCameraModel().has_value());
 }
 
+TEST(Bitmap, ExifCameraModelUnknownFocalLength) {
+  Bitmap bitmap(100, 80, /*as_rgb=*/true);
+  bitmap.SetMetaData("Make", "make");
+  bitmap.SetMetaData("Model", "model");
+  const float unknown_focal_length = 0.f;
+  bitmap.SetMetaData(
+      "Exif:FocalLengthIn35mmFilm", "float", &unknown_focal_length);
+  bitmap.SetMetaData("Exif:FocalLength", "float", &unknown_focal_length);
+  EXPECT_FALSE(bitmap.ExifCameraModel().has_value());
+
+  const float focal_length = 35.f;
+  bitmap.SetMetaData("Exif:FocalLength", "float", &focal_length);
+  EXPECT_EQ(bitmap.ExifCameraModel(), "make-model-35.000000-100x80");
+}
+
 TEST(Bitmap, ExifCameraModelNoFocalLength) {
   Bitmap bitmap(100, 80, /*as_rgb=*/true);
   bitmap.SetMetaData("Make", "make");
