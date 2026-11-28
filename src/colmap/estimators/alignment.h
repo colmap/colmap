@@ -20,13 +20,13 @@ bool AlignReconstructionToLocations(
     const RANSACOptions& ransac_options,
     Sim3d* tgt_from_src);
 
-// Robustly align reconstruction to given pose priors. If max_error is not set
-// in the RANSAC options, derive it from the median position covariance.
+// Robustly align reconstruction to given Cartesian pose priors. If max_error is
+// not set in the RANSAC options, derive it from the median position covariance
+// (throwing if no pose prior has a positive-trace covariance).
 bool AlignReconstructionToPosePriors(
     const Reconstruction& src_reconstruction,
     const std::vector<PosePrior>& tgt_pose_priors,
     RANSACOptions ransac_options,
-    double prior_position_fallback_stddev,
     Sim3d* tgt_from_src);
 
 // Robustly compute alignment between reconstructions by finding images that

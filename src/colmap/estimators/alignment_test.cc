@@ -10,6 +10,7 @@
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/hash_containers.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -97,20 +98,41 @@ TEST(Alignment, AlignReconstructionToPosePriors) {
     pose_prior.corr_data_id = image.DataId();
     pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
     pose_prior.position = image.ProjectionCenter();
-    pose_prior.position_covariance = 1e-2 * Eigen::Matrix3d::Identity();
   }
 
   RANSACOptions ransac_options;
   ransac_options.max_error = 1e-2;
 
   Sim3d tgt_from_src;
-  ASSERT_TRUE(
-      AlignReconstructionToPosePriors(src_reconstruction,
-                                      tgt_pose_priors,
-                                      ransac_options,
-                                      /*prior_position_fallback_stddev=*/1.0,
-                                      &tgt_from_src));
+  ASSERT_TRUE(AlignReconstructionToPosePriors(
+      src_reconstruction, tgt_pose_priors, ransac_options, &tgt_from_src));
   ExpectEqualSim3d(gt_tgt_from_src, tgt_from_src);
+
+  for (const auto invalid_coord_sys :
+       {PosePrior::CoordinateSystem::WGS84,
+        PosePrior::CoordinateSystem::UNDEFINED}) {
+    std::vector<PosePrior> invalid_priors = tgt_pose_priors;
+    invalid_priors[0].coordinate_system = invalid_coord_sys;
+    EXPECT_THAT(
+        [&]() {
+          AlignReconstructionToPosePriors(src_reconstruction,
+                                          invalid_priors,
+                                          ransac_options,
+                                          &tgt_from_src);
+        },
+        testing::ThrowsMessage<std::invalid_argument>(
+            testing::HasSubstr("Cartesian coordinate system")));
+  }
+
+  // Without covariances, the maximum error cannot be derived automatically.
+  ransac_options.max_error = 0.0;
+  EXPECT_THAT(
+      [&]() {
+        AlignReconstructionToPosePriors(
+            src_reconstruction, tgt_pose_priors, ransac_options, &tgt_from_src);
+      },
+      testing::ThrowsMessage<std::invalid_argument>(
+          testing::HasSubstr("ransac_options.max_error > 0")));
 }
 
 TEST(Alignment, AlignReconstructionToPosePriorsWithAutomaticMaxError) {
@@ -133,12 +155,8 @@ TEST(Alignment, AlignReconstructionToPosePriorsWithAutomaticMaxError) {
   RANSACOptions ransac_options;
   ransac_options.max_error = 0.0;
   Sim3d tgt_from_src;
-  ASSERT_TRUE(
-      AlignReconstructionToPosePriors(src_reconstruction,
-                                      tgt_pose_priors,
-                                      ransac_options,
-                                      /*prior_position_fallback_stddev=*/1.0,
-                                      &tgt_from_src));
+  ASSERT_TRUE(AlignReconstructionToPosePriors(
+      src_reconstruction, tgt_pose_priors, ransac_options, &tgt_from_src));
   ExpectEqualSim3d(gt_tgt_from_src, tgt_from_src);
 }
 

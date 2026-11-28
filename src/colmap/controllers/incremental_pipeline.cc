@@ -5,6 +5,7 @@
 #include "colmap/estimators/alignment.h"
 #include "colmap/estimators/bundle_adjustment_caspar.h"
 #include "colmap/estimators/bundle_adjustment_ceres.h"
+#include "colmap/geometry/pose_prior.h"
 #include "colmap/scene/database.h"
 #include "colmap/util/file.h"
 #include "colmap/util/hash_containers.h"
@@ -120,13 +121,17 @@ void AlignReconstructionToPriorsOrRigScale(
     PosePriorBundleAdjustmentOptions prior_options;
     prior_options.alignment_ransac_options.random_seed = options.random_seed;
 
+    std::vector<PosePrior> pose_priors = database_cache.PosePriors();
+    SetPosePriorPositionCovariances(
+        Eigen::Vector3d::Constant(prior_options.prior_position_fallback_stddev),
+        /*overwrite=*/false,
+        pose_priors);
+
     Sim3d metric_from_reconstruction;
-    if (AlignReconstructionToPosePriors(
-            *reconstruction,
-            database_cache.PosePriors(),
-            prior_options.alignment_ransac_options,
-            prior_options.prior_position_fallback_stddev,
-            &metric_from_reconstruction)) {
+    if (AlignReconstructionToPosePriors(*reconstruction,
+                                        pose_priors,
+                                        prior_options.alignment_ransac_options,
+                                        &metric_from_reconstruction)) {
       reconstruction->Transform(metric_from_reconstruction);
       return;
     }

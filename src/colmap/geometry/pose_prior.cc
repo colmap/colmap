@@ -127,4 +127,17 @@ void ConvertPosePriorsToENU(std::vector<PosePrior>& pose_priors) {
   }
 }
 
+void SetPosePriorPositionCovariances(const Eigen::Vector3d& stddev,
+                                     const bool overwrite,
+                                     std::vector<PosePrior>& pose_priors) {
+  THROW_CHECK(stddev.allFinite() && (stddev.array() > 0).all())
+      << "stddev must be finite and positive";
+  const Eigen::Matrix3d fallback_cov = stddev.cwiseAbs2().asDiagonal();
+  for (PosePrior& pose_prior : pose_priors) {
+    if (overwrite || !pose_prior.HasPositionCov()) {
+      pose_prior.position_covariance = fallback_cov;
+    }
+  }
+}
+
 }  // namespace colmap
