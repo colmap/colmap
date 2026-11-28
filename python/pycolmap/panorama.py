@@ -674,13 +674,20 @@ def run_perspective(
     image_dir.mkdir(exist_ok=True, parents=True)
     mask_dir.mkdir(exist_ok=True, parents=True)
 
-    # Search for input images.
-    pano_image_dir = input_image_path
-    pano_image_names = sorted(
-        p.relative_to(pano_image_dir).as_posix()
-        for p in pano_image_dir.rglob("*")
-        if not p.is_dir()
-    )
+    # Don't traverse generated views and masks when output is inside input.
+    pano_image_dir = input_image_path.resolve()
+    resolved_output_path = output_path.resolve()
+    pano_image_names: list[str] = []
+    for root, dirs, files in os.walk(pano_image_dir):
+        directory = Path(root)
+        dirs[:] = [
+            name for name in dirs if directory / name != resolved_output_path
+        ]
+        pano_image_names.extend(
+            (directory / name).relative_to(pano_image_dir).as_posix()
+            for name in files
+        )
+    pano_image_names.sort()
     logging.info(f"Found {len(pano_image_names)} images in {pano_image_dir}.")
 
     processor = render_perspective_images(
