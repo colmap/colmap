@@ -323,6 +323,29 @@ TEST(Ply, ReadMeshVerticesAsPoints) {
   }
 }
 
+TEST(Ply, ReadHeaderWithTabsAndRepeatedSpaces) {
+  const auto path = CreateTestDir() / "whitespace.ply";
+  {
+    std::ofstream file(path);
+    file << "ply\nformat  ascii\t1.0\nelement\tvertex 3\n"
+         << "property\tfloat  x\nproperty float\ty\nproperty  float z\n"
+         << "property\tuchar\tred\nproperty uchar green\nproperty uchar blue\n"
+         << "element\tface 1\nproperty list  uchar int vertex_indices\n"
+         << "end_header\n"
+         << "0 0 0 10 20 30\n1 0 0 10 20 30\n0 1 0 10 20 30\n3 0 1 2\n";
+  }
+  const auto points = ReadPly(path);
+  ASSERT_EQ(points.size(), 3);
+  ExpectPositionEq(points[1], 1, 0, 0);
+  ExpectColorEq(points[1], 10, 20, 30);
+  EXPECT_TRUE(HasPlyMeshFaces(path));
+  const auto mesh = ReadPlyMesh(path).mesh;
+  ASSERT_EQ(mesh.vertices.size(), 3);
+  ExpectPositionEq(mesh.vertices[1], 1, 0, 0);
+  ExpectColorEq(mesh.vertices[1], 10, 20, 30);
+  ASSERT_EQ(mesh.faces.size(), 1);
+}
+
 TEST(Ply, ReadTextZeroVerticesIgnoresFollowingElements) {
   const auto test_file = CreateTestDir() / "empty.ply";
   std::ofstream file(test_file);
