@@ -19,6 +19,19 @@ def main() -> None:
     parser.add_argument("--input_image_path", type=Path, required=True)
     parser.add_argument("--output_path", type=Path, required=True)
     parser.add_argument(
+        "--input_mask_path",
+        type=Path,
+        help="Per-panorama masks in original image coordinates. For image "
+        "abc/012.jpg use abc/012.jpg.png below this directory; zero excludes "
+        "features. Masks must have the same dimensions as the panoramas.",
+    )
+    parser.add_argument(
+        "--input_camera_mask_path",
+        type=Path,
+        help="Mask in original panorama coordinates applied to every panorama, "
+        "intersected with per-image masks if both are supplied.",
+    )
+    parser.add_argument(
         "--matcher",
         type=Matcher,
         default=Matcher.SEQUENTIAL,
@@ -54,6 +67,8 @@ def main() -> None:
             num_threads=args.num_threads,
             gpu_index=args.gpu_index,
             use_gpu=args.use_gpu,
+            input_mask_path=args.input_mask_path,
+            input_camera_mask_path=args.input_camera_mask_path,
         ),
     )
 
