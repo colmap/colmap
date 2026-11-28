@@ -100,6 +100,9 @@ void ConsistencyGraph::InitializeMap(const size_t width, const size_t height) {
     const int num_images = data_.at(i + 2);
     THROW_CHECK_GE(num_images, 0)
         << "Corrupt consistency graph: negative num_images at offset " << i;
+    THROW_CHECK_LE(static_cast<size_t>(num_images), data_.size() - i - 3)
+        << "Corrupt consistency graph: insufficient image indices at offset "
+        << i;
     THROW_CHECK_GE(col, 0);
     THROW_CHECK_LT(col, static_cast<int>(width));
     THROW_CHECK_GE(row, 0);
