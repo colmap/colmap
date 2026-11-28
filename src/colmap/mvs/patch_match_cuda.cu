@@ -1845,6 +1845,9 @@ void PatchMatchCuda::InitWorkspaceMemory() {
 }
 
 void PatchMatchCuda::Rotate() {
+  // The completed sweep no longer needs the previous selection probabilities.
+  prev_sel_prob_map_.reset();
+
   rotation_in_half_pi_ = (rotation_in_half_pi_ + 1) % 4;
 
   size_t width;
@@ -1899,8 +1902,7 @@ void PatchMatchCuda::Rotate() {
   prev_sel_prob_map_ = std::make_unique<GpuMat<float>>(
       width, height, problem_.src_image_idxs.size());
   sel_prob_map_->Rotate(prev_sel_prob_map_.get());
-  sel_prob_map_ = std::make_unique<GpuMat<float>>(
-      width, height, problem_.src_image_idxs.size());
+  sel_prob_map_.reset();
 
   // Rotate cost map.
   {
@@ -1909,6 +1911,11 @@ void PatchMatchCuda::Rotate() {
     cost_map_->Rotate(rotated_cost_map.get());
     cost_map_.swap(rotated_cost_map);
   }
+
+  // The next sweep overwrites this scratch map before reading it. Allocate it
+  // after releasing the old cost map to avoid an extra live scalar map.
+  sel_prob_map_ = std::make_unique<GpuMat<float>>(
+      width, height, problem_.src_image_idxs.size());
 
   // Rotate calibration.
   CUDA_SAFE_CALL(cudaMemcpyToSymbol(ref_K,
