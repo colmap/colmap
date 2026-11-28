@@ -51,7 +51,9 @@ struct PatchMatchOptions {
   double cache_size = 32.0;
 
   // Index of the GPU used for patch match. For multi-GPU usage,
-  // you should separate multiple GPU indices by comma, e.g., "0,1,2,3".
+  // you should separate multiple GPU indices by comma, e.g., "0,1,2,3". With
+  // Metal, the index refers to the list of Metal devices (a single one on
+  // Apple silicon).
   std::string gpu_index = "-1";
 
   // Maximum image size in either dimension.

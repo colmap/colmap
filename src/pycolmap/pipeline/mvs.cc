@@ -9,7 +9,7 @@
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 
-#if defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED)
+#if defined(COLMAP_PATCH_MATCH_ENABLED)
 #include "colmap/mvs/patch_match.h"
 #endif
 
@@ -32,7 +32,7 @@ void PatchMatchStereo(
     const mvs::PatchMatchOptions& options,
     const std::filesystem::path& config_path,
     const std::shared_ptr<CancellationToken>& cancellation_token) {
-#if defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED)
+#if defined(COLMAP_PATCH_MATCH_ENABLED)
   StringToLower(&workspace_format);
   THROW_CHECK(workspace_format == "colmap" || workspace_format == "pmvs")
       << "Invalid `workspace_format` " << workspace_format
@@ -50,8 +50,8 @@ void PatchMatchStereo(
   static_cast<void>(options);
   static_cast<void>(config_path);
   static_cast<void>(cancellation_token);
-  LOG(FATAL_THROW) << "Dense stereo reconstruction requires CUDA or HIP, "
-                      "neither of which is available on your system.";
+  LOG(FATAL_THROW) << "Dense stereo reconstruction requires CUDA, HIP, or "
+                      "Metal, none of which is available on your system.";
 #endif
 }
 
@@ -181,7 +181,7 @@ void BindMVS(py::module& m) {
         py::arg_v("options", mvs::PatchMatchOptions(), "PatchMatchOptions()"),
         "config_path"_a = "",
         "cancellation_token"_a = py::none(),
-        "Runs Patch-Match-Stereo (requires CUDA or HIP)",
+        "Runs Patch-Match-Stereo (requires CUDA, HIP, or Metal)",
         py::call_guard<py::gil_scoped_release>());
 
   using SFOpts = mvs::StereoFusionOptions;
