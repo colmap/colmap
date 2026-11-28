@@ -253,6 +253,7 @@ jobs:
         shell: bash
         run: |
           if [ "${RUNNER_OS}" = "Linux" ] && [ -x "${COMPILER_CACHE_DIR}/bin/ccache" ]; then
+            sudo chown -R "$(id -u):$(id -g)" "${COMPILER_CACHE_DIR}"
             export CCACHE_DIR="${COMPILER_CACHE_DIR}/ccache"
             CCACHE="${COMPILER_CACHE_DIR}/bin/ccache"
           elif command -v ccache >/dev/null 2>&1; then
