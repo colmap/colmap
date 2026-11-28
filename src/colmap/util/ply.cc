@@ -632,17 +632,20 @@ PlyTexturedMesh ReadPlyMesh(const std::filesystem::path& path) {
           return static_cast<uint8_t>(std::clamp(scaled, 0.0f, 255.0f));
         };
 
-    auto ReadInt = [&](const char* buf, size_t num_bytes) {
+    auto ReadInt =
+        [&](const char* buf, size_t num_bytes, bool is_unsigned) -> int64_t {
+      auto ReadTyped = [&](auto type_tag) {
+        using T = decltype(type_tag);
+        const auto val = ReadFromBuffer<T>(buf, 0);
+        return static_cast<int64_t>(is_little_endian ? LittleEndianToNative(val)
+                                                     : BigEndianToNative(val));
+      };
       if (num_bytes == 4) {
-        const auto val = ReadFromBuffer<int32_t>(buf, 0);
-        return static_cast<int>(is_little_endian ? LittleEndianToNative(val)
-                                                 : BigEndianToNative(val));
+        return is_unsigned ? ReadTyped(uint32_t{}) : ReadTyped(int32_t{});
       } else if (num_bytes == 2) {
-        const auto val = ReadFromBuffer<int16_t>(buf, 0);
-        return static_cast<int>(is_little_endian ? LittleEndianToNative(val)
-                                                 : BigEndianToNative(val));
+        return is_unsigned ? ReadTyped(uint16_t{}) : ReadTyped(int16_t{});
       } else {
-        return static_cast<int>(ReadFromBuffer<uint8_t>(buf, 0));
+        return is_unsigned ? ReadTyped(uint8_t{}) : ReadTyped(int8_t{});
       }
     };
 
@@ -677,26 +680,30 @@ PlyTexturedMesh ReadPlyMesh(const std::filesystem::path& path) {
 
     const size_t face_count_bytes = PlyTypeBytes(face_count_type);
     const size_t face_index_bytes = PlyTypeBytes(face_index_type);
+    // All supported unsigned type names and their aliases start with 'u'.
+    const bool face_count_is_unsigned = face_count_type[0] == 'u';
+    const bool face_index_is_unsigned = face_index_type[0] == 'u';
 
     std::vector<char> face_buffer(std::max(face_count_bytes, face_index_bytes));
     for (size_t i = 0; i < num_faces; ++i) {
       file.read(face_buffer.data(), face_count_bytes);
       THROW_CHECK(file.good()) << "Unexpected end of PLY file at face " << i;
 
-      const int num_face_vertices =
-          ReadInt(face_buffer.data(), face_count_bytes);
+      const int64_t num_face_vertices =
+          ReadInt(face_buffer.data(), face_count_bytes, face_count_is_unsigned);
       THROW_CHECK_EQ(num_face_vertices, 3)
           << "Only triangular faces are supported";
 
-      int indices[3];
+      int64_t indices[3];
       for (int j = 0; j < 3; ++j) {
         file.read(face_buffer.data(), face_index_bytes);
         THROW_CHECK(file.good())
             << "Unexpected end of PLY file at face " << i << " index " << j;
-        indices[j] = ReadInt(face_buffer.data(), face_index_bytes);
+        indices[j] = ReadInt(
+            face_buffer.data(), face_index_bytes, face_index_is_unsigned);
         THROW_CHECK_GE(indices[j], 0)
             << "Negative face vertex index at face " << i;
-        THROW_CHECK_LT(indices[j], static_cast<int>(num_vertices))
+        THROW_CHECK_LT(static_cast<uint64_t>(indices[j]), num_vertices)
             << "Face vertex index out of bounds at face " << i;
       }
 
