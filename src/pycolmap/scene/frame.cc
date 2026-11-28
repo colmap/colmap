@@ -100,7 +100,15 @@ void BindFrame(py::module& m) {
            "camera_id"_a,
            "cam_from_world"_a,
            "Set the world to frame from the given camera from world "
-           "transformation.");
+           "transformation.")
+      .def(
+          "__copy__",
+          [](const Frame& self) { return Frame(self); },
+          py::keep_alive<0, 1>())
+      .def(
+          "__deepcopy__",
+          [](const Frame& self, const py::dict&) { return Frame(self); },
+          py::keep_alive<0, 1>());
   MakeDataclass(PyFrame);
 
   py::bind_map<FrameMap>(m, "FrameMap");
