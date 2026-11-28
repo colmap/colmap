@@ -7,6 +7,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <locale>
 #include <sstream>
 
@@ -410,6 +411,34 @@ TEST(ExportNVM, UnsupportedCameraModel) {
   const auto nvm_path = test_dir / "export.nvm";
 
   EXPECT_FALSE(ExportNVM(reconstruction, nvm_path));
+}
+
+TEST(ExportNVM, FeatureCoordinatesRelativeToImageCenter) {
+  Reconstruction reconstruction;
+  Camera camera = Camera::CreateFromModelId(
+      1, SimplePinholeCameraModel::model_id, 700, 640, 481);
+  // The NVM origin is the image center, not the principal point.
+  camera.SetPrincipalPointX(300);
+  camera.SetPrincipalPointY(260);
+  reconstruction.AddCameraWithTrivialRig(camera);
+  Image image;
+  image.SetImageId(1);
+  image.SetCameraId(1);
+  image.SetName("1.jpg");
+  image.SetPoints2D({Eigen::Vector2d(350, 220.5)});
+  reconstruction.AddImageWithTrivialFrame(image, Rigid3d());
+  Track track;
+  track.AddElement(1, 0);
+  reconstruction.AddPoint3D(Eigen::Vector3d(0, 0, 5), track);
+
+  const auto nvm_path = CreateTestDir() / "export.nvm";
+  ASSERT_TRUE(ExportNVM(reconstruction, nvm_path));
+  std::ifstream file(nvm_path);
+  const std::vector<std::string> tokens{
+      std::istream_iterator<std::string>(file), {}};
+  ASSERT_GE(tokens.size(), 2);
+  EXPECT_EQ(std::stod(tokens[tokens.size() - 2]), 30);
+  EXPECT_EQ(std::stod(tokens[tokens.size() - 1]), -20);
 }
 
 TEST(ExportCam, Nominal) {
