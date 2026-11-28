@@ -328,6 +328,7 @@ TEST(PosePriorMapperExe, DeprecatedShimPreservesDatabaseCovariances) {
       "--prior_position_std_x=-1.0",
   };
   std::vector<char*> invalid_argv;
+  invalid_argv.reserve(invalid_args.size());
   for (std::string& arg : invalid_args) {
     invalid_argv.push_back(arg.data());
   }
