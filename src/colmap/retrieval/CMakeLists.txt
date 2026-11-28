@@ -6,6 +6,8 @@ COLMAP_ADD_LIBRARY(
     NAME colmap_retrieval
     SRCS
         geometry.h geometry.cc
+        global_descriptor_index.h global_descriptor_index.cc
+        global_descriptor_model.h global_descriptor_model.cc
         inverted_file.h
         inverted_file_entry.h
         inverted_index.h
@@ -31,6 +33,16 @@ endif()
 COLMAP_ADD_TEST(
     NAME geometry_test
     SRCS geometry_test.cc
+    LINK_LIBS colmap_retrieval
+)
+COLMAP_ADD_TEST(
+    NAME global_descriptor_index_test
+    SRCS global_descriptor_index_test.cc
+    LINK_LIBS colmap_retrieval
+)
+COLMAP_ADD_TEST(
+    NAME global_descriptor_model_test
+    SRCS global_descriptor_model_test.cc
     LINK_LIBS colmap_retrieval
 )
 COLMAP_ADD_TEST(

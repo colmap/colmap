@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
+import pickle
+
 import pytest
 
 import pycolmap
@@ -43,26 +45,40 @@ def test_spatial_pairing_options_check() -> None:
     assert options.check()
 
 
-def test_vocab_tree_pairing_options_init() -> None:
-    options = pycolmap.VocabTreePairingOptions()
+def test_retrieval_pairing_options_init() -> None:
+    options = pycolmap.RetrievalPairingOptions()
     assert options is not None
 
 
-def test_vocab_tree_pairing_options_num_images() -> None:
-    options = pycolmap.VocabTreePairingOptions()
+def test_retrieval_pairing_options_method() -> None:
+    options = pycolmap.RetrievalPairingOptions()
+    assert options.method == pycolmap.RetrievalMethod.VOCAB_TREE
+    options.method = pycolmap.RetrievalMethod.GLOBAL_DESCRIPTOR
+    assert options.method == pycolmap.RetrievalMethod.GLOBAL_DESCRIPTOR
+
+
+def test_retrieval_pairing_options_num_images() -> None:
+    options = pycolmap.RetrievalPairingOptions()
     options.num_images = 50
     assert options.num_images == 50
 
 
-def test_vocab_tree_pairing_options_num_nearest_neighbors() -> None:
-    options = pycolmap.VocabTreePairingOptions()
+def test_retrieval_pairing_options_num_nearest_neighbors() -> None:
+    options = pycolmap.RetrievalPairingOptions()
     options.num_nearest_neighbors = 3
     assert options.num_nearest_neighbors == 3
 
 
-def test_vocab_tree_pairing_options_check() -> None:
-    options = pycolmap.VocabTreePairingOptions()
+def test_retrieval_pairing_options_check() -> None:
+    options = pycolmap.RetrievalPairingOptions()
     assert options.check()
+
+
+def test_retrieval_pairing_options_model_path_pickle_roundtrip() -> None:
+    options = pycolmap.RetrievalPairingOptions()
+    options.model_path = "https://example.com/model.onnx"
+    restored = pickle.loads(pickle.dumps(options))
+    assert restored.model_path == "https://example.com/model.onnx"
 
 
 def test_sequential_pairing_options_init() -> None:
@@ -82,10 +98,11 @@ def test_sequential_pairing_options_quadratic_overlap() -> None:
     assert options.quadratic_overlap is True
 
 
-def test_sequential_pairing_options_vocab_tree_options() -> None:
+def test_sequential_pairing_options_loop_detection_options() -> None:
     options = pycolmap.SequentialPairingOptions()
-    vocab_tree_options = options.vocab_tree_options()
-    assert vocab_tree_options is not None
+    assert options.loop_detection_options.num_images == 50
+    options.loop_detection_options.num_images = 100
+    assert options.loop_detection_options.num_images == 100
 
 
 def test_sequential_pairing_options_check() -> None:

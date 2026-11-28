@@ -45,8 +45,9 @@ def _make_scene_info(category: str, scene: str, num_images: int) -> SceneInfo:
     )
 
 
+@pytest.mark.parametrize("pano_matcher", ["sequential", "retrieval"])
 def test_panorama_reconstruction_uses_library_api(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pano_matcher: str
 ) -> None:
     covisibility_path = tmp_path / "covisibility.npz"
     covisibility_path.touch()
@@ -74,6 +75,13 @@ def test_panorama_reconstruction_uses_library_api(
         covisibility_min_shared_points=5,
         random_seed=7,
         use_gpu=False,
+        pano_matcher=pano_matcher,
+        retrieval_method="GLOBAL_DESCRIPTOR",
+        retrieval_model_type="MegaLoc",
+        retrieval_model_precision="fp16",
+        retrieval_model_path="https://example.com/model.onnx",
+        retrieval_num_images=20,
+        retrieval_batch_size=4,
     )
     call: dict[str, Any] = {}
 
@@ -93,6 +101,23 @@ def test_panorama_reconstruction_uses_library_api(
     assert call["input_image_path"] == scene_info.image_path
     assert call["output_path"] == scene_info.workspace_path
     options = call["options"]
+    assert options.matcher.value == pano_matcher
+    if pano_matcher == "retrieval":
+        retrieval_options = options.retrieval_options
+        assert (
+            retrieval_options.method
+            == pycolmap.RetrievalMethod.GLOBAL_DESCRIPTOR
+        )
+        assert retrieval_options.model_type == "MegaLoc"
+        assert retrieval_options.model_precision == "fp16"
+        assert retrieval_options.num_images == 20
+        assert retrieval_options.batch_size == 4
+        assert retrieval_options.model_path == "https://example.com/model.onnx"
+        assert retrieval_options.gpu_index == "2"
+        assert retrieval_options.num_threads == 3
+        assert not retrieval_options.use_gpu
+    else:
+        assert options.retrieval_options is None
     assert options.mapper.value == "global"
     assert options.render_type.value == "spherical"
     assert options.random_seed == 7
