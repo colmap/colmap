@@ -12,8 +12,6 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/hash_containers.h"
 
-#include <limits>
-
 #include <Eigen/Geometry>
 
 namespace colmap {
@@ -24,9 +22,6 @@ void AddOutlierMatches(double inlier_ratio,
                        int num_points2D2,
                        FeatureMatches* matches) {
   const double outlier_count = matches->size() / inlier_ratio - matches->size();
-  // A strict bound also handles size_t::max rounding upward to double.
-  THROW_CHECK_LT(outlier_count,
-                 static_cast<double>(std::numeric_limits<size_t>::max()));
   const size_t num_outliers = static_cast<size_t>(outlier_count);
   for (size_t i = 0; i < num_outliers; ++i) {
     matches->emplace_back(
