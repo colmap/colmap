@@ -8,8 +8,11 @@
 #include "colmap/util/misc.h"
 #include "colmap/util/testing.h"
 
+#include <exception>
 #include <filesystem>
 #include <fstream>
+#include <functional>
+#include <utility>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -107,6 +110,55 @@ TEST_P(ParameterizedWorkspaceTests, MaxImageSize) {
 TEST_P(ParameterizedWorkspaceTests, Load) {
   auto workspace = GetParam()(GetOptions());
   workspace->Load({image_name_});
+}
+
+TEST_P(ParameterizedWorkspaceTests, FailedLoadIsNotCached) {
+  auto options = GetOptions();
+  options.num_threads = 1;
+  auto workspace = GetParam()(options);
+  using Input = std::pair<std::filesystem::path, std::function<bool()>>;
+  const Input inputs[] = {{workspace->GetBitmapPath(0),
+                           [&] {
+                             const auto& bitmap = workspace->GetBitmap(0);
+                             return !bitmap.IsEmpty() && bitmap.Width() == 10 &&
+                                    bitmap.Height() == 5;
+                           }},
+                          {workspace->GetDepthMapPath(0),
+                           [&] {
+                             const auto& map = workspace->GetDepthMap(0);
+                             return map.GetNumBytes() > 0 &&
+                                    map.GetWidth() == 10 &&
+                                    map.GetHeight() == 5;
+                           }},
+                          {workspace->GetNormalMapPath(0), [&] {
+                             const auto& map = workspace->GetNormalMap(0);
+                             return map.GetNumBytes() > 0 &&
+                                    map.GetWidth() == 10 &&
+                                    map.GetHeight() == 5;
+                           }}};
+  for (const auto& input : inputs) {
+    const auto& path = input.first;
+    SCOPED_TRACE(path.string());
+    auto backup_path = path;
+    backup_path += ".test-backup";
+    std::filesystem::rename(path, backup_path);
+    {
+      std::ofstream invalid_file(path, std::ios::binary);
+      invalid_file << "invalid";
+      ASSERT_TRUE(invalid_file.good());
+    }
+    EXPECT_THAT(
+        [&] {
+          workspace->Load({image_name_});
+          input.second();
+        },
+        testing::ThrowsMessage<std::exception>(
+            testing::HasSubstr(path.filename().string())));
+    std::filesystem::remove(path);
+    std::filesystem::rename(backup_path, path);
+    workspace->Load({image_name_});
+    EXPECT_TRUE(input.second());
+  }
 }
 
 INSTANTIATE_TEST_SUITE_P(WorkspaceTests,
