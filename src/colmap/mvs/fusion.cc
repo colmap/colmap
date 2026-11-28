@@ -319,8 +319,12 @@ void StereoFusion::InitFusedPixelMask(int image_idx,
   const std::string mask_image_name =
       workspace_->GetModel().GetImageName(image_idx);
   auto mask_path = options_.mask_path / (mask_image_name + ".png");
-  if (!ExistsFile(mask_path) && HasFileExtension(mask_image_name, ".png")) {
+  if (!options_.mask_path.empty() && !ExistsFile(mask_path)) {
     mask_path = options_.mask_path / mask_image_name;
+    // Preserve the exact name of existing PNG masks, including uppercase PNG.
+    if (!HasFileExtension(mask_path, ".png") || !ExistsFile(mask_path)) {
+      mask_path.replace_extension(".png");
+    }
   }
   // Keep explicit initialization for C++17 portability.
   fused_pixel_mask = std::vector<std::atomic<char>>(width * height);
