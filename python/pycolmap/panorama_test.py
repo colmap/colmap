@@ -190,3 +190,43 @@ def test_run_perspective_raises_for_empty_input_dir(tmp_path: Path) -> None:
             output_dir / "database.db",
             output_dir / "sparse",
         )
+
+
+def test_run_perspective_can_rerender_with_nested_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pytest.importorskip("cv2")
+    image_module = pytest.importorskip("PIL.Image")
+    from . import panorama
+
+    input_dir = tmp_path / "panoramas"
+    source_dir = input_dir / "originals"
+    source_dir.mkdir(parents=True)
+    image_module.new("RGB", (128, 64), (32, 96, 160)).save(
+        source_dir / "pano.png"
+    )
+    output_dir = input_dir / "output"
+    options = PanoramaReconstructionOptions(
+        render_type=PanoRenderType.PERSPECTIVE_NON_OVERLAPPING,
+        show_progress=False,
+    )
+
+    class ReachedFeatureExtraction(Exception):
+        pass
+
+    def stop_after_rendering(*args, **kwargs) -> None:
+        raise ReachedFeatureExtraction
+
+    monkeypatch.setattr(
+        panorama.pycolmap, "extract_features", stop_after_rendering
+    )
+    for _ in range(2):
+        with pytest.raises(ReachedFeatureExtraction):
+            run_perspective(
+                input_dir,
+                output_dir,
+                options,
+                output_dir / "database.db",
+                output_dir / "sparse",
+            )
+        assert len(list((output_dir / "images").rglob("pano.png"))) == 4
