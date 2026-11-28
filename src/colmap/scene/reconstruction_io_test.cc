@@ -563,6 +563,8 @@ TEST(ExportVRML, Nominal) {
       reconstruction, images_path, points3D_path, image_scale, image_rgb);
   EXPECT_TRUE(std::filesystem::exists(images_path));
   EXPECT_TRUE(std::filesystem::exists(points3D_path));
+  EXPECT_THAT(ReadFileAsString(images_path),
+              testing::StartsWith("#VRML V2.0 utf8\n"));
 }
 
 // Custom numpunct facet that uses comma as decimal separator, for testing

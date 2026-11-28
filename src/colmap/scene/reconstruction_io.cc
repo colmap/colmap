@@ -398,6 +398,7 @@ void ExportVRML(const Reconstruction& reconstruction,
   std::ofstream images_file(images_path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(images_file, images_path);
   SetFullPrecTextStream(images_file);
+  images_file << "#VRML V2.0 utf8\n";
 
   const double six = image_scale * 0.15;
   const double siy = image_scale * 0.1;
