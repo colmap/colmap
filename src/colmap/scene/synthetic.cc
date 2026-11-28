@@ -21,11 +21,12 @@ void AddOutlierMatches(double inlier_ratio,
                        int num_points2D1,
                        int num_points2D2,
                        FeatureMatches* matches) {
-  const int num_outliers = matches->size() * (1.0 - inlier_ratio);
-  for (int i = 0; i < num_outliers; ++i) {
+  const double outlier_count = matches->size() / inlier_ratio - matches->size();
+  const size_t num_outliers = static_cast<size_t>(outlier_count);
+  for (size_t i = 0; i < num_outliers; ++i) {
     matches->emplace_back(
         RandomUniformInteger<point2D_t>(0, num_points2D1 - 1),
-        RandomUniformInteger<point2D_t>(0, num_points2D2 - 2));
+        RandomUniformInteger<point2D_t>(0, num_points2D2 - 1));
   }
   std::shuffle(matches->begin(), matches->end(), *PRNG);
 }
@@ -330,6 +331,8 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   }
   THROW_CHECK_NE(options.feature_type, FeatureExtractorType::UNDEFINED);
   THROW_CHECK_GE(options.num_points2D_without_point3D, 0);
+  THROW_CHECK_GT(options.inlier_match_ratio, 0.0);
+  THROW_CHECK_LE(options.inlier_match_ratio, 1.0);
   THROW_CHECK_GE(options.sensor_from_rig_translation_stddev, 0.);
   THROW_CHECK_GE(options.sensor_from_rig_rotation_stddev, 0.);
   THROW_CHECK_GE(options.match_sparsity, 0.);

@@ -36,6 +36,8 @@ struct SyntheticDatasetOptions {
 
   int num_points2D_without_point3D = 10;
 
+  // Target ratio of ground-truth inlier matches to all raw matches, in (0, 1].
+  // The number of added random matches is rounded down to an integer.
   double inlier_match_ratio = 1.0;
 
   // Whether to include decomposed relative poses in two-view geometries.

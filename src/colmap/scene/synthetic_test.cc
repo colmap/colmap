@@ -154,6 +154,31 @@ TEST(SynthesizeDataset, Nominal) {
   }
 }
 
+TEST(SynthesizeDataset, InlierMatchRatio) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions options;
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 1;
+  options.num_frames_per_rig = 2;
+  options.num_points3D = 1;
+  options.num_points2D_without_point3D = 0;
+  options.inlier_match_ratio = 0.5;
+  SynthesizeDataset(options, &reconstruction, database.get());
+
+  const auto geometries = database->ReadTwoViewGeometries();
+  ASSERT_EQ(geometries.size(), 1);
+  const auto& [pair_id, geometry] = geometries.front();
+  const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+  const auto matches = database->ReadMatches(image_id1, image_id2);
+  ASSERT_EQ(geometry.inlier_matches.size(), 1);
+  ASSERT_EQ(matches.size(), 2);
+  for (const auto& match : matches) {
+    EXPECT_EQ(match.point2D_idx1, 0);
+    EXPECT_EQ(match.point2D_idx2, 0);
+  }
+}
+
 TEST(SynthesizeDataset, MultipleTimes) {
   auto database = Database::Open(kInMemorySqliteDatabasePath);
   Reconstruction reconstruction;
