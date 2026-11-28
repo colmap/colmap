@@ -5,6 +5,7 @@
 #include "colmap/estimators/cost_functions/manifold.h"
 #include "colmap/util/hash_containers.h"
 
+#include <Eigen/Cholesky>
 #include <ceres/crs_matrix.h>
 
 namespace colmap {
@@ -21,6 +22,11 @@ bool ComputeSchurComplement(bool estimate_point_covs,
                             ceres::Problem& problem,
                             FlatHashMap<point3D_t, Eigen::MatrixXd>& point_covs,
                             Eigen::SparseMatrix<double>& S) {
+  if (points.empty() && !estimate_pose_covs && !estimate_other_covs) {
+    // An empty Ceres parameter list would evaluate every parameter.
+    return true;
+  }
+
   VLOG(2) << "Evaluating the Jacobian for Schur elimination";
 
   ceres::Problem::EvaluateOptions eval_options;
@@ -83,7 +89,17 @@ bool ComputeSchurComplement(bool estimate_point_covs,
         H_pp.block(
             point_param_idx, point_param_idx, tangent_size, tangent_size) +
         damping * Eigen::MatrixXd::Identity(tangent_size, tangent_size);
-    const Eigen::MatrixXd H_pp_idx_inv = H_pp_idx.inverse();
+    const Eigen::LLT<Eigen::MatrixXd> llt_H_pp_idx(H_pp_idx);
+    if (llt_H_pp_idx.info() != Eigen::Success) {
+      LOG(WARNING) << "Point Hessian block is not positive definite";
+      return false;
+    }
+    const Eigen::MatrixXd H_pp_idx_inv = llt_H_pp_idx.solve(
+        Eigen::MatrixXd::Identity(tangent_size, tangent_size));
+    if (!H_pp_idx_inv.allFinite()) {
+      LOG(WARNING) << "Failed to invert point Hessian block";
+      return false;
+    }
     for (int i = 0; i < tangent_size; ++i) {
       for (int j = 0; j < tangent_size; ++j) {
         H_pp_inv.coeffRef(point_param_idx + i, point_param_idx + j) =
@@ -94,7 +110,7 @@ bool ComputeSchurComplement(bool estimate_point_covs,
       // Point covariance conditioned on fixed pose/other parameters.
       point_covs.emplace(point.point3D_id, H_pp_idx_inv);
     }
-    point_param_idx += 3;
+    point_param_idx += tangent_size;
   }
 
   if (!estimate_pose_covs && !estimate_other_covs) {
@@ -152,15 +168,15 @@ bool ComputeLInverse(Eigen::SparseMatrix<double>& S, Eigen::MatrixXd& L_inv) {
 
   const Eigen::VectorXd D_dense = ldlt_S.vectorD();
 
-  const int rank = (D_dense.array().abs() > 1e-6).count();
-  if (rank < S.rows()) {
-    LOG(WARNING) << StringPrintf(
-        "Unable to compute covariance. The Schur complement on pose/other "
-        "parameters is rank deficient. Number of columns: %d, rank: %d. This "
-        "is likely due to the pose/other parameters being underconstrained "
-        "with Gauge ambiguity or other degeneracies.",
-        S.rows(),
-        rank);
+  const int num_positive_pivots = (D_dense.array() > 1e-6).count();
+  if (num_positive_pivots < S.rows()) {
+    LOG(WARNING)
+        << "Unable to compute covariance. The Schur complement on pose/other "
+           "parameters is not sufficiently positive definite. Number of "
+           "columns: "
+        << S.rows() << ", positive pivots: " << num_positive_pivots
+        << ". This may be due to gauge ambiguity, other degeneracies, or "
+           "numerical instability.";
     return false;
   }
   VLOG(2) << "Finish sparse Cholesky decomposition.";
@@ -169,8 +185,7 @@ bool ComputeLInverse(Eigen::SparseMatrix<double>& S, Eigen::MatrixXd& L_inv) {
   L_inv = Eigen::MatrixXd::Identity(L_sparse.rows(), L_sparse.cols());
   L_sparse.triangularView<Eigen::Lower>().solveInPlace(L_inv);
   for (int i = 0; i < S.rows(); ++i) {
-    L_inv.row(i) *= 1.0 / std::max(std::sqrt(std::max(D_dense(i), 0.)),
-                                   std::numeric_limits<double>::min());
+    L_inv.row(i) *= 1.0 / std::sqrt(D_dense(i));
   }
   L_inv *= ldlt_S.permutationP();
   VLOG(2) << "Finish factorization.";
@@ -234,28 +249,41 @@ std::optional<Eigen::MatrixXd> BACovariance::GetCam2CovFromCam1(
     const Rigid3d& cam1_from_world,
     image_t image_id2,
     const Rigid3d& cam2_from_world) const {
-  auto cov_11 = GetCamCovFromWorld(image_id1);
-  if (!cov_11.has_value()) return std::nullopt;
-  if (cov_11->rows() != 6) {
+  const auto it1 = pose_L_start_size_.find(image_id1);
+  if (it1 == pose_L_start_size_.end()) return std::nullopt;
+  const auto [start1, size1] = it1->second;
+  if (size1 != 6) {
     LOG(WARNING) << "cam1_from_world is not fully in the problem. This is "
                     "likely due to the pose being set (partially) constant. ";
     return std::nullopt;
   }
-  auto cov_22 = GetCamCovFromWorld(image_id2);
-  if (!cov_22.has_value()) return std::nullopt;
-  if (cov_22->rows() != 6) {
+  const auto it2 = pose_L_start_size_.find(image_id2);
+  if (it2 == pose_L_start_size_.end()) return std::nullopt;
+  const auto [start2, size2] = it2->second;
+  if (size2 != 6) {
     LOG(WARNING) << "cam2_from_world is not fully in the problem. This is "
                     "likely due to the pose being set (partially) constant. ";
     return std::nullopt;
   }
-  auto cov_12 = GetCamCrossCovFromWorld(image_id1, image_id2);
-  THROW_CHECK(cov_12.has_value());
-  Eigen::Matrix<double, 12, 12> cov;
-  cov.block<6, 6>(0, 0) = *cov_11;
-  cov.block<6, 6>(6, 6) = *cov_22;
-  cov.block<6, 6>(0, 6) = *cov_12;
-  cov.block<6, 6>(6, 0) = cov_12->transpose();
-  return GetCovarianceForRelativeRigid3d(cam1_from_world, cam2_from_world, cov);
+  Eigen::Matrix6d cam2_from_cam1_rotation_blocks = Eigen::Matrix6d::Zero();
+  cam2_from_cam1_rotation_blocks.topLeftCorner<3, 3>() =
+      cam2_from_world.rotation().toRotationMatrix() *
+      cam1_from_world.rotation().toRotationMatrix().transpose();
+  cam2_from_cam1_rotation_blocks.bottomRightCorner<3, 3>() =
+      cam2_from_cam1_rotation_blocks.topLeftCorner<3, 3>();
+  Eigen::Matrix6d ceres_to_se3 = Eigen::Matrix6d::Identity();
+  ceres_to_se3.topLeftCorner<3, 3>() *= 2;
+  ceres_to_se3.bottomLeftCorner<3, 3>() =
+      2 * CrossProductMatrix(cam2_from_world.translation());
+  // The relative-pose Jacobian in Ceres coordinates is
+  // ceres_to_se3 * [-cam2_from_cam1_rotation_blocks, I]. Apply it before
+  // forming the covariance so shared pose uncertainty cancels in the factor.
+  const Eigen::Matrix<double, Eigen::Dynamic, 6> relative_L =
+      (L_inv_.middleCols(start2, 6) -
+       L_inv_.middleCols(start1, 6) *
+           cam2_from_cam1_rotation_blocks.transpose()) *
+      ceres_to_se3.transpose();
+  return relative_L.transpose() * relative_L;
 }
 
 std::optional<Eigen::MatrixXd> BACovariance::GetOtherParamsCov(
@@ -293,12 +321,14 @@ std::optional<BACovariance> EstimateBACovarianceFromProblem(
 
   const std::vector<internal::PointParam> points =
       internal::GetPointParams(reconstruction, problem);
-  const std::vector<internal::PoseParam>& poses =
-      options.experimental_custom_poses.empty()
-          ? internal::GetPoseParams(reconstruction, problem)
-          : options.experimental_custom_poses;
-  const std::vector<const double*> others =
-      GetOtherParams(problem, poses, points);
+  std::vector<internal::PoseParam> poses;
+  std::vector<const double*> others;
+  if (estimate_pose_covs || estimate_other_covs) {
+    poses = options.experimental_custom_poses.empty()
+                ? internal::GetPoseParams(reconstruction, problem)
+                : options.experimental_custom_poses;
+    others = GetOtherParams(problem, poses, points);
+  }
 
   int point_num_params = 0;
   int pose_num_params = 0;
@@ -318,12 +348,14 @@ std::optional<BACovariance> EstimateBACovarianceFromProblem(
       pose_num_params += num_params;
     }
 
-    other_L_start_size.reserve(poses.size());
+    other_L_start_size.reserve(others.size());
     for (const double* other : others) {
       const int num_params = ParameterBlockTangentSize(problem, other);
-      other_L_start_size.emplace(
-          other,
-          std::make_pair(pose_num_params + other_num_params, num_params));
+      if (estimate_other_covs) {
+        other_L_start_size.emplace(
+            other,
+            std::make_pair(pose_num_params + other_num_params, num_params));
+      }
       other_num_params += num_params;
     }
   }
@@ -346,8 +378,8 @@ std::optional<BACovariance> EstimateBACovarianceFromProblem(
 
   if (!estimate_pose_covs && !estimate_other_covs) {
     return BACovariance(std::move(point_covs),
-                        /*pose_L_start_size=*/{},
-                        /*other_L_start_size=*/{},
+                        std::move(pose_L_start_size),
+                        std::move(other_L_start_size),
                         /*L_inv=*/Eigen::MatrixXd());
   }
 
